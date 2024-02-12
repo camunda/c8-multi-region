@@ -1,0 +1,118 @@
+name: Nightly AWS Region Cleanup
+
+on:
+  schedule:
+  - cron: '0 5 * * 1-5'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Other dependencies from hosted runner
+    # AWS CLI
+    # indirectly node used by actions
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Import Secrets
+      id: secrets
+      uses: hashicorp/vault-action@v2
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        exportEnv: false
+        secrets: |
+          secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+          secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
+    # Official action does not support profiles
+    - name: Add profile credentials to ~/.aws/credentials 
+      run: |
+          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile infex
+          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile infex
+          aws configure set region eu-west-2 --profile infex
+
+    - name: Install Cloud Nuke
+      run: |
+        wget https://github.com/gruntwork-io/cloud-nuke/releases/download/v0.33.0/cloud-nuke_linux_amd64
+        chmod +x cloud-nuke_linux_amd64
+    
+    # This is likely to fail, therefore we ignore the error
+    # We're ignoring ec2_dhcp_option as they couldn't be deleted
+    - name: Run Cloud Nuke
+      env:
+        AWS_PROFILE: "infex"
+        DISABLE_TELEMETRY: "true"
+      run: |
+        ./cloud-nuke_linux_amd64 --region eu-west-2 --region eu-west-3 --force --newer-than 4h --exclude-resource-type ec2_dhcp_option || true
+    
+    # Following will delete global resources and things that cloud-nuke does not support
+    - name: Delete additional AWS resources
+      env: 
+        AWS_PROFILE: "infex"
+      run: |
+        echo "Deleting additional resources..."
+
+        echo "Deleting KMS Keys"
+        # Schedule deletion of KMS keys
+        aws kms list-aliases --query 'Aliases[?contains(AliasName, `nightly`)].TargetKeyId' --region eu-west-2 --output text | xargs -t -n 1 -I {} aws kms schedule-key-deletion --region eu-west-2 --key-id {}
+        aws kms list-aliases --query 'Aliases[?contains(AliasName, `nightly`)].TargetKeyId' --region eu-west-3 --output text | xargs -t -n 1 -I {} aws kms schedule-key-deletion --region eu-west-3 --key-id {}
+
+        # Delete Alias from KMS keys
+        aws kms list-aliases --query 'Aliases[?contains(AliasName, `nightly`)].AliasName' --region eu-west-2 --output text | xargs -t -n 1 -I {} aws kms delete-alias --region eu-west-2 --alias-name {}
+        aws kms list-aliases --query 'Aliases[?contains(AliasName, `nightly`)].AliasName' --region eu-west-3 --output text | xargs -t -n 1 -I {} aws kms delete-alias --region eu-west-3 --alias-name {}
+
+        echo "Deleting IAM Roles"
+        # Detach permissions and profile instances and delete IAM roles
+        role_arns=$(aws iam list-roles --query 'Roles[?contains(RoleName, `nightly`)].RoleName' --output text)
+
+        read -r -a role_arns_array <<< "$role_arns"
+
+        for role_arn in "${role_arns_array[@]}"
+        do
+            echo "$role_arn"
+            policy_arns=$(aws iam list-attached-role-policies --role-name "$role_arn" --query 'AttachedPolicies[].PolicyArn' --output text)
+            read -r -a policy_arns_array <<< "$policy_arns"
+
+            for policy_arn in "${policy_arns_array[@]}"
+            do
+                echo "$policy_arn"
+                aws iam detach-role-policy --role-name "$role_arn" --policy-arn "$policy_arn"
+            done
+
+            instance_profile_arns=$(aws iam list-instance-profiles-for-role --role-name "$role_arn" --query 'InstanceProfiles[].InstanceProfileName' --output text)
+            read -r -a instance_profile_arns_array <<< "$instance_profile_arns"
+
+            for instance_profile_arn in "${instance_profile_arns_array[@]}"
+            do
+                echo "$instance_profile_arn"
+                aws iam remove-role-from-instance-profile --instance-profile-name "$instance_profile_arn" --role-name "$role_arn"
+            done
+
+        done
+
+        aws iam list-roles --query 'Roles[?contains(RoleName, `nightly`)].RoleName' --output text | xargs -t -n 1 -I {} aws iam delete-role --role-name {}
+
+        echo "Deleting IAM Policies"
+        # Delete Policies
+        aws iam list-policies --query 'Policies[?contains(PolicyName, `nightly`)].Arn' --output text | xargs -t -n 1 -I {} aws iam delete-policy --policy-arn {}
+
+        echo "Deleting OIDC Providers"
+        # Delete OIDC Provider
+        aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `eu-west-2`)].Arn' --output text | xargs -t -n 1 -I {} aws iam delete-open-id-connect-provider --open-id-connect-provider-arn {}
+        aws iam list-open-id-connect-providers --query 'OpenIDConnectProviderList[?contains(Arn, `eu-west-3`)].Arn' --output text | xargs -t -n 1 -I {} aws iam delete-open-id-connect-provider --open-id-connect-provider-arn {}
+        
+        echo "Deleting VPC Peering Connections"
+        # Delete VPC Peering Connection
+        aws ec2 describe-vpc-peering-connections --region eu-west-2 --query 'VpcPeeringConnections[?Status.Code == `active` && Tags[?contains(Value, `nightly`)]]'.VpcPeeringConnectionId --output text | xargs -t -n 1 -I {} aws ec2 delete-vpc-peering-connection --region eu-west-2 --vpc-peering-connection-id {}
+
+    # The second run should remove the remaining resources (VPCs) and fail if there's anything left
+    - name: Run Cloud Nuke
+      env:
+        AWS_PROFILE: "infex"
+        DISABLE_TELEMETRY: "true"
+      run: |
+        ./cloud-nuke_linux_amd64 --region eu-west-2 --region eu-west-3 --force --newer-than 4h --exclude-resource-type ec2_dhcp_option
