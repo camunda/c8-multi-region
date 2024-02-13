@@ -35,13 +35,13 @@ terraform {
 
 provider "aws" {
   region     = local.owner.region
-  profile = "infex"
+  profile = var.aws_profile
 }
 
 provider "aws" {
   region     = local.accepter.region
   alias      = "accepter"
-  profile = "infex"
+  profile = var.aws_profile
 }
 
 ################################

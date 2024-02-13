@@ -5,6 +5,9 @@ on:
   - cron: '0 0 * * 1-5'
   workflow_dispatch:
 
+env:
+  AWS_PROFILE: infex
+
 jobs:
   aws-eks-2-region-test:
     runs-on: ubuntu-latest
@@ -48,9 +51,9 @@ jobs:
     # Official action does not support profiles
     - name: Add profile credentials to ~/.aws/credentials 
       run: |
-          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile infex
-          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile infex
-          aws configure set region eu-west-2 --profile infex
+          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set region eu-west-2 --profile ${{ env.AWS_PROFILE }}
 
     - name: Generate random cluster_name
       id: random

@@ -25,9 +25,11 @@ import (
 
 // AWS Helpers
 func WaitForNodeGroup(region, clusterName, nodegroupName string) string {
+	awsProfile := GetEnv("AWS_PROFILE", "infex")
+
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
-		config.WithSharedConfigProfile("infex"), // TODO: remove, local setup specific
+		config.WithSharedConfigProfile(awsProfile),
 	)
 	if err != nil {
 		fmt.Println("[CLUSTER CHECK] Error creating session:", err)
@@ -59,10 +61,11 @@ func WaitForNodeGroup(region, clusterName, nodegroupName string) string {
 }
 
 func WaitForCluster(region, clusterName string) string {
+	awsProfile := GetEnv("AWS_PROFILE", "infex")
 
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
-		config.WithSharedConfigProfile("infex"), // TODO: remove, local setup specific
+		config.WithSharedConfigProfile(awsProfile),
 	)
 	if err != nil {
 		fmt.Println("[CLUSTER CHECK] Error creating session:", err)
@@ -94,9 +97,11 @@ func WaitForCluster(region, clusterName string) string {
 }
 
 func GetPrivateIPsForInternalLB(region, description string) []string {
+	awsProfile := GetEnv("AWS_PROFILE", "infex")
+
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithRegion(region),
-		config.WithSharedConfigProfile("infex"), // TODO: remove, local setup specific
+		config.WithSharedConfigProfile(awsProfile),
 	)
 	if err != nil {
 		fmt.Println("[DNS CHAINING] Error creating session:", err)

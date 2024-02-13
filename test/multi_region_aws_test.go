@@ -32,6 +32,7 @@ const (
 
 var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.5")
 var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
+var awsProfile = helpers.GetEnv("AWS_PROFILE", "infex")
 
 var primary helpers.Cluster
 var secondary helpers.Cluster
@@ -45,6 +46,7 @@ func TestSetupTerraform(t *testing.T) {
 		TerraformDir: terraformDir,
 		Vars: map[string]interface{}{
 			"cluster_name": clusterName,
+			"aws_profile":  awsProfile,
 		},
 		NoColor: true,
 	})
@@ -53,7 +55,7 @@ func TestSetupTerraform(t *testing.T) {
 
 	t.Log("[TF SETUP] Generating kubeconfig files 📜")
 
-	cmd := exec.Command("aws", "eks", "--region", "eu-west-3", "update-kubeconfig", "--name", fmt.Sprintf("%s-paris", clusterName), "--profile", "infex", "--kubeconfig", "kubeconfig-paris")
+	cmd := exec.Command("aws", "eks", "--region", "eu-west-3", "update-kubeconfig", "--name", fmt.Sprintf("%s-paris", clusterName), "--profile", awsProfile, "--kubeconfig", "kubeconfig-paris")
 
 	_, err := cmd.Output()
 	if err != nil {
@@ -63,7 +65,7 @@ func TestSetupTerraform(t *testing.T) {
 
 	require.FileExists(t, "kubeconfig-paris", "kubeconfig-paris file does not exist")
 
-	cmd2 := exec.Command("aws", "eks", "--region", "eu-west-2", "update-kubeconfig", "--name", fmt.Sprintf("%s-london", clusterName), "--profile", "infex", "--kubeconfig", "kubeconfig-london")
+	cmd2 := exec.Command("aws", "eks", "--region", "eu-west-2", "update-kubeconfig", "--name", fmt.Sprintf("%s-london", clusterName), "--profile", awsProfile, "--kubeconfig", "kubeconfig-london")
 
 	_, err2 := cmd2.Output()
 	if err2 != nil {
@@ -81,6 +83,7 @@ func TestTeardownTerraform(t *testing.T) {
 		TerraformDir: terraformDir,
 		Vars: map[string]interface{}{
 			"cluster_name": clusterName,
+			"aws_profile":  awsProfile,
 		},
 		NoColor: true,
 	})

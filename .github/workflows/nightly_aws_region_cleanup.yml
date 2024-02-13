@@ -5,6 +5,9 @@ on:
   - cron: '0 5 * * 1-5'
   workflow_dispatch:
 
+env:
+  AWS_PROFILE: infex
+
 jobs:
   aws-nightly-cleanup:
     runs-on: ubuntu-latest
@@ -31,9 +34,9 @@ jobs:
     # Official action does not support profiles
     - name: Add profile credentials to ~/.aws/credentials 
       run: |
-          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile infex
-          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile infex
-          aws configure set region eu-west-2 --profile infex
+          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set region eu-west-2 --profile ${{ env.AWS_PROFILE }}
 
     - name: Install Cloud Nuke
       run: |
@@ -46,7 +49,6 @@ jobs:
     - name: Run Cloud Nuke
       timeout-minutes: 45
       env:
-        AWS_PROFILE: "infex"
         DISABLE_TELEMETRY: "true"
       run: |
         ./cloud-nuke_linux_amd64 aws --region eu-west-2 --region eu-west-3 --force --newer-than 4h --exclude-resource-type ec2_dhcp_option --exclude-resource-type cloudtrail || true
@@ -54,8 +56,6 @@ jobs:
     # Following will delete global resources and things that cloud-nuke does not support
     - name: Delete additional AWS resources
       timeout-minutes: 15
-      env: 
-        AWS_PROFILE: "infex"
       run: |
         echo "Deleting additional resources..."
         # mac is using BSD xargs, where -n 1 and -I {} are required to make it work
@@ -119,7 +119,6 @@ jobs:
     - name: Run Cloud Nuke
       timeout-minutes: 45
       env:
-        AWS_PROFILE: "infex"
         DISABLE_TELEMETRY: "true"
       run: |
         ./cloud-nuke_linux_amd64 aws --region eu-west-2 --region eu-west-3 --force --newer-than 4h --exclude-resource-type ec2_dhcp_option --exclude-resource-type cloudtrail
