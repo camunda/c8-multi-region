@@ -3,7 +3,6 @@
 ################################
 
 locals {
-  name = "nightly" # just some abbotrary name to prefix resources
   # For demenstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
   owner = {
     region           = "eu-west-2"     # London
@@ -53,7 +52,7 @@ module "eks_cluster" {
   source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
 
   region             = local.owner.region
-  name               = "${local.name}-${local.owner.region_full_name}"
+  name               = "${var.cluster_name}-${local.owner.region_full_name}"
   kubernetes_version = "1.28"
   np_instance_types  = ["m6i.xlarge"]
 
@@ -72,7 +71,7 @@ module "eks_cluster_region_b" {
   source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
 
   region             = local.accepter.region
-  name               = "${local.name}-${local.accepter.region_full_name}"
+  name               = "${var.cluster_name}-${local.accepter.region_full_name}"
   kubernetes_version = "1.28"
   np_instance_types  = ["m6i.xlarge"]
 

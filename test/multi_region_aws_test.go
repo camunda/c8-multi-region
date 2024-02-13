@@ -31,6 +31,7 @@ const (
 )
 
 var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.5")
+var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
 
 var primary helpers.Cluster
 var secondary helpers.Cluster
@@ -42,14 +43,17 @@ func TestSetupTerraform(t *testing.T) {
 
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: terraformDir,
-		NoColor:      true,
+		Vars: map[string]interface{}{
+			"cluster_name": clusterName,
+		},
+		NoColor: true,
 	})
 
 	terraform.InitAndApply(t, terraformOptions)
 
 	t.Log("[TF SETUP] Generating kubeconfig files 📜")
 
-	cmd := exec.Command("aws", "eks", "--region", "eu-west-3", "update-kubeconfig", "--name", "nightly-paris", "--profile", "infex", "--kubeconfig", "kubeconfig-paris")
+	cmd := exec.Command("aws", "eks", "--region", "eu-west-3", "update-kubeconfig", "--name", fmt.Sprintf("%s-paris", clusterName), "--profile", "infex", "--kubeconfig", "kubeconfig-paris")
 
 	_, err := cmd.Output()
 	if err != nil {
@@ -59,7 +63,7 @@ func TestSetupTerraform(t *testing.T) {
 
 	require.FileExists(t, "kubeconfig-paris", "kubeconfig-paris file does not exist")
 
-	cmd2 := exec.Command("aws", "eks", "--region", "eu-west-2", "update-kubeconfig", "--name", "nightly-london", "--profile", "infex", "--kubeconfig", "kubeconfig-london")
+	cmd2 := exec.Command("aws", "eks", "--region", "eu-west-2", "update-kubeconfig", "--name", fmt.Sprintf("%s-london", clusterName), "--profile", "infex", "--kubeconfig", "kubeconfig-london")
 
 	_, err2 := cmd2.Output()
 	if err2 != nil {
@@ -75,7 +79,10 @@ func TestTeardownTerraform(t *testing.T) {
 
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformDir: terraformDir,
-		NoColor:      true,
+		Vars: map[string]interface{}{
+			"cluster_name": clusterName,
+		},
+		NoColor: true,
 	})
 	terraform.Destroy(t, terraformOptions)
 
@@ -127,13 +134,13 @@ func initKubernetesHelpers(t *testing.T) {
 	t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
 	primary = helpers.Cluster{
 		Region:           "eu-west-2",
-		ClusterName:      "nightly-london",
+		ClusterName:      fmt.Sprintf("%s-london", clusterName),
 		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, "camunda-primary"),
 		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
 	}
 	secondary = helpers.Cluster{
 		Region:           "eu-west-3",
-		ClusterName:      "nightly-paris",
+		ClusterName:      fmt.Sprintf("%s-paris", clusterName),
 		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, "camunda-secondary"),
 		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
 	}
@@ -350,6 +357,9 @@ func deployC8processAndCheck(t *testing.T) {
 	t.Logf("[C8 PROCESS] Created process: %s", response.String())
 	require.NotEmpty(t, response.String())
 	require.Contains(t, response.String(), "bigVarProcess")
+
+	t.Log("[C8 PROCESS] Sleeping shortly to let process be propagated")
+	time.Sleep(30 * time.Second)
 
 	t.Log("[C8 PROCESS] Starting another Process instance 🚀")
 	msg, err := client.NewCreateInstanceCommand().BPMNProcessId("bigVarProcess").LatestVersion().Send(ctx)

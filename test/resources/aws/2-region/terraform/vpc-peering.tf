@@ -15,7 +15,7 @@ resource "aws_vpc_peering_connection" "owner" {
   auto_accept = false
 
   tags = {
-    Name = "${local.name}-${local.owner.region_full_name}-to-${local.accepter.region_full_name}"
+    Name = "${var.cluster_name}-${local.owner.region_full_name}-to-${local.accepter.region_full_name}"
   }
 }
 
@@ -38,7 +38,7 @@ resource "aws_vpc_peering_connection_accepter" "accepter" {
   auto_accept               = true
 
   tags = {
-    Name = "${local.name}-${local.accepter.region_full_name}-to-${local.owner.region_full_name}"
+    Name = "${var.cluster_name}-${local.accepter.region_full_name}-to-${local.owner.region_full_name}"
   }
 }
 

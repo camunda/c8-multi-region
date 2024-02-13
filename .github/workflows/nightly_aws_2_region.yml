@@ -52,6 +52,10 @@ jobs:
           aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile infex
           aws configure set region eu-west-2 --profile infex
 
+    - name: Generate random cluster_name
+      id: random
+      run: echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" >> "$GITHUB_ENV"
+
     - name: Terratest Terraform Init And Apply
       working-directory: ./test
       timeout-minutes: 45
