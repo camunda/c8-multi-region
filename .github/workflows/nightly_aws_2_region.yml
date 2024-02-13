@@ -60,6 +60,10 @@ jobs:
       id: random
       run: echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" >> "$GITHUB_ENV"
 
+    - name: Generate random cluster_name
+      id: random
+      run: echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" >> "$GITHUB_ENV"
+
     - name: Terratest Terraform Init And Apply
       working-directory: ./test
       timeout-minutes: 45
