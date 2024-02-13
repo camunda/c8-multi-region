@@ -1,3 +1,4 @@
+---
 # Chart values for the Camunda Platform 8 Helm chart.
 # This file deliberately contains only the values that differ from the defaults.
 # For changes and documentation, use your favorite diff tool to compare it with:
@@ -6,8 +7,10 @@
 global:
   # Multiregion options for Zeebe
   #
-  ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support you MUST get your configuration and run books reviewed by Camunda before going to production.
-  # This is necessary for us to be able to help you in case of outages, due to the complexity of operating multi-region setups and the dependencies to the underlying Kubernetes prerequisites.
+  ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
+  # you MUST get your configuration and run books reviewed by Camunda before going to production.
+  # This is necessary for us to be able to help you in case of outages,
+  # due to the complexity of operating multi-region setups and the dependencies to the underlying Kubernetes prerequisites.
   # If you operate this in the wrong way you risk corruption and complete loss of all data especially in the dual-region case.
   # If you can, consider three regions. Please, contact your customer success manager as soon as you start planning a multi-region setup.
   # Camunda reserves the right to limit support if no review was done prior to launch or the review showed significant risks.
@@ -30,7 +33,7 @@ tasklist:
   env:
   - name: CAMUNDA_TASKLIST_BACKUP_REPOSITORYNAME
     value: "camunda_backup"
-      
+
 identity:
   enabled: false
 
@@ -49,10 +52,10 @@ connectors:
       cpu: "1000m"
       memory: "2Gi"
   env:
-    - name: CAMUNDA_OPERATE_CLIENT_USERNAME
-      value: demo
-    - name: CAMUNDA_OPERATE_CLIENT_PASSWORD
-      value: demo
+  - name: CAMUNDA_OPERATE_CLIENT_USERNAME
+    value: demo
+  - name: CAMUNDA_OPERATE_CLIENT_PASSWORD
+    value: demo
 
 zeebe:
   clusterSize: 8

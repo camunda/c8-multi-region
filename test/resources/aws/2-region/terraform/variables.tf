@@ -1,9 +1,9 @@
 variable "cluster_name" {
-  type = string
+  type        = string
   description = "Name of the cluster to prefix resources"
 }
 
 variable "aws_profile" {
-  type = string
+  type        = string
   description = "AWS Profile to use"
 }

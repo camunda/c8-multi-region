@@ -1,0 +1,136 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    ":automergeDisabled",
+    ":semanticCommits",
+    ":dependencyDashboard",
+    ":enablePreCommit",
+  ],
+  schedule: ["every weekend"],
+  platformAutomerge: false,
+  prHourlyLimit: 6,
+  prConcurrentLimit: 20,
+  commitBodyTable: true,
+  separateMajorMinor: false,
+  prBodyNotes: [
+    "{{#if isMajor}}:warning: THIS IS A MAJOR VERSION UPDATE :warning:{{/if}}",
+    "Before merging, *always* check with the release notes if any other changes need to be done.",
+  ],
+  major: {
+    enabled: true,
+    addLabels: ["upgrade:major"],
+  },
+  minor: {
+    enabled: true,
+    addLabels: ["upgrade:minor"],
+  },
+  patch: {
+    enabled: true,
+    addLabels: ["upgrade:patch"],
+  },
+  vulnerabilityAlerts: {
+    addLabels: ["security"],
+    enabled: true
+  },
+  packageRules: [
+    // limit the PR creation for the Renovate pre-commit hook (it's released very frequently)
+    {
+      matchPackageNames: ["renovatebot/pre-commit-hooks"],
+      matchUpdateTypes: ["patch"],
+      enabled: false,
+    },
+    {
+      matchPackageNames: ["renovatebot/pre-commit-hooks"],
+      schedule: ["on Saturday"],
+    },
+    {
+      matchManagers: ["github-actions"],
+      addLabels: ["group:github-actions", "component:ci"],
+    },
+    // Terraform AWS modules
+    {
+      matchDatasources: ["terraform-module"],
+      matchPackagePatterns: ["terraform-aws-modules.*"],
+      addLabels: ["group:terraform"],
+      groupName: "Terraform AWS modules",
+      schedule: [
+        "every 2 weeks on Saturday and Sunday",
+      ],
+    },
+    // Terraform major provider updates
+    {
+      matchDatasources: ["terraform-provider"],
+      addLabels: ["group:terraform"],
+      schedule: [
+        "every 2 weeks on Saturday and Sunday",
+      ]
+    },
+    // Terraform patch provider updates
+    {
+      matchUpdateTypes: ["patch"],
+      matchDatasources: ["terraform-provider"],
+      addLabels: ["group:terraform", "automerge"],
+      groupName: "Terraform providers",
+      automerge: true,
+      schedule: [
+        "every 2 weeks on Saturday and Sunday",
+      ]
+    },
+    // Patches
+    // Those are tested packages, and we know that they follow the semver convention,
+    // but it's fine to have candidate packages to test before move them to minor section.
+    {
+      matchUpdateTypes: ["patch"],
+      matchPackagePatterns: [
+        "pre-commit",
+        "^terraform$",
+        "terraform-aws-modules/.+",
+      ],
+      addLabels: ["automerge"],
+      automerge: true,
+    },
+    // Minor versions
+    // Those are tested packages, and we know that they follow the semver convention,
+    // but it's fine to have candidate packages to test before move them to minor section.
+    {
+      matchUpdateTypes: ["minor"],
+      matchPackagePatterns: [
+        "pre-commit",
+      ],
+      addLabels: ["automerge"],
+      automerge: true,
+    },
+    // Create PRs and automerge mentioned components afterward
+    // Those are tested packages
+    {
+      matchUpdateTypes: ["major"],
+      matchPackagePatterns: [
+        "pre-commit/.+",
+      ],
+      addLabels: ["automerge"],
+      automerge: true,
+    },
+    {
+      matchUpdateTypes: ["major", "minor", "patch"],
+      matchManagers: ["pre-commit"],
+      groupName: "pre-commit hooks",
+      addLabels: ["automerge"],
+      automerge: true
+    },
+    // For known GitHub repositories that use GitHub tags/releases of format
+    // "v1.2.3" and where the asdf plugin ignores the "v" prefix, we also tell
+    // Renovate to ignore it via extractVersion when updating .tool-version file
+    {
+      matchFileNames: ["**/.tool-versions", "**/*.tf"],
+      matchPackageNames: [
+        "hashicorp/terraform",
+        "helm/helm",
+        "koalaman/shellcheck",
+        "pre-commit/pre-commit",
+        "rhysd/actionlint",
+      ],
+      extractVersion: "^v(?<version>.*)$",
+    },
+  ],
+}
