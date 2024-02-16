@@ -121,6 +121,7 @@ func Test2RegionAWSEKS(t *testing.T) {
 		{"TestApplyDnsChaining", applyDnsChaining},
 		{"TestCoreDNSReload", testCoreDNSReload},
 		{"TestCrossClusterCommunicationWithDNS", testCrossClusterCommunicationWithDNS},
+		{"TestCreateElasticAWSSecret", createElasticAWSSecret},
 		{"TestDeployC8Helm", deployC8Helm},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
@@ -187,6 +188,34 @@ func testCoreDNSReload(t *testing.T) {
 func testCrossClusterCommunicationWithDNS(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with DNS 📡")
 	helpers.CrossClusterCommunication(t, true, k8sManifests, primary, secondary)
+}
+
+func createElasticAWSSecret(t *testing.T) {
+	t.Log("[ELASTICSEARCH] Creating AWS Secret for Elasticsearch 🚀")
+
+	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
+		TerraformDir: terraformDir,
+		Vars: map[string]interface{}{
+			"cluster_name": clusterName,
+			"aws_profile":  awsProfile,
+		},
+		NoColor: true,
+	})
+
+	S3AWSAccessKey := helpers.FetchSensitiveTerraformOutput(t, terraformOptions, "s3_aws_access_key")
+	S3AWSSecretAccessKey := helpers.FetchSensitiveTerraformOutput(t, terraformOptions, "s3_aws_secret_access_key")
+
+	helpers.RunSensitiveKubectlCommand(t, &primary.KubectlNamespace, "create", "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
+	helpers.RunSensitiveKubectlCommand(t, &secondary.KubectlNamespace, "create", "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
+
+	k8s.WaitUntilSecretAvailable(t, &primary.KubectlNamespace, "elasticsearch-env-secret", 5, 15*time.Second)
+	k8s.WaitUntilSecretAvailable(t, &secondary.KubectlNamespace, "elasticsearch-env-secret", 5, 15*time.Second)
+
+	secretPrimary := k8s.GetSecret(t, &primary.KubectlNamespace, "elasticsearch-env-secret")
+	require.Equal(t, len(secretPrimary.Data), 2)
+
+	secretSecondary := k8s.GetSecret(t, &secondary.KubectlNamespace, "elasticsearch-env-secret")
+	require.Equal(t, len(secretSecondary.Data), 2)
 }
 
 func deployC8Helm(t *testing.T) {

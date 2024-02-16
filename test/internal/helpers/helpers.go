@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -19,6 +21,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/gruntwork-io/terratest/modules/logger"
+	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -150,6 +154,7 @@ type Cluster struct {
 	ClusterName      string
 	KubectlNamespace k8s.KubectlOptions
 	KubectlSystem    k8s.KubectlOptions
+	KubectlFailover  k8s.KubectlOptions
 }
 
 // Kubernetes Helpers
@@ -254,7 +259,19 @@ func DNSChaining(t *testing.T, source, target Cluster, k8sManifests string) {
         forward . %s {
             force_tcp
         }
-    }`, source.KubectlNamespace.Namespace, strings.Join(privateIPs, " "))
+    }
+    %s-failover.svc.cluster.local:53 {
+        errors
+        cache 30
+        forward . %s {
+            force_tcp
+        }
+    }`,
+		source.KubectlNamespace.Namespace,
+		strings.Join(privateIPs, " "),
+		source.KubectlNamespace.Namespace,
+		strings.Join(privateIPs, " "),
+	)
 
 	// Replace the template with the replacement string
 	modifiedContent := strings.Replace(fileContent, template, replacement, -1)
@@ -316,7 +333,9 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	pvs := k8s.ListPersistentVolumes(t, kubectlOptions, metav1.ListOptions{})
 
 	for _, pv := range pvs {
-		k8s.RunKubectl(t, kubectlOptions, "delete", "pv", pv.Name)
+		if pv.Spec.ClaimRef.Namespace == kubectlOptions.Namespace {
+			k8s.RunKubectl(t, kubectlOptions, "delete", "pv", pv.Name)
+		}
 	}
 
 }
@@ -383,6 +402,198 @@ func CheckOperateForProcesses(t *testing.T, cluster Cluster) {
 	require.Contains(t, bodyString, "bigVarProcess")
 }
 
+func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions, command ...string) {
+	defer func() {
+		kubectlOptions.Logger = nil
+	}()
+	kubectlOptions.Logger = logger.Discard
+	k8s.RunKubectl(t, kubectlOptions, command...)
+}
+
+func ConfigureElasticBackup(t *testing.T, cluster Cluster, clusterName string) {
+	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"backups\"}}", clusterName))
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
+		return
+	}
+
+	if !strings.Contains(output, "acknowledged") {
+		t.Fatalf("[ELASTICSEARCH] Error: %s", output)
+		return
+	}
+
+	require.Contains(t, output, "acknowledged")
+	t.Logf("[ELASTICSEARCH] Success: %s", output)
+}
+
+func CreateElasticBackup(t *testing.T, cluster Cluster, backupName string) {
+	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName))
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
+		return
+	}
+
+	require.Contains(t, output, "\"failed\":0")
+	t.Logf("[ELASTICSEARCH BACKUP] Created backup: %s", output)
+}
+
+func CheckThatElasticBackupIsPresent(t *testing.T, cluster Cluster, backupName string) {
+	t.Logf("[ELASTICSEARCH BACKUP] Checking that Elasticsearch backup is present for cluster %s", cluster.ClusterName)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
+		return
+	}
+
+	require.Contains(t, output, backupName)
+	require.Contains(t, output, "\"total\":1")
+	t.Logf("[ELASTICSEARCH BACKUP] Backup present: %s", output)
+}
+
+func RestoreElasticBackup(t *testing.T, cluster Cluster, backupName string) {
+	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName))
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
+		return
+	}
+
+	require.Contains(t, output, "\"failed\":0")
+	t.Logf("[ELASTICSEARCH BACKUP] Restored backup: %s", output)
+
+}
+
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource string, region int, secrets, upgrade, failover, esSwitch bool, setValues map[string]string) {
+	zeebeContactPoints := ""
+
+	for i := 0; i < 4; i++ {
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.camunda-primary.svc.cluster.local:26502,", strconv.Itoa((i)))
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.camunda-secondary.svc.cluster.local:26502,", strconv.Itoa((i)))
+	}
+
+	// Cut the last character "," from the string
+	zeebeContactPoints = zeebeContactPoints[:len(zeebeContactPoints)-1]
+
+	valuesFiles := []string{"./resources/aws/2-region/kubernetes/camunda-values.yml"}
+
+	filePath := "./resources/aws/2-region/kubernetes/camunda-values.yml"
+	if failover {
+		filePath = fmt.Sprintf("./resources/aws/2-region/kubernetes/region%d/camunda-values-failover.yml", region)
+
+		valuesFiles = append(valuesFiles, filePath)
+	} else {
+		valuesFiles = append(valuesFiles, fmt.Sprintf("./resources/aws/2-region/kubernetes/region%d/camunda-values.yml", region))
+	}
+
+	content, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("[C8 HELM] Error reading file: %v\n", err)
+		return
+	}
+
+	// Convert byte slice to string
+	fileContent := string(content)
+
+	// Define the template and replacement string
+	template := "PLACEHOLDER"
+
+	// Replace the template with the replacement string
+	modifiedContent := strings.Replace(fileContent, template, zeebeContactPoints, -1)
+
+	if esSwitch && !failover {
+		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", -1)
+	}
+	if esSwitch && failover {
+		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", -1)
+	}
+
+	// Write the modified content back to the file
+	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
+	if err != nil {
+		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
+		return
+	}
+
+	// Get Secrets required for some upgrades
+	if secrets && upgrade {
+		secretConnectors := k8s.GetSecret(t, kubectlOptions, "camunda-connectors-auth-credentials")
+		setValues["connectors.inbound.auth.existingSecret"] = string(secretConnectors.Data["connectors-secret"])
+	}
+
+	helmOptions := &helm.Options{
+		KubectlOptions: kubectlOptions,
+		Version:        remoteChartVersion,
+		ValuesFiles:    valuesFiles,
+		SetValues:      setValues,
+	}
+
+	helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
+
+	if upgrade {
+		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
+	} else {
+		helm.Install(t, helmOptions, remoteChartName, "camunda")
+	}
+
+	// Write the old file back to the file - mostly for local development
+	err = os.WriteFile(filePath, []byte(fileContent), 0644)
+	if err != nil {
+		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
+		return
+	}
+}
+
+func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulset, searchValue string) bool {
+	t.Logf("[STATEFULSET] Checking whether StatefulSet %s contains %s", statefulset, searchValue)
+
+	// Temporarily disable logging
+	// Output might be too large
+	defer func() {
+		kubectlOptions.Logger = nil
+	}()
+	kubectlOptions.Logger = logger.Discard
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "get", "statefulset", statefulset, "-o", "yaml")
+	if err != nil {
+		t.Fatalf("[STATEFULSET] %s", err)
+		return false
+	}
+
+	val := strings.Contains(output, searchValue)
+	t.Logf("[STATEFULSET] StatefulSet %s contains %s: %t", statefulset, searchValue, val)
+
+	return val
+}
+
+func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName string) int {
+	t.Logf("[ZEEBE BROKER ID] Getting Zeebe Broker ID for pod %s", podName)
+
+	defer func() {
+		kubectlOptions.Logger = nil
+	}()
+	kubectlOptions.Logger = logger.Discard
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "pgrep", "java")
+	if err != nil {
+		t.Fatalf("[ZEEBE BROKER ID] %s", err)
+		return -1
+	}
+
+	output, err = k8s.RunKubectlAndGetOutputE(t, kubectlOptions, "exec", podName, "--", "cat", fmt.Sprintf("/proc/%s/environ", output))
+	if err != nil {
+		t.Fatalf("[ZEEBE BROKER ID] %s", err)
+		return -1
+	}
+
+	return cutOutString(output, "ZEEBE_BROKER_CLUSTER_NODEID=[0-9]")
+}
+
 // Go Helpers
 func GetEnv(key, fallback string) string {
 	value, exists := os.LookupEnv(key)
@@ -390,4 +601,50 @@ func GetEnv(key, fallback string) string {
 		value = fallback
 	}
 	return value
+}
+
+func cutOutString(originalString, searchString string) int {
+	re := regexp.MustCompile(searchString)
+	matches := re.FindStringSubmatch(originalString)
+
+	if (len(matches)) == 0 {
+		return -1
+	}
+
+	length := len(matches[0])
+	if (length) == 0 {
+		return -1
+	}
+
+	num, err := strconv.Atoi(string(matches[0][length-1]))
+	if err != nil {
+		return -1
+	}
+
+	return num
+}
+
+func IsEven(num int) bool {
+	if num < 0 {
+		return false
+	}
+
+	return num%2 == 0
+}
+
+func IsOdd(num int) bool {
+	if num < 0 {
+		return false
+	}
+
+	return num%2 == 1
+}
+
+// Terraform Helpers
+func FetchSensitiveTerraformOutput(t *testing.T, options *terraform.Options, name string) string {
+	defer func() {
+		options.Logger = nil
+	}()
+	options.Logger = logger.Discard
+	return terraform.Output(t, options, name)
 }

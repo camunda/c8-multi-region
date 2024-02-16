@@ -1,5 +1,4 @@
----
-name: Nightly AWS EKS 2 Region Test
+name: Nightly AWS EKS Operational Procedure Test
 
 on:
   schedule:
@@ -10,7 +9,7 @@ env:
   AWS_PROFILE: infex
 
 jobs:
-  aws-eks-2-region-test:
+  aws-eks-2-operational-procedure-test:
     runs-on: ubuntu-latest
     # Other dependencies from hosted runner
     # AWS CLI
@@ -23,14 +22,14 @@ jobs:
     - name: Get go.mod details
       uses: Eun/go-mod-details@v1
       id: go-mod-details
-      with:
+      with: 
         modfile: ${{ github.workspace }}/test/go.mod
-
+    
     - name: Set up Go environment
       uses: actions/setup-go@v5
       with:
         go-version: ${{ steps.go-mod-details.outputs.go_version }}
-
+    
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
       with:
@@ -38,7 +37,7 @@ jobs:
 
     - name: Import Secrets
       id: secrets
-      uses: hashicorp/vault-action@v3
+      uses: hashicorp/vault-action@v2
       with:
         url: ${{ secrets.VAULT_ADDR }}
         method: approle
@@ -50,7 +49,7 @@ jobs:
           secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
 
     # Official action does not support profiles
-    - name: Add profile credentials to ~/.aws/credentials
+    - name: Add profile credentials to ~/.aws/credentials 
       run: |
           aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
           aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
@@ -66,30 +65,31 @@ jobs:
       working-directory: ./test
       timeout-minutes: 45
       run: |
-        go test --count=1 -v -timeout 45m ./multi_region_aws_test.go -run TestSetupTerraform
+        go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestSetupTerraform
 
-    - name: Terratest Test 2 Region AWS - C8.3
-      working-directory: ./test
-      timeout-minutes: 15
-      env:
-        HELM_CHART_VERSION: "8.3.5"
-      run: |
-        go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
+    # 8.3 is currently broken
+    # - name: Operational Procedure Test in 2 Regions - C8.3
+    #   working-directory: ./test
+    #   timeout-minutes: 30
+    #   env:
+    #     HELM_CHART_VERSION: "8.3.5"
+    #   run: |
+    #     go test --count=1 -v -timeout 30m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
-    - name: Terratest Test 2 Region AWS - C8.4
+    - name: Operational Procedure Test in 2 Regions - C8.4
       working-directory: ./test
-      timeout-minutes: 15
+      timeout-minutes: 30
       env:
         HELM_CHART_VERSION: "9.1.2"
       run: |
-        go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
+        go test --count=1 -v -timeout 30m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Terratest Terraform Teardown
       if: always()
       working-directory: ./test
       timeout-minutes: 15
       run: |
-        go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run TestTeardownTerraform
+        go test --count=1 -v -timeout 15m ./multi_region_aws_operational_procedure_test.go -run TestTeardownTerraform
 
     - name: Remove profile credentials from ~/.aws/credentials
       if: always()
