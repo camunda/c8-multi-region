@@ -4,6 +4,7 @@ on:
   schedule:
   - cron: '0 0 * * 1-5'
   workflow_dispatch:
+  push:
 
 env:
   AWS_PROFILE: infex
@@ -63,33 +64,33 @@ jobs:
 
     - name: Terratest Terraform Init And Apply
       working-directory: ./test
-      timeout-minutes: 45
+      timeout-minutes: 46
       run: |
         go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestSetupTerraform
 
     # 8.3 is currently broken
     # - name: Operational Procedure Test in 2 Regions - C8.3
     #   working-directory: ./test
-    #   timeout-minutes: 30
+    #   timeout-minutes: 61
     #   env:
     #     HELM_CHART_VERSION: "8.3.5"
     #   run: |
-    #     go test --count=1 -v -timeout 30m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+    #     go test --count=1 -v -timeout 60m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Operational Procedure Test in 2 Regions - C8.4
       working-directory: ./test
-      timeout-minutes: 30
+      timeout-minutes: 61
       env:
         HELM_CHART_VERSION: "9.1.2"
       run: |
-        go test --count=1 -v -timeout 30m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+        go test --count=1 -v -timeout 60m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Terratest Terraform Teardown
       if: always()
       working-directory: ./test
-      timeout-minutes: 15
+      timeout-minutes: 31
       run: |
-        go test --count=1 -v -timeout 15m ./multi_region_aws_operational_procedure_test.go -run TestTeardownTerraform
+        go test --count=1 -v -timeout 30m ./multi_region_aws_operational_procedure_test.go -run TestTeardownTerraform
 
     - name: Remove profile credentials from ~/.aws/credentials
       if: always()

@@ -85,7 +85,25 @@ func Test2RegionAWSEKS(t *testing.T) {
 
 func initKubernetesHelpers(t *testing.T) {
 	t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
-	awsHelpers.InitKubernetesHelpers(t, primary, secondary, kubeConfigPrimary, kubeConfigSecondary, clusterName)
+	primary = helpers.Cluster{
+		Region:           "eu-west-2",
+		ClusterName:      fmt.Sprintf("%s-london", clusterName),
+		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, "camunda-primary"),
+		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
+		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, "camunda-primary-failover"),
+	}
+	secondary = helpers.Cluster{
+		Region:           "eu-west-3",
+		ClusterName:      fmt.Sprintf("%s-paris", clusterName),
+		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, "camunda-secondary"),
+		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
+		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, "camunda-secondary-failover"),
+	}
+
+	k8s.CreateNamespace(t, &primary.KubectlNamespace, "camunda-primary")
+	k8s.CreateNamespace(t, &primary.KubectlFailover, "camunda-primary-failover")
+	k8s.CreateNamespace(t, &secondary.KubectlNamespace, "camunda-secondary")
+	k8s.CreateNamespace(t, &secondary.KubectlFailover, "camunda-secondary-failover")
 }
 
 func clusterReadyCheck(t *testing.T) {

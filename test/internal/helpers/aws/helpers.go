@@ -291,25 +291,3 @@ func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile s
 	require.NoFileExists(t, "kubeconfig-paris", "kubeconfig-paris file still exists")
 	require.NoFileExists(t, "kubeconfig-london", "kubeconfig-london file still exists")
 }
-
-func InitKubernetesHelpers(t *testing.T, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary, clusterName string) {
-	primary = helpers.Cluster{
-		Region:           "eu-west-2",
-		ClusterName:      fmt.Sprintf("%s-london", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, "camunda-primary"),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, "camunda-primary-failover"),
-	}
-	secondary = helpers.Cluster{
-		Region:           "eu-west-3",
-		ClusterName:      fmt.Sprintf("%s-paris", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, "camunda-secondary"),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, "camunda-secondary-failover"),
-	}
-
-	k8s.CreateNamespace(t, &primary.KubectlNamespace, "camunda-primary")
-	k8s.CreateNamespace(t, &primary.KubectlFailover, "camunda-primary-failover")
-	k8s.CreateNamespace(t, &secondary.KubectlNamespace, "camunda-secondary")
-	k8s.CreateNamespace(t, &secondary.KubectlFailover, "camunda-secondary-failover")
-}
