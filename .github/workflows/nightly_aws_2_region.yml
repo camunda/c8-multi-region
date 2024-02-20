@@ -1,0 +1,94 @@
+name: Nightly AWS EKS 2 Region Test
+
+on:
+  schedule:
+  - cron: '0 0 * * 1-5'
+  workflow_dispatch:
+
+env:
+  AWS_PROFILE: infex
+
+jobs:
+  aws-eks-2-region-test:
+    runs-on: ubuntu-latest
+    # Other dependencies from hosted runner
+    # AWS CLI
+    # indirectly node used by actions
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get go.mod details
+      uses: Eun/go-mod-details@v1
+      id: go-mod-details
+      with: 
+        modfile: ${{ github.workspace }}/test/go.mod
+    
+    - name: Set up Go environment
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ steps.go-mod-details.outputs.go_version }}
+    
+    - name: Set up Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: "1.7.3"
+
+    - name: Import Secrets
+      id: secrets
+      uses: hashicorp/vault-action@v2
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        exportEnv: false
+        secrets: |
+          secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+          secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
+    # Official action does not support profiles
+    - name: Add profile credentials to ~/.aws/credentials 
+      run: |
+          aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+          aws configure set region eu-west-2 --profile ${{ env.AWS_PROFILE }}
+
+    - name: Generate random cluster_name
+      id: random
+      run: echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" >> "$GITHUB_ENV"
+
+    - name: Terratest Terraform Init And Apply
+      working-directory: ./test
+      timeout-minutes: 45
+      run: |
+        go test --count=1 -v -timeout 45m ../test -run TestSetupTerraform
+
+    - name: Terratest Test 2 Region AWS - C8.3
+      working-directory: ./test
+      timeout-minutes: 15
+      env:
+        HELM_CHART_VERSION: "8.3.5"
+      run: |
+        go test --count=1 -v -timeout 15m ../test -run Test2RegionAWSEKS
+
+    - name: Terratest Test 2 Region AWS - C8.4
+      working-directory: ./test
+      timeout-minutes: 15
+      env:
+        HELM_CHART_VERSION: "9.1.0"
+      run: |
+        go test --count=1 -v -timeout 15m ../test -run Test2RegionAWSEKS
+
+    - name: Terratest Terraform Teardown
+      if: always()
+      working-directory: ./test
+      timeout-minutes: 15
+      run: |
+        go test --count=1 -v -timeout 15m ../test -run TestTeardownTerraform
+
+    - name: Remove profile credentials from ~/.aws/credentials
+      if: always()
+      run: |
+        rm -rf ~/.aws/credentials
