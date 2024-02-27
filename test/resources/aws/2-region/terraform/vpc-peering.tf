@@ -96,7 +96,7 @@ resource "aws_route" "accepter_private" {
 }
 
 ################################
-# Security Groups Updates      # 
+# Security Groups Updates      #
 ################################
 # These changes are required to actually allow inbound traffic from the other VPC.
 # Maybe there's a better way to add the info the the required security groups. Kinda hacky but works for first iteration.

@@ -1,3 +1,4 @@
+---
 apiVersion: v1
 kind: Pod
 metadata:
@@ -12,8 +13,8 @@ spec:
     imagePullPolicy: IfNotPresent
     name: nginx
     ports:
-      - name: http
-        containerPort: 80
+    - name: http
+      containerPort: 80
   restartPolicy: Always
 ---
 apiVersion: v1
@@ -22,7 +23,7 @@ metadata:
   name: sample-nginx-peer
 spec:
   ports:
-    - port: 80
+  - port: 80
   selector:
     app: sample-nginx
   clusterIP: None

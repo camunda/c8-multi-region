@@ -1,2 +1,2 @@
-# c8-multi-region
-Test and configurations concerning c8-multi-region
+# Camunda Platform - Multi-Region
+Tests and configurations concerning the Camunda Platform - Multi-Region topic

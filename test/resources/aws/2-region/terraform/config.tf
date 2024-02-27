@@ -1,5 +1,5 @@
 ################################
-# Magic Variables             # 
+# Magic Variables             #
 ################################
 
 locals {
@@ -17,10 +17,11 @@ locals {
 }
 
 ################################
-# Backend & Provider Setup    # 
+# Backend & Provider Setup    #
 ################################
 
 terraform {
+  required_version = ">= 1.6.0"
   backend "local" {
     path = "terraform.tfstate"
   }
@@ -28,28 +29,28 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "5.22.0"
+      version = "5.37.0"
     }
   }
 }
 
 provider "aws" {
-  region     = local.owner.region
+  region  = local.owner.region
   profile = var.aws_profile
 }
 
 provider "aws" {
-  region     = local.accepter.region
-  alias      = "accepter"
+  region  = local.accepter.region
+  alias   = "accepter"
   profile = var.aws_profile
 }
 
 ################################
-# Cluster Creations            # 
+# Cluster Creations            #
 ################################
 
 module "eks_cluster" {
-  source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
+  source = "github.com/camunda/camunda-tf-eks-module//modules/eks-cluster?ref=1.0.2"
 
   region             = local.owner.region
   name               = "${var.cluster_name}-${local.owner.region_full_name}"
@@ -68,7 +69,7 @@ module "eks_cluster" {
 }
 
 module "eks_cluster_region_b" {
-  source = "github.com/camunda/camunda-tf-eks-module/modules/eks-cluster"
+  source = "github.com/camunda/camunda-tf-eks-module//modules/eks-cluster?ref=1.0.2"
 
   region             = local.accepter.region
   name               = "${var.cluster_name}-${local.accepter.region_full_name}"
