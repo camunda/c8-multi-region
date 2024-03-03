@@ -13,6 +13,6 @@ pre-commit 3.6.2
 
 shellcheck 0.9.0
 
-terraform 1.7.3
+terraform 1.7.4
 
 tflint 0.50.3
