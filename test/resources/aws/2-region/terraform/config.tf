@@ -3,16 +3,19 @@
 ################################
 
 locals {
-  # For demenstration purposes, we will use owner and acceptor as separation. Naming choice will become clearer when seeing the peering setup
+  # For demenstration purposes, we will use owner and acceptor as separation.
+  # Naming choice will become clearer when seeing the peering setup, since you always have an initiator and an acceptor.
   owner = {
-    region           = "eu-west-2"     # London
-    vpc_cidr_block   = "10.192.0.0/16" # vpc for the cluster and pod range
-    region_full_name = "london"
+    region             = "eu-west-2" # London
+    region_full_name   = "london"
+    vpc_cidr_block     = "10.192.0.0/16" # vpc for the cluster and pod range
+    service_cidr_block = "10.190.0.0/16" # internal network of the cluster
   }
   accepter = {
-    region           = "eu-west-3"     # Paris
-    vpc_cidr_block   = "10.202.0.0/16" # vpc for the cluster and pod range
-    region_full_name = "paris"
+    region             = "eu-west-3" # Paris
+    region_full_name   = "paris"
+    vpc_cidr_block     = "10.202.0.0/16" # vpc for the cluster and pod range
+    service_cidr_block = "10.200.0.0/16" # internal network of the cluster
   }
 }
 
@@ -34,15 +37,17 @@ terraform {
   }
 }
 
+# Two provider configurations are needed to create resources in two different regions
+# It's a limitation by how the AWS provider works
 provider "aws" {
   region  = local.owner.region
-  profile = var.aws_profile
+  profile = var.aws_profile # optional, feel free to remove if you use the default profile
 }
 
 provider "aws" {
   region  = local.accepter.region
   alias   = "accepter"
-  profile = var.aws_profile
+  profile = var.aws_profile # optional, feel free to remove if you use the default profile
 }
 
 ################################
@@ -57,15 +62,8 @@ module "eks_cluster" {
   kubernetes_version = "1.28"
   np_instance_types  = ["m6i.xlarge"]
 
-  cluster_service_ipv4_cidr = "10.190.0.0/16" # internal network of the cluster
+  cluster_service_ipv4_cidr = local.owner.service_cidr_block
   cluster_node_ipv4_cidr    = local.owner.vpc_cidr_block
-
-  # InfEx Specific
-  aws_auth_roles = [{
-    rolearn  = "arn:aws:iam::444804106854:role/AWSReservedSSO_SystemAdministrator_555f3db864dcee7e"
-    username = "AWSReservedSSO_SystemAdministrator_555f3db864dcee7e"
-    groups   = ["system:masters"]
-  }]
 }
 
 module "eks_cluster_region_b" {
@@ -76,19 +74,12 @@ module "eks_cluster_region_b" {
   kubernetes_version = "1.28"
   np_instance_types  = ["m6i.xlarge"]
 
-  cluster_service_ipv4_cidr = "10.200.0.0/16" # internal network of the cluster
+  cluster_service_ipv4_cidr = local.accepter.service_cidr_block
   cluster_node_ipv4_cidr    = local.accepter.vpc_cidr_block
 
-  # InfEx Specific
-  aws_auth_roles = [{
-    rolearn  = "arn:aws:iam::444804106854:role/AWSReservedSSO_SystemAdministrator_555f3db864dcee7e"
-    username = "AWSReservedSSO_SystemAdministrator_555f3db864dcee7e"
-    groups   = ["system:masters"]
-  }]
-
-  # Important to reference the correcet provider for the "foreign" region
+  # Important to reference the correcet provider for the "remote" region
   # Otherwise the resources will be created in the default region
-  # Also important for all other resources that need to be created in the "foreign" region
+  # Also important for all other resources that need to be created in the "remote" region
   providers = {
     aws = aws.accepter
   }
