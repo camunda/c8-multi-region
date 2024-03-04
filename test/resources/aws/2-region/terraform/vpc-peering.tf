@@ -19,18 +19,6 @@ resource "aws_vpc_peering_connection" "owner" {
   }
 }
 
-# Important: Breaks on first apply. Not sure why.
-# Not required for the PoC.
-# resource "aws_vpc_peering_connection_options" "owner" {
-#   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-
-#   requester {
-#     allow_remote_vpc_dns_resolution = true
-#   }
-
-#   depends_on = [aws_vpc_peering_connection.owner]
-# }
-
 resource "aws_vpc_peering_connection_accepter" "accepter" {
   provider = aws.accepter
 
@@ -42,26 +30,11 @@ resource "aws_vpc_peering_connection_accepter" "accepter" {
   }
 }
 
-# Important: Breaks on first apply. Not sure why.
-# Not required for the PoC.
-# resource "aws_vpc_peering_connection_options" "accepter" {
-#   provider                  = aws.accepter
-#   vpc_peering_connection_id = aws_vpc_peering_connection_accepter.accepter.id
-
-
-#   accepter {
-#     allow_remote_vpc_dns_resolution = true
-#   }
-
-#   depends_on = [aws_vpc_peering_connection_accepter.accepter]
-# }
-
 ################################
 # Route Table Updates          #
 ################################
 # These are required to let the VPC know where to route the traffic to
 # In this case non local cidr range --> VPC Peering connection.
-# Maybe there's a better way to add the info the the required route tables. Kinda hacky but works for first iteration.
 
 resource "aws_route" "owner" {
   route_table_id            = module.eks_cluster.vpc_main_route_table_id
@@ -99,7 +72,6 @@ resource "aws_route" "accepter_private" {
 # Security Groups Updates      #
 ################################
 # These changes are required to actually allow inbound traffic from the other VPC.
-# Maybe there's a better way to add the info the the required security groups. Kinda hacky but works for first iteration.
 
 resource "aws_vpc_security_group_ingress_rule" "owner_eks_primary" {
   security_group_id = module.eks_cluster.cluster_primary_security_group_id
