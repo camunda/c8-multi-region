@@ -2,7 +2,7 @@ resource "aws_s3_bucket" "elastic_backup" {
   bucket = "${var.cluster_name}-elastic-backup"
 
   tags = {
-    Name        = var.cluster_name
+    Name = var.cluster_name
   }
 
   force_destroy = true
@@ -24,12 +24,12 @@ resource "aws_iam_policy" "s3_access_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Effect   = "Allow",
-        Action   = [
+        Effect = "Allow",
+        Action = [
           "s3:*"
         ],
         Resource = [
-          "${aws_s3_bucket.elastic_backup.arn}",
+          aws_s3_bucket.elastic_backup.arn,
           "${aws_s3_bucket.elastic_backup.arn}/*"
         ]
       }

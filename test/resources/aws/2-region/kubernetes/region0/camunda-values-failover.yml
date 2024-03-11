@@ -1,8 +1,9 @@
+---
 # TODO: Find this obsolete can be replaced with a couple of set commands
 # e.g. set global.multiregion.installationType=failOver
 # and set global.multiregion.regionId=1
 # sets for the disables
-# Only Elastic1 has to be replaced in og file 
+# Only Elastic1 has to be replaced in og file
 global:
   multiregion:
     installationType: failOver
