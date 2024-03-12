@@ -3,7 +3,7 @@ name: Nightly AWS EKS Operational Procedure Test
 
 on:
   schedule:
-  - cron: '0 0 * * 1-5'
+  - cron: '0 2 * * 1-5'
   workflow_dispatch:
 
 env:
@@ -71,19 +71,19 @@ jobs:
     # 8.3 is currently broken
     # - name: Operational Procedure Test in 2 Regions - C8.3
     #   working-directory: ./test
-    #   timeout-minutes: 61
+    #   timeout-minutes: 71
     #   env:
-    #     HELM_CHART_VERSION: "8.3.5"
+    #     HELM_CHART_VERSION: "8.3.9"
     #   run: |
-    #     go test --count=1 -v -timeout 60m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+    #     go test --count=1 -v -timeout 70m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Operational Procedure Test in 2 Regions - C8.4
       working-directory: ./test
-      timeout-minutes: 61
+      timeout-minutes: 71
       env:
-        HELM_CHART_VERSION: "9.1.2"
+        HELM_CHART_VERSION: "9.3.0"
       run: |
-        go test --count=1 -v -timeout 60m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+        go test --count=1 -v -timeout 70m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Terratest Terraform Teardown
       if: always()
