@@ -129,3 +129,14 @@ elasticsearch:
         memory: "2Gi"
     persistence:
       size: 15Gi
+  initScripts:
+    init-keystore.sh: |
+      #!/bin/bash
+      set -e
+
+      echo "Adding S3 access keys to Elasticsearch keystore..."
+
+      # Add S3 client camunda keys to the keystore
+      echo "$S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
+      echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
+  extraEnvVarsSecret: elasticsearch-env-secret

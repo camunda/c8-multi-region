@@ -9,8 +9,8 @@
 # Auto_accept only works in the "owner" if the VPCs are in the same region
 
 resource "aws_vpc_peering_connection" "owner" {
-  vpc_id      = module.eks_cluster.vpc_id
-  peer_vpc_id = module.eks_cluster_region_b.vpc_id
+  vpc_id      = module.eks_cluster_region_0.vpc_id
+  peer_vpc_id = module.eks_cluster_region_1.vpc_id
   peer_region = local.accepter.region
   auto_accept = false
 
@@ -37,14 +37,14 @@ resource "aws_vpc_peering_connection_accepter" "accepter" {
 # In this case non local cidr range --> VPC Peering connection.
 
 resource "aws_route" "owner" {
-  route_table_id            = module.eks_cluster.vpc_main_route_table_id
+  route_table_id            = module.eks_cluster_region_0.vpc_main_route_table_id
   destination_cidr_block    = local.accepter.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
 }
 
 resource "aws_route" "owner_private" {
-  count          = length(module.eks_cluster.private_route_table_ids)
-  route_table_id = module.eks_cluster.private_route_table_ids[count.index]
+  count          = length(module.eks_cluster_region_0.private_route_table_ids)
+  route_table_id = module.eks_cluster_region_0.private_route_table_ids[count.index]
 
   destination_cidr_block    = local.accepter.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
@@ -53,7 +53,7 @@ resource "aws_route" "owner_private" {
 resource "aws_route" "accepter" {
   provider = aws.accepter
 
-  route_table_id            = module.eks_cluster_region_b.vpc_main_route_table_id
+  route_table_id            = module.eks_cluster_region_1.vpc_main_route_table_id
   destination_cidr_block    = local.owner.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
 }
@@ -61,8 +61,8 @@ resource "aws_route" "accepter" {
 resource "aws_route" "accepter_private" {
   provider = aws.accepter
 
-  count          = length(module.eks_cluster_region_b.private_route_table_ids)
-  route_table_id = module.eks_cluster_region_b.private_route_table_ids[count.index]
+  count          = length(module.eks_cluster_region_1.private_route_table_ids)
+  route_table_id = module.eks_cluster_region_1.private_route_table_ids[count.index]
 
   destination_cidr_block    = local.owner.vpc_cidr_block
   vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
@@ -74,7 +74,7 @@ resource "aws_route" "accepter_private" {
 # These changes are required to actually allow inbound traffic from the other VPC.
 
 resource "aws_vpc_security_group_ingress_rule" "owner_eks_primary" {
-  security_group_id = module.eks_cluster.cluster_primary_security_group_id
+  security_group_id = module.eks_cluster_region_0.cluster_primary_security_group_id
 
   cidr_ipv4   = local.accepter.vpc_cidr_block
   from_port   = -1
@@ -85,7 +85,7 @@ resource "aws_vpc_security_group_ingress_rule" "owner_eks_primary" {
 resource "aws_vpc_security_group_ingress_rule" "accepter_eks_primary" {
   provider = aws.accepter
 
-  security_group_id = module.eks_cluster_region_b.cluster_primary_security_group_id
+  security_group_id = module.eks_cluster_region_1.cluster_primary_security_group_id
 
   cidr_ipv4   = local.owner.vpc_cidr_block
   from_port   = -1
