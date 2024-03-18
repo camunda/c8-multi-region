@@ -32,7 +32,3 @@ repos:
   hooks:
   - id: renovate-config-validator
     args: ["--strict"]
-- repo: https://github.com/PyCQA/pylint
-  rev: v3.1.0
-  hooks:
-  - id: pylint
