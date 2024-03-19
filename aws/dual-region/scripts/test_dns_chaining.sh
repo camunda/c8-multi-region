@@ -33,8 +33,8 @@ ping_instance() {
 create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 
-kubectl --context "$CLUSTER_0" apply -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/test/resources/aws/2-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
-kubectl --context "$CLUSTER_1" apply -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/test/resources/aws/2-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_1"
+kubectl --context "$CLUSTER_0" apply -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/aws/dual-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
+kubectl --context "$CLUSTER_1" apply -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/aws/dual-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_1"
 
 
 kubectl --context "$CLUSTER_0" wait --for=condition=Ready pod/sample-nginx -n "$CAMUNDA_NAMESPACE_0" --timeout=300s
@@ -43,5 +43,5 @@ kubectl --context "$CLUSTER_1" wait --for=condition=Ready pod/sample-nginx -n "$
 ping_instance "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "$CAMUNDA_NAMESPACE_1"
 ping_instance "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "$CAMUNDA_NAMESPACE_0"
 
-kubectl --context "$CLUSTER_0" delete -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/test/resources/aws/2-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
-kubectl --context "$CLUSTER_1" delete -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/test/resources/aws/2-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_1"
+kubectl --context "$CLUSTER_0" delete -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/aws/dual-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_0"
+kubectl --context "$CLUSTER_1" delete -f https://raw.githubusercontent.com/camunda/c8-multi-region/main/aws/dual-region/kubernetes/nginx.yml -n "$CAMUNDA_NAMESPACE_1"

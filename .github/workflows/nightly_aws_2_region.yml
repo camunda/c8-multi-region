@@ -10,7 +10,7 @@ env:
   AWS_PROFILE: infex
 
 jobs:
-  aws-eks-2-region-test:
+  aws-eks-dual-region-test:
     runs-on: ubuntu-latest
     # Other dependencies from hosted runner
     # AWS CLI
