@@ -18,11 +18,11 @@ const (
 	remoteChartSource = "https://helm.camunda.io"
 	remoteChartName   = "camunda/camunda-platform"
 
-	resourceDir         = "../aws/2-region"
-	terraformDir        = "../aws/2-region/terraform"
+	resourceDir         = "../aws/dual-region"
+	terraformDir        = "../aws/dual-region/terraform"
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
-	k8sManifests        = "../aws/2-region/kubernetes"
+	k8sManifests        = "../aws/dual-region/kubernetes"
 )
 
 var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.10")
