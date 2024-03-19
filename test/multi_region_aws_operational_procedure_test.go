@@ -19,14 +19,14 @@ const (
 	remoteChartSource = "https://helm.camunda.io"
 	remoteChartName   = "camunda/camunda-platform"
 
-	resourceDir         = "./resources/aws/2-region"
-	terraformDir        = "./resources/aws/2-region/terraform"
+	resourceDir         = "../aws/2-region"
+	terraformDir        = "../aws/2-region/terraform"
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
-	k8sManifests        = "./resources/aws/2-region/kubernetes"
+	k8sManifests        = "../aws/2-region/kubernetes"
 )
 
-var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.9")
+var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.10")
 var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
 var backupName = helpers.GetEnv("BACKUP_NAME", "nightly")   // allows supplying random backup name via GHA
 var awsProfile = helpers.GetEnv("AWS_PROFILE", "infex")

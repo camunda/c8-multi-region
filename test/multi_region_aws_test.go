@@ -18,14 +18,14 @@ const (
 	remoteChartSource = "https://helm.camunda.io"
 	remoteChartName   = "camunda/camunda-platform"
 
-	resourceDir         = "./resources/aws/2-region"
-	terraformDir        = "./resources/aws/2-region/terraform"
+	resourceDir         = "../aws/2-region"
+	terraformDir        = "../aws/2-region/terraform"
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
-	k8sManifests        = "./resources/aws/2-region/kubernetes"
+	k8sManifests        = "../aws/2-region/kubernetes"
 )
 
-var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.5")
+var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.10")
 var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
 var awsProfile = helpers.GetEnv("AWS_PROFILE", "infex")
 
@@ -222,6 +222,8 @@ func cleanupKubernetes(t *testing.T) {
 	t.Log("[K8S CLEANUP] Cleaning up Kubernetes resources 🧹")
 	k8s.DeleteNamespace(t, &primary.KubectlNamespace, "camunda-primary")
 	k8s.DeleteNamespace(t, &secondary.KubectlNamespace, "camunda-secondary")
+	k8s.DeleteNamespace(t, &primary.KubectlFailover, "camunda-primary-failover")
+	k8s.DeleteNamespace(t, &secondary.KubectlFailover, "camunda-secondary-failover")
 
 	k8s.RunKubectl(t, &primary.KubectlSystem, "delete", "service", "internal-dns-lb")
 	k8s.RunKubectl(t, &secondary.KubectlSystem, "delete", "service", "internal-dns-lb")

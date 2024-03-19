@@ -261,15 +261,15 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Cut the last character "," from the string
 	zeebeContactPoints = zeebeContactPoints[:len(zeebeContactPoints)-1]
 
-	valuesFiles := []string{"./resources/aws/2-region/kubernetes/camunda-values.yml"}
+	valuesFiles := []string{"../aws/2-region/kubernetes/camunda-values.yml"}
 
-	filePath := "./resources/aws/2-region/kubernetes/camunda-values.yml"
+	filePath := "../aws/2-region/kubernetes/camunda-values.yml"
 	if failover {
-		filePath = fmt.Sprintf("./resources/aws/2-region/kubernetes/region%d/camunda-values-failover.yml", region)
+		filePath = fmt.Sprintf("../aws/2-region/kubernetes/region%d/camunda-values-failover.yml", region)
 
 		valuesFiles = append(valuesFiles, filePath)
 	} else {
-		valuesFiles = append(valuesFiles, fmt.Sprintf("./resources/aws/2-region/kubernetes/region%d/camunda-values.yml", region))
+		valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/2-region/kubernetes/region%d/camunda-values.yml", region))
 	}
 
 	content, err := os.ReadFile(filePath)
