@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # This script generates the CoreDNS config addition for a dual-region setup.
 # This config addition configures CoreDNS to forward DNS requests for specific
 # namespaces to a remote cluster.

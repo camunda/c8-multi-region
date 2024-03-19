@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 create_namespace() {
     local context=$1
     local namespace=$2

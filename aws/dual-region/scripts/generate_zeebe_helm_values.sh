@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 generate_initial_contact() {
     # Function to generate the initial contact string for Zeebe clusters
     local ns_0=$1
@@ -56,17 +58,17 @@ elastic0=$(generate_exporter_elasticsearch_url "$namespace_0" "$helm_release_nam
 elastic1=$(generate_exporter_elasticsearch_url "$namespace_1" "$helm_release_name")
 
 echo
-echo "Please use the following to set the environment variable ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS in the base Camunda Helm chart values file for Zeebe."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS in the base Camunda Helm chart values file 'camunda-values.yml'. It's part of the 'zeebe.env' path."
 echo
 echo "- name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS"
 echo "  value: $initial_contact"
 echo
-echo "Please use the following to set the environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL in the base Camunda Helm chart values file for Zeebe."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL in the base Camunda Helm chart values file 'camunda-values.yml'. It's part of the 'zeebe.env' path."
 echo
 echo "- name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL"
 echo "  value: $elastic0"
 echo
-echo "Please use the following to set the environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL in the base Camunda Helm chart values file for Zeebe."
+echo "Please use the following to change the existing environment variable ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL in the base Camunda Helm chart values file 'camunda-values.yml'. It's part of the 'zeebe.env' path."
 echo
 echo "- name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL"
 echo "  value: $elastic1"

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 create_namespace() {
     local context=$1
     local namespace=$2
@@ -22,13 +24,13 @@ create_secret() {
         --from-literal=S3_SECRET_KEY="$secret_access_key"
 }
 
-if [ -z "$ACCESS_KEY" ]; then
-    echo "Error: ACCESS_KEY environment variable is not set."
+if [ -z "$AWS_ACCESS_KEY_ES" ]; then
+    echo "Error: AWS_ACCESS_KEY_ES environment variable is not set."
     exit 1
 fi
 
-if [ -z "$SECRET_ACCESS_KEY" ]; then
-    echo "Error: SECRET_ACCESS_KEY environment variable is not set."
+if [ -z "$AWS_SECRET_ACCESS_KEY_ES" ]; then
+    echo "Error: AWS_SECRET_ACCESS_KEY_ES environment variable is not set."
     exit 1
 fi
 
@@ -37,7 +39,7 @@ create_namespace "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0_FAILOVER"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1"
 create_namespace "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1_FAILOVER"
 
-create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "elasticsearch-env-secret" "$ACCESS_KEY" "$SECRET_ACCESS_KEY"
-create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0_FAILOVER" "elasticsearch-env-secret" "$ACCESS_KEY" "$SECRET_ACCESS_KEY"
-create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "elasticsearch-env-secret" "$ACCESS_KEY" "$SECRET_ACCESS_KEY"
-create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1_FAILOVER" "elasticsearch-env-secret" "$ACCESS_KEY" "$SECRET_ACCESS_KEY"
+create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
+create_secret "$CLUSTER_0" "$CAMUNDA_NAMESPACE_0_FAILOVER" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
+create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
+create_secret "$CLUSTER_1" "$CAMUNDA_NAMESPACE_1_FAILOVER" "elasticsearch-env-secret" "$AWS_ACCESS_KEY_ES" "$AWS_SECRET_ACCESS_KEY_ES"
