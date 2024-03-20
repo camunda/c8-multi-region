@@ -224,6 +224,12 @@ func cleanupKubernetes(t *testing.T) {
 	k8s.DeleteNamespace(t, &primary.KubectlFailover, "camunda-primary-failover")
 	k8s.DeleteNamespace(t, &secondary.KubectlFailover, "camunda-secondary-failover")
 
+	k8s.RunKubectl(t, &primary.KubectlSystem, "wait", "--for=delete", "namespace/camunda-primary", "--timeout=300s")
+	k8s.RunKubectl(t, &secondary.KubectlSystem, "wait", "--for=delete", "namespace/camunda-secondary", "--timeout=300s")
+
+	k8s.RunKubectl(t, &primary.KubectlSystem, "wait", "--for=delete", "namespace/camunda-primary-failover", "--timeout=300s")
+	k8s.RunKubectl(t, &secondary.KubectlSystem, "wait", "--for=delete", "namespace/camunda-secondary-failover", "--timeout=300s")
+
 	k8s.RunKubectl(t, &primary.KubectlSystem, "delete", "service", "internal-dns-lb")
 	k8s.RunKubectl(t, &secondary.KubectlSystem, "delete", "service", "internal-dns-lb")
 }
