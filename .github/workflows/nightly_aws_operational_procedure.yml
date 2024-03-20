@@ -68,19 +68,22 @@ jobs:
       run: |
         go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestSetupTerraform
 
-    - name: Operational Procedure Test in 2 Regions - C8.3
-      working-directory: ./test
-      timeout-minutes: 46
-      env:
-        HELM_CHART_VERSION: "8.3.10"
-      run: |
-        go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+    # Disabling 8.3 atm since there's a bug in the helm upgrade ignoring the chart version
+    # - name: Operational Procedure Test in 2 Regions - C8.3
+    #   working-directory: ./test
+    #   timeout-minutes: 46
+    #   env:
+    #     HELM_CHART_VERSION: "8.3.10"
+    #     BACKUP_NAME: nightly-8.3
+    #   run: |
+    #     go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
     - name: Operational Procedure Test in 2 Regions - C8.4
       working-directory: ./test
       timeout-minutes: 46
       env:
         HELM_CHART_VERSION: "9.3.2"
+        BACKUP_NAME: nightly-9.3
       run: |
         go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 

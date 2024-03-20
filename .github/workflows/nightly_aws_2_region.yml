@@ -73,7 +73,6 @@ jobs:
       timeout-minutes: 16
       env:
         HELM_CHART_VERSION: "8.3.10"
-        BACKUP_NAME: nightly-8.3
       run: |
         go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
 
@@ -82,7 +81,6 @@ jobs:
       timeout-minutes: 16
       env:
         HELM_CHART_VERSION: "9.3.2"
-        BACKUP_NAME: nightly-9.3
       run: |
         go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
 
