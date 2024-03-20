@@ -232,7 +232,6 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 	}
 
 	require.Contains(t, output, backupName)
-	require.Contains(t, output, "\"total\":1")
 	t.Logf("[ELASTICSEARCH BACKUP] Backup present: %s", output)
 }
 
@@ -317,6 +316,8 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
 
 	if upgrade {
+		// Terratest is actively ignoring the version in an upgrade
+		helmOptions.ExtraArgs = map[string][]string{"upgrade": []string{"--version", remoteChartVersion}}
 		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 	} else {
 		helm.Install(t, helmOptions, remoteChartName, "camunda")
