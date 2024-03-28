@@ -36,9 +36,6 @@ if [ "$1" == "failover" ]; then
     echo "Failover mode is enabled. The script will generate required values for failover."
     mode="failover"
     target_text="in the failover Camunda Helm chart values file 'camunda-values-failover.yml'"
-elif [ "$1" == "failback" ]; then
-    echo "Failback mode is enabled. The script will generate required values for failover."
-    mode="failback"
 fi
 
 # Taking inputs from the user
