@@ -28,6 +28,7 @@ namespace_0=${CAMUNDA_NAMESPACE_0:-""}
 namespace_0_failover=${CAMUNDA_NAMESPACE_0_FAILOVER:-""}
 namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 namespace_1_failover=${CAMUNDA_NAMESPACE_1_FAILOVER:-""}
+helm_release_name=${HELM_RELEASE_NAME:-""}
 
 mode="normal"
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
@@ -51,11 +52,14 @@ fi
 if [ "$mode" == "failover" ] && [ -z "$namespace_1_failover" ]; then
     read -r -p "Enter the Kubernetes cluster namespace where Camunda 8 should be installed, in region 1 for failover mode: " namespace_1_failover
 fi
+if [ -z "$helm_release_name" ]; then
+    read -r -p "Enter Helm release name used for installing Camunda 8 in both Kubernetes clusters: " helm_release_name
+fi
 
 if [ "$mode" == "failover" ]; then
     read -r -p "Enter the region that was lost, values can either be 0 or 1: " lost_region
 fi
-read -r -p "Enter Helm release name used for installing Camunda 8 in both Kubernetes clusters: " helm_release_name
+
 read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters): " cluster_size
 
 if ((cluster_size % 2 != 0)); then

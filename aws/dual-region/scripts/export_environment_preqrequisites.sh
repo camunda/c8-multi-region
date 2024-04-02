@@ -25,3 +25,7 @@ export CAMUNDA_NAMESPACE_0=camunda-london
 export CAMUNDA_NAMESPACE_0_FAILOVER=camunda-london-failover
 export CAMUNDA_NAMESPACE_1=camunda-paris
 export CAMUNDA_NAMESPACE_1_FAILOVER=camunda-paris-failover
+
+# The Helm release name used for installing Camunda 8 in both Kubernetes clusters
+export HELM_RELEASE_NAME=camunda
+export HELM_CHART_VERSION=9.3.2
