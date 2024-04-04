@@ -43,4 +43,12 @@ zeebe:
       fieldRef:
         fieldPath: metadata.namespace
   - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-    value: "100ms"
+    value: "500ms"
+  - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+    value: "2s"
+  - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
+    value: "10s"
+  - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
+    value: "GZIP"
+  - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
+    value: "1s"
