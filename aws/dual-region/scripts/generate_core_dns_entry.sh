@@ -63,6 +63,11 @@ HOST_1=$(kubectl --context "$CLUSTER_1" -n kube-system get svc internal-dns-lb -
 IPS_0=$(aws ec2 describe-network-interfaces --region "$REGION_0" --filters Name=description,Values="ELB net/${HOST_0}*" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
 IPS_1=$(aws ec2 describe-network-interfaces --region "$REGION_1" --filters Name=description,Values="ELB net/${HOST_1}*" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
 
+if [ -z "$IPS_0" ] || [ -z "$IPS_1" ]; then
+    echo "Could not retrieve the internal load balancer IPs. Please try again, it may take a while for the IPs to be available. Alternatively check that the correct AWS CLI credentials are set."
+    exit 1
+fi
+
 # String sanitization
 # turn tabs into whitespaces
 internal_lb_0=$(echo "$IPS_0" | tr '\t' ' ')

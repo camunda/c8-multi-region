@@ -19,6 +19,7 @@ create_secret() {
     local secret_name=$3
     local access_key=$4
     local secret_access_key=$5
+    kubectl --context "$context" -n "$namespace" delete secret "$secret_name" --ignore-not-found
     kubectl --context "$context" -n "$namespace" create secret generic "$secret_name" \
         --from-literal=S3_ACCESS_KEY="$access_key" \
         --from-literal=S3_SECRET_KEY="$secret_access_key"

@@ -36,7 +36,10 @@ target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
 if [ "$1" == "failover" ]; then
     echo "Failover mode is enabled. The script will generate required values for failover."
     mode="failover"
-    target_text="in the failover Camunda Helm chart values file 'camunda-values-failover.yml'"
+    target_text="in the failover Camunda Helm chart values file '$REGION_SURVIVING/camunda-values-failover.yml' and in the base Camunda Helm chart values file 'camunda-values.yml'"
+elif [ "$1" == "failback" ]; then
+    echo "Failback mode is enabled. The script will generate required values for failback."
+    target_text="in the failover Camunda Helm chart values file '$REGION_SURVIVING/camunda-values-failover.yml' and in the base Camunda Helm chart values file 'camunda-values.yml'"
 fi
 
 # Taking inputs from the user
