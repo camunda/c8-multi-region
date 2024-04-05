@@ -41,21 +41,7 @@ optimize:
   enabled: false
 
 connectors:
-  enabled: true
-  inbound:
-    mode: credentials
-  resources:
-    requests:
-      cpu: "100m"
-      memory: "512M"
-    limits:
-      cpu: "1000m"
-      memory: "2Gi"
-  env:
-  - name: CAMUNDA_OPERATE_CLIENT_USERNAME
-    value: demo
-  - name: CAMUNDA_OPERATE_CLIENT_PASSWORD
-    value: demo
+  enabled: false
 
 zeebe:
   clusterSize: 8
@@ -88,7 +74,15 @@ zeebe:
       fieldRef:
         fieldPath: metadata.namespace
   - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-    value: "100ms"
+    value: "500ms"
+  - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+    value: "2s"
+  - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
+    value: "10s"
+  - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
+    value: "GZIP"
+  - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
+    value: "1s"
   pvcSize: 1Gi
 
   resources:
@@ -103,8 +97,12 @@ zeebe-gateway:
   replicas: 1
 
   env:
+  - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+    value: "GZIP"
   - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-    value: "100ms"
+    value: "500ms"
+  - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+    value: "2s"
 
   resources:
     requests:

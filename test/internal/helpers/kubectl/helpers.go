@@ -249,7 +249,7 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource string, region int, secrets, upgrade, failover, esSwitch bool, setValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
 	zeebeContactPoints := ""
 
 	for i := 0; i < 4; i++ {
@@ -298,12 +298,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	if err != nil {
 		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
 		return
-	}
-
-	// Get Secrets required for some upgrades
-	if secrets && upgrade {
-		secretConnectors := k8s.GetSecret(t, kubectlOptions, "camunda-connectors-auth-credentials")
-		setValues["connectors.inbound.auth.existingSecret"] = string(secretConnectors.Data["connectors-secret"])
 	}
 
 	helmOptions := &helm.Options{
