@@ -86,6 +86,26 @@ jobs:
       run: |
         go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
 
+    - name: Operational Procedure Test in 2 Regions - C8.5
+      working-directory: ./test
+      timeout-minutes: 46
+      env:
+        HELM_CHART_VERSION: "9.3.2"
+        BACKUP_NAME: nightly-8.5
+        GLOBAL_IMAGE_TAG: 8.5.0
+      run: |
+        go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+
+    - name: Operational Procedure Test in 2 Regions - SNAPSHOT
+      working-directory: ./test
+      timeout-minutes: 46
+      env:
+        HELM_CHART_VERSION: "9.3.2"
+        BACKUP_NAME: nightly-SNAPSHOT
+        GLOBAL_IMAGE_TAG: SNAPSHOT
+      run: |
+        go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
+
     - name: Terratest Terraform Teardown
       if: always()
       working-directory: ./test
