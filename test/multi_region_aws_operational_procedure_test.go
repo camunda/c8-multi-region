@@ -27,12 +27,15 @@ const (
 )
 
 var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.10")
+var globalImageTag = helpers.GetEnv("GLOBAL_IMAGE_TAG", "") // allows overwriting the image tag via GHA of every Camunda image
 var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
 var backupName = helpers.GetEnv("BACKUP_NAME", "nightly")   // allows supplying random backup name via GHA
 var awsProfile = helpers.GetEnv("AWS_PROFILE", "infex")
 
 var primary helpers.Cluster
 var secondary helpers.Cluster
+
+var baseHelmVars = map[string]string{}
 
 // Terraform Cluster Setup and TearDown
 
@@ -50,6 +53,11 @@ func TestTeardownTerraform(t *testing.T) {
 
 func TestAWSOperationalProcedure(t *testing.T) {
 	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		baseHelmVars["global.image.tag"] = globalImageTag
+	}
 
 	// For CI run it separately
 	// go test --count=1 -v -timeout 120m ./multi_region_aws_operational_procedure_test.go -run TestSetupTerraform
@@ -163,10 +171,9 @@ func deployC8Helm(t *testing.T) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, false, false, false, baseHelmVars)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, false, false, false, map[string]string{})
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, false, false, false, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, false, false, false, baseHelmVars)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -319,7 +326,7 @@ func deleteSecondaryRegion(t *testing.T) {
 func createFailoverDeploymentPrimary(t *testing.T) {
 	t.Log("[FAILOVER] Creating failover deployment 🚀")
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, 0, false, true, false, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, 0, false, true, false, baseHelmVars)
 
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 20, 15*time.Second)
 
@@ -334,7 +341,7 @@ func createFailoverDeploymentPrimary(t *testing.T) {
 func pointPrimaryZeebeToFailver(t *testing.T) {
 	t.Log("[FAILOVER] Pointing primary Zeebe to failover Elastic 🚀")
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, false, true, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, false, true, baseHelmVars)
 
 	// Give it a short time start doing the rollout, otherwise it will send data to the recreated elasticsearch
 	time.Sleep(15 * time.Second)
@@ -356,7 +363,7 @@ func recreateCamundaInSecondary(t *testing.T) {
 		"tasklist.enabled":                    "false",
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, false, false, true, setValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, false, false, true, helpers.CombineMaps(baseHelmVars, setValues))
 
 	// expected that only 1 and 3 comes on
 	// 0 and 4 should be in not ready state
@@ -443,7 +450,7 @@ func installWebAppsSecondary(t *testing.T) {
 		"global.multiregion.installationType": "failBack",
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, setValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
@@ -457,7 +464,7 @@ func pointC8BackToElastic(t *testing.T) {
 	}
 
 	// primary region pointing back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, false, false, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, false, false, baseHelmVars)
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "deployment", "camunda-operate", "--replicas=0")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "deployment", "camunda-tasklist", "--replicas=0")
@@ -473,7 +480,7 @@ func pointC8BackToElastic(t *testing.T) {
 	require.True(t, kubectlHelpers.StatefulSetContains(t, &primary.KubectlNamespace, "camunda-zeebe", "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200"))
 
 	// failover pointing back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, true, true, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, 0, true, true, true, baseHelmVars)
 
 	k8s.WaitUntilPodAvailable(t, &primary.KubectlFailover, "camunda-zeebe-1", 20, 15*time.Second)
 	k8s.WaitUntilPodAvailable(t, &primary.KubectlFailover, "camunda-zeebe-0", 20, 15*time.Second)
@@ -481,7 +488,7 @@ func pointC8BackToElastic(t *testing.T) {
 	require.True(t, kubectlHelpers.StatefulSetContains(t, &primary.KubectlFailover, "camunda-zeebe", "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200"))
 
 	// secondary pointint back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, setValuesSecondary)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValuesSecondary))
 
 	// 2 pods are sleeping indefinitely and block rollout
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pod", "camunda-zeebe-0", "camunda-zeebe-1", "camunda-zeebe-2", "camunda-zeebe-3")
@@ -502,7 +509,7 @@ func removeFailOverRegion(t *testing.T) {
 func removeFailBackSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Removing failback flag 🚀")
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, map[string]string{})
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, 1, true, false, false, baseHelmVars)
 
 	// 2 pods are sleeping indefinitely and block rollout
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pod", "camunda-zeebe-0", "camunda-zeebe-1", "camunda-zeebe-2", "camunda-zeebe-3")

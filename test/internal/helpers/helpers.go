@@ -75,3 +75,22 @@ func FetchSensitiveTerraformOutput(t *testing.T, options *terraform.Options, nam
 	options.Logger = logger.Discard
 	return terraform.Output(t, options, name)
 }
+
+// Combine two maps into a single map of string key-value pairs
+func CombineMaps(map1, map2 map[string]string) map[string]string {
+	// Create a new map to hold the combined result
+	combined := make(map[string]string)
+
+	// Copy all key-value pairs from map1 to combined map
+	for key, value := range map1 {
+		combined[key] = value
+	}
+
+	// Iterate through map2 and insert key-value pairs into combined map
+	for key, value := range map2 {
+		// If the key already exists in map1, overwrite the value of the existing key
+		combined[key] = value
+	}
+
+	return combined
+}
