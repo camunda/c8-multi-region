@@ -9,7 +9,7 @@ helm 3.14.3
 
 kubectl 1.29.3
 
-pre-commit 3.6.2
+pre-commit 3.7.0
 
 shellcheck 0.10.0
 
