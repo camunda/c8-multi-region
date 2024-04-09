@@ -72,7 +72,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 16
       env:
-        HELM_CHART_VERSION: "8.3.10"
+        HELM_CHART_VERSION: "8.3.11"
       run: |
         go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
 
@@ -80,7 +80,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 16
       env:
-        HELM_CHART_VERSION: "9.3.2"
+        HELM_CHART_VERSION: "9.3.3"
       run: |
         go test --count=1 -v -timeout 15m ./multi_region_aws_test.go -run Test2RegionAWSEKS
 
