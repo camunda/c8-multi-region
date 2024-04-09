@@ -1,0 +1,46 @@
+---
+name: Setup AWS
+description: |
+  Step wrapper to setup AWS credentials and region.
+inputs:
+  secrets:
+    description: JSON wrapped secrets for easier secret passing
+    required: true
+
+runs:
+  using: composite
+  steps:
+  ############# Tool Installations #############
+  - name: gather asdf versions
+    uses: endorama/asdf-parse-tool-versions@v1.3.0
+    id: versions
+  - name: Set up Go environment
+    uses: actions/setup-go@v5
+    with:
+      go-version: ${{ env.GOLANG_VERSION }}
+      cache-dependency-path: "**/go.sum"
+  - name: Set up Terraform
+    uses: hashicorp/setup-terraform@v3
+    with:
+      terraform_version: ${{ env.TERRAFORM_VERSION }}
+  ################## Secrets ###################
+  - name: Import Secrets
+    id: secrets
+    uses: hashicorp/vault-action@v3
+    with:
+      url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
+      method: approle
+      roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
+      secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
+      exportEnv: false
+      secrets: |
+        secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+        secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+  ################ AWS Config ##################
+  # Official action does not support profiles
+  - name: Add profile credentials to ~/.aws/credentials
+    shell: bash
+    run: |
+        aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+        aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+        aws configure set region eu-west-2 --profile ${{ env.AWS_PROFILE }}

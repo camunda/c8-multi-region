@@ -142,7 +142,7 @@ func GetPrivateIPsForInternalLB(region, description string) []string {
 	return privateIPs
 }
 
-func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests string) {
+func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
 
 	t.Logf("[DNS CHAINING] applying from source %s to configure target %s", source.ClusterName, target.ClusterName)
 
@@ -179,28 +179,27 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests stri
 	// Convert byte slice to string
 	fileContent := string(content)
 
+	// Get all namespaces
+
+	arr := strings.Split(namespaces+","+namespacesFailover, ",")
+
 	// Define the template and replacement string
 	template := "PLACEHOLDER"
-	replacement := fmt.Sprintf(`
-    %s.svc.cluster.local:53 {
-        errors
-        cache 30
-        forward . %s {
-            force_tcp
-        }
-    }
-    %s-failover.svc.cluster.local:53 {
-        errors
-        cache 30
-        forward . %s {
-            force_tcp
-        }
-    }`,
-		source.KubectlNamespace.Namespace,
-		strings.Join(privateIPs, " "),
-		source.KubectlNamespace.Namespace,
-		strings.Join(privateIPs, " "),
-	)
+	replacement := ""
+
+	for _, ns := range arr {
+		replacement += fmt.Sprintf(`
+        %s.svc.cluster.local:53 {
+            errors
+            cache 30
+            forward . %s {
+                force_tcp
+            }
+        }`,
+			ns,
+			strings.Join(privateIPs, " "),
+		)
+	}
 
 	// Replace the template with the replacement string
 	modifiedContent := strings.Replace(fileContent, template, replacement, -1)
@@ -239,9 +238,10 @@ func ClusterReadyCheck(t *testing.T, primary, secondary helpers.Cluster) {
 	require.Equal(t, "ACTIVE", nodeGroupStatusSecondary)
 }
 
-func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile string) {
+func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfBinary string) {
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformDir: terraformDir,
+		TerraformBinary: tfBinary,
+		TerraformDir:    terraformDir,
 		Vars: map[string]interface{}{
 			"cluster_name": clusterName,
 			"aws_profile":  awsProfile,
@@ -250,10 +250,12 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile stri
 	})
 
 	terraform.InitAndApply(t, terraformOptions)
+}
 
+func GenerateAWSKubeConfig(t *testing.T, clusterName, awsProfile, awsRegion, regionName string) {
 	t.Log("[TF SETUP] Generating kubeconfig files 📜")
 
-	cmd := exec.Command("aws", "eks", "--region", "eu-west-3", "update-kubeconfig", "--name", fmt.Sprintf("%s-paris", clusterName), "--profile", awsProfile, "--kubeconfig", "kubeconfig-paris")
+	cmd := exec.Command("aws", "eks", "--region", awsRegion, "update-kubeconfig", "--name", fmt.Sprintf("%s-%s", clusterName, regionName), "--profile", awsProfile, "--kubeconfig", fmt.Sprintf("kubeconfig-%s", regionName))
 
 	_, err := cmd.Output()
 	if err != nil {
@@ -261,28 +263,21 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile stri
 		return
 	}
 
-	require.FileExists(t, "kubeconfig-paris", "kubeconfig-paris file does not exist")
-
-	cmd2 := exec.Command("aws", "eks", "--region", "eu-west-2", "update-kubeconfig", "--name", fmt.Sprintf("%s-london", clusterName), "--profile", awsProfile, "--kubeconfig", "kubeconfig-london")
-
-	_, err2 := cmd2.Output()
-	if err2 != nil {
-		t.Fatalf("[TF SETUP] could not run command: %v", err2)
-		return
-	}
-
-	require.FileExists(t, "kubeconfig-london", "kubeconfig-london file does not exist")
+	require.FileExists(t, fmt.Sprintf("kubeconfig-%s", regionName), fmt.Sprintf("kubeconfig-%s file does not exist", regionName))
 }
 
-func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile string) {
+func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfBinary string) {
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
-		TerraformDir: terraformDir,
+		TerraformBinary: tfBinary,
+		TerraformDir:    terraformDir,
 		Vars: map[string]interface{}{
 			"cluster_name": clusterName,
 			"aws_profile":  awsProfile,
 		},
 		NoColor: true,
 	})
+
+	terraform.Init(t, terraformOptions)
 	terraform.Destroy(t, terraformOptions)
 
 	os.Remove("kubeconfig-paris")
