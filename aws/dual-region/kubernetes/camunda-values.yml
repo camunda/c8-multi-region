@@ -107,11 +107,6 @@ zeebe-gateway:
     value: "500ms"
   - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
     value: "2s"
-  # Temporary Helm chart v10 fix
-  - name: ZEEBE_GATEWAY_NETWORK_HOST
-    value: 0.0.0.0
-  - name: ZEEBE_GATEWAY_NETWORK_PORT
-    value: "26500"
 
   resources:
     requests:

@@ -90,7 +90,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 46
       env:
-        HELM_CHART_VERSION: "10.0.1"
+        HELM_CHART_VERSION: "10.0.2"
         BACKUP_NAME: nightly-8.5
       run: |
         go test --count=1 -v -timeout 45m ./multi_region_aws_operational_procedure_test.go -run TestAWSOperationalProcedure
@@ -99,7 +99,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 46
       env:
-        HELM_CHART_VERSION: "10.0.1"
+        HELM_CHART_VERSION: "10.0.2"
         BACKUP_NAME: nightly-SNAPSHOT
         GLOBAL_IMAGE_TAG: SNAPSHOT
       run: |
