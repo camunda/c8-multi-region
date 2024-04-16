@@ -12,6 +12,8 @@ if [ ! -f "$1" ]; then
     exit 1
 fi
 
+# For new versions bump -A argument by 1
+# It greps the c8-version and the next x lines
 versions=$(grep 'c8-version:' -A 5 "$1" | awk '/c8-version:/ {flag=1; next} flag {print $2}')
 
 variables=("CLUSTER_0_NAMESPACE" "CLUSTER_1_NAMESPACE" "CLUSTER_0_NAMESPACE_FAILOVER" "CLUSTER_1_NAMESPACE_FAILOVER")

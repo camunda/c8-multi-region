@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# This file is used to configure the remote backend for Terraform
+# We keep local backend to align with the docs and for easy try out
+# This script will replace the local backend with the S3 backend
+# lastly export a variable to be used by Terraform to confgire the remote backend
+
 # Check if a file path is provided as an argument
 if [ $# -eq 0 ]; then
     echo "Usage: $0 <file>"
