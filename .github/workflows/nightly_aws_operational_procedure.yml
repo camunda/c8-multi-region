@@ -178,16 +178,40 @@ jobs:
       timeout-minutes: 21
       run: |
         go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
+    - name: Set start timestamp for Failover
+      id: failover-start
+      run: |
+        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
     - name: Failover - ${{ matrix.c8-version }}
       working-directory: ./test
       timeout-minutes: 21
       run: |
         go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover
+    - name: Calculate Failover duration
+      run: |
+        printf -v now '%(%s)T'
+        duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+        echo $duration
+        if [ "$duration" -gt "900" ]; then
+          echo "::error ::Failover of ${{ matrix.c8-version }} is taking longer than 15 minutes"
+        fi
+    - name: Set start timestamp for Failover
+      id: failback-start
+      run: |
+        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
     - name: Failback - ${{ matrix.c8-version }}
       working-directory: ./test
       timeout-minutes: 46
       run: |
         go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback
+    - name: Calculate Failover duration
+      run: |
+        printf -v now '%(%s)T'
+        duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+        echo $duration
+        if [ "$duration" -gt "1500" ]; then
+          echo "::error ::Failback of ${{ matrix.c8-version }} is taking longer than 25 minutes"
+        fi
     - name: Cleanup - ${{ matrix.c8-version }}
       working-directory: ./test
       if: always()
