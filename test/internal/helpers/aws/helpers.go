@@ -224,18 +224,14 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 
 }
 
-func ClusterReadyCheck(t *testing.T, primary, secondary helpers.Cluster) {
-	clusterStatusPrimary := WaitForCluster(primary.Region, primary.ClusterName)
-	clusterStatusSecondary := WaitForCluster(secondary.Region, secondary.ClusterName)
+func ClusterReadyCheck(t *testing.T, cluster helpers.Cluster) {
+	clusterStatus := WaitForCluster(cluster.Region, cluster.ClusterName)
 
-	require.Equal(t, "ACTIVE", clusterStatusPrimary)
-	require.Equal(t, "ACTIVE", clusterStatusSecondary)
+	require.Equal(t, "ACTIVE", clusterStatus)
 
-	nodeGroupStatusPrimary := WaitForNodeGroup(primary.Region, primary.ClusterName, "services")
-	nodeGroupStatusSecondary := WaitForNodeGroup(secondary.Region, secondary.ClusterName, "services")
+	nodeGroupStatus := WaitForNodeGroup(cluster.Region, cluster.ClusterName, "services")
 
-	require.Equal(t, "ACTIVE", nodeGroupStatusPrimary)
-	require.Equal(t, "ACTIVE", nodeGroupStatusSecondary)
+	require.Equal(t, "ACTIVE", nodeGroupStatus)
 }
 
 func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfBinary string) {
@@ -279,10 +275,9 @@ func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile, 
 
 	terraform.Init(t, terraformOptions)
 	terraform.Destroy(t, terraformOptions)
+}
 
-	os.Remove("kubeconfig-paris")
-	os.Remove("kubeconfig-london")
-
-	require.NoFileExists(t, "kubeconfig-paris", "kubeconfig-paris file still exists")
-	require.NoFileExists(t, "kubeconfig-london", "kubeconfig-london file still exists")
+func TestRemoveKubeConfig(t *testing.T, regionName string) {
+	os.Remove(fmt.Sprintf("kubeconfig-%s", regionName))
+	require.NoFileExists(t, fmt.Sprintf("kubeconfig-%s", regionName), fmt.Sprintf("kubeconfig-%s file still exists", regionName))
 }

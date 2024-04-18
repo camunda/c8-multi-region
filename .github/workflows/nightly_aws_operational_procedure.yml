@@ -19,7 +19,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -52,7 +52,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -104,6 +104,12 @@ jobs:
         CLUSTER_1_NAMESPACE_FAILOVER: "snapshot-cluster-1-failover"
       run: |
         go test --count=1 -v -timeout 44m -run TestAWSDNSChaining
+    - name: KubeConfig Removal
+      working-directory: ./test
+      if: always()
+      timeout-minutes: 5
+      run: |
+        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
     - name: Remove profile credentials from ~/.aws/credentials
       if: always()
       run: |
@@ -127,7 +133,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -149,9 +155,10 @@ jobs:
         version_with_hyphens="${version//./-}"
 
         if [ "$version" == "SNAPSHOT" ]; then
+          LATEST_HELM_CHART=$(curl -s https://api.github.com/repos/camunda/camunda-platform-helm/releases/latest | jq -r '.tag_name' | sed 's/camunda-platform-//')
           {
             echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-            echo "HELM_CHART_VERSION=10.0.2"
+            echo "HELM_CHART_VERSION=$LATEST_HELM_CHART"
             version_with_hyphens="snapshot"
           } >> "$GITHUB_ENV"
         else
@@ -187,6 +194,12 @@ jobs:
       timeout-minutes: 16
       run: |
         go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+    - name: KubeConfig Removal
+      working-directory: ./test
+      if: always()
+      timeout-minutes: 5
+      run: |
+        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
     - name: Remove profile credentials from ~/.aws/credentials
       if: always()
       run: |
@@ -202,7 +215,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -233,6 +246,12 @@ jobs:
       timeout-minutes: 46
       run: |
         go test --count=1 -v -timeout 45m -run TestTeardownTerraform
+    - name: KubeConfig Removal
+      working-directory: ./test
+      if: always()
+      timeout-minutes: 5
+      run: |
+        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
     - name: Cleanup S3 state bucket
       if: always()
       run: |

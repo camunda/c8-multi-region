@@ -13,6 +13,7 @@ It's setting up the AWS CLI, pull the required secrets, and minium tooling for G
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
 | secrets | JSON wrapped secrets for easier secret passing | true |         |
+| region | Region to use for the AWS Profile | false | eu-west-2 |
 
 ## Example of using the action
 

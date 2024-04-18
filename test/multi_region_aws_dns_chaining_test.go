@@ -10,10 +10,12 @@ import (
 
 // Used for creating the global core dns configmap for all versions
 // each is a comma separated string "namespace1,namespace2" value originates from "c8_namespace_parser.sh"
-var primaryNamespaceArr = helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", "")
-var primaryNamespaceFailoverArr = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER_ARR", "")
-var secondaryNamespaceArr = helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", "")
-var secondaryNamespaceFailoverArr = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER_ARR", "")
+var (
+	primaryNamespaceArr           = helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", "")
+	primaryNamespaceFailoverArr   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER_ARR", "")
+	secondaryNamespaceArr         = helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", "")
+	secondaryNamespaceFailoverArr = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER_ARR", "")
+)
 
 func TestAWSDNSChaining(t *testing.T) {
 	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
@@ -51,7 +53,8 @@ func TestClusterPrerequisites(t *testing.T) {
 
 func clusterReadyCheck(t *testing.T) {
 	t.Log("[CLUSTER CHECK] Checking if clusters are ready 🚦")
-	awsHelpers.ClusterReadyCheck(t, primary, secondary)
+	awsHelpers.ClusterReadyCheck(t, primary)
+	awsHelpers.ClusterReadyCheck(t, secondary)
 }
 
 func testCrossClusterCommunication(t *testing.T) {

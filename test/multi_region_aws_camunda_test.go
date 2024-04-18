@@ -25,22 +25,24 @@ const (
 	k8sManifests        = "../aws/dual-region/kubernetes"
 )
 
-var remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.11")
-var globalImageTag = helpers.GetEnv("GLOBAL_IMAGE_TAG", "") // allows overwriting the image tag via GHA of every Camunda image
-var clusterName = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
-var backupName = helpers.GetEnv("BACKUP_NAME", "nightly")   // allows supplying random backup name via GHA
-var awsProfile = helpers.GetEnv("AWS_PROFILE", "infex")
+var (
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.11")
+	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")    // allows overwriting the image tag via GHA of every Camunda image
+	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
+	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")  // allows supplying random backup name via GHA
+	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infex")
 
-var primary helpers.Cluster
-var secondary helpers.Cluster
+	primary   helpers.Cluster
+	secondary helpers.Cluster
 
-// Allows setting namespaces via GHA
-var primaryNamespace = helpers.GetEnv("CLUSTER_0_NAMESPACE", "camunda-primary")
-var primaryNamespaceFailover = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER", "camunda-primary-failover")
-var secondaryNamespace = helpers.GetEnv("CLUSTER_1_NAMESPACE", "camunda-secondary")
-var secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "camunda-secondary-failover")
+	// Allows setting namespaces via GHA
+	primaryNamespace           = helpers.GetEnv("CLUSTER_0_NAMESPACE", "camunda-primary")
+	primaryNamespaceFailover   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER", "camunda-primary-failover")
+	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "camunda-secondary")
+	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "camunda-secondary-failover")
 
-var baseHelmVars = map[string]string{}
+	baseHelmVars = map[string]string{}
+)
 
 // AWS EKS Multi-Region Tests
 

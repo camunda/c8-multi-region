@@ -29,6 +29,12 @@ func TestTeardownTerraform(t *testing.T) {
 	awsHelpers.TestTeardownTerraform(t, terraformDir, clusterName, awsProfile, tfBinary)
 }
 
+func TestAWSKubeConfigRemoval(t *testing.T) {
+	t.Log("[KUBECONFIG] Removing kubeconfig files 🗑️")
+	awsHelpers.TestRemoveKubeConfig(t, "london")
+	awsHelpers.TestRemoveKubeConfig(t, "paris")
+}
+
 func TestClusterCleanup(t *testing.T) {
 	t.Log("[CLEANUP] Cleaning up resources 🧹")
 
@@ -46,6 +52,6 @@ func TestClusterCleanup(t *testing.T) {
 func cleanupKubernetes(t *testing.T) {
 	t.Log("[K8S CLEANUP] Cleaning up Kubernetes resources 🧹")
 
-	k8s.RunKubectl(t, &primary.KubectlSystem, "delete", "service", "internal-dns-lb")
-	k8s.RunKubectl(t, &secondary.KubectlSystem, "delete", "service", "internal-dns-lb")
+	k8s.RunKubectl(t, &primary.KubectlSystem, "delete", "--ignore-not-found=true", "service", "internal-dns-lb")
+	k8s.RunKubectl(t, &secondary.KubectlSystem, "delete", "--ignore-not-found=true", "service", "internal-dns-lb")
 }
