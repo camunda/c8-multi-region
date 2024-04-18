@@ -46,8 +46,8 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 
 		// wrapped in a for loop since the reload of CoreDNS needs a bit of time to be propagated
 		for i := 0; i < 6; i++ {
-			outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", "sample-nginx.sample-nginx-peer.camunda-secondary.svc.cluster.local")
-			outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", "sample-nginx.sample-nginx-peer.camunda-primary.svc.cluster.local")
+			outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", secondary.KubectlNamespace.Namespace))
+			outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", primary.KubectlNamespace.Namespace))
 			if errPrimary != nil || errSecondary != nil {
 				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errPrimary)
 				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errSecondary)
@@ -249,16 +249,22 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
+func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 string) string {
 	zeebeContactPoints := ""
 
-	for i := 0; i < 4; i++ {
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.camunda-primary.svc.cluster.local:26502,", strconv.Itoa((i)))
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.camunda-secondary.svc.cluster.local:26502,", strconv.Itoa((i)))
+	for i := 0; i < size; i++ {
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
 	}
 
 	// Cut the last character "," from the string
 	zeebeContactPoints = zeebeContactPoints[:len(zeebeContactPoints)-1]
+
+	return zeebeContactPoints
+}
+
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
+	zeebeContactPoints := createZeebeContactPoints(t, 4, namespace0, namespace1)
 
 	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
 
@@ -286,11 +292,19 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Replace the template with the replacement string
 	modifiedContent := strings.Replace(fileContent, template, zeebeContactPoints, -1)
 
+	// Replace Elasticsearch endpoints with namespace specific ones
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0), -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
+
+	if failover {
+		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
+	}
+
 	if esSwitch && !failover {
-		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", -1)
+		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
 	}
 	if esSwitch && failover {
-		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", -1)
+		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
 	}
 
 	// Write the modified content back to the file
@@ -370,7 +384,7 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 	return helpers.CutOutString(output, "ZEEBE_BROKER_CLUSTER_NODEID=[0-9]")
 }
 
-func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster) {
+func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
@@ -403,9 +417,9 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster) {
 
 	t.Log("[C8 CHECK] Cluster status:")
 	for _, broker := range topology.Brokers {
-		if strings.Contains(broker.Host, "camunda-primary") {
+		if strings.Contains(broker.Host, namespace0) {
 			primaryCount++
-		} else if strings.Contains(broker.Host, "camunda-secondary") {
+		} else if strings.Contains(broker.Host, namespace1) {
 			secondaryCount++
 		}
 		t.Logf("[C8 CHECK] Broker ID: %d, Address: %s, Partitions: %v\n", broker.NodeId, broker.Host, broker.Partitions)
@@ -460,4 +474,26 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	// check that was exported to ElasticSearch and available via Operate
 	CheckOperateForProcesses(t, primary)
 	CheckOperateForProcesses(t, secondary)
+}
+
+func CreateAllNamespaces(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
+	// Get all namespaces
+	arr := strings.Split(namespaces+","+namespacesFailover, ",")
+
+	for _, ns := range arr {
+		k8s.CreateNamespace(t, &source.KubectlNamespace, ns)
+	}
+}
+
+func CreateAllRequiredSecrets(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
+	t.Log("[ELASTICSEARCH] Creating AWS Secret for Elasticsearch 🚀")
+
+	S3AWSAccessKey := helpers.GetEnv("S3_AWS_ACCESS_KEY", "")
+	S3AWSSecretAccessKey := helpers.GetEnv("S3_AWS_SECRET_KEY", "")
+
+	arr := strings.Split(namespaces+","+namespacesFailover, ",")
+
+	for _, ns := range arr {
+		RunSensitiveKubectlCommand(t, &source.KubectlNamespace, "create", "--namespace", ns, "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
+	}
 }
