@@ -27,7 +27,7 @@ const (
 
 var (
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "8.3.11")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "10.0.2")
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")    // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
 	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")  // allows supplying random backup name via GHA
