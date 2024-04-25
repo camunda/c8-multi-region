@@ -125,8 +125,11 @@ jobs:
       fail-fast: false
       matrix:
         c8-version:
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 8.3.11
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 9.3.3
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 10.0.2
         - SNAPSHOT
 
