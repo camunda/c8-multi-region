@@ -151,7 +151,7 @@
         "\.sh",
         ],
       matchStrings: [
-        "datasource=(?<datasource>.*?) depName=(?<depName>.*?) registryUrl=(?<registryUrl>.*?)( versioning=(?<versioning>.*?))?\\s.*?(- |=)(?<currentValue>.*)",
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?(- |=|: )(?<currentValue>.*)",
       ],
       versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
     },
