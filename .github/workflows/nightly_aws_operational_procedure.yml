@@ -162,6 +162,55 @@ jobs:
       timeout-minutes: 5
       run: |
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+    ########### Snapshot adjustments ##############
+    - name: Pull required secrets
+      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
+      id: secrets
+      uses: hashicorp/vault-action@d1720f055e0635fd932a1d2a48f87a666a57906c  # v3
+      with:
+        url: ${{ secrets.VAULT_ADDR }}
+        method: approle
+        roleId: ${{ secrets.VAULT_ROLE_ID }}
+        secretId: ${{ secrets.VAULT_SECRET_ID }}
+        exportEnv: false
+        secrets: |
+          secret/data/products/infrastructure-experience/ci/common GITHUB_APP_ID;
+          secret/data/products/infrastructure-experience/ci/common GITHUB_APP_PRIVATE_KEY;
+    - name: Create temporary GitHub App token
+      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
+      uses: actions/create-github-app-token@7bfa3a4717ef143a604ee0a99d859b8886a96d00  # v1
+      id: app-token
+      with:
+        app-id: ${{ steps.secrets.outputs.GITHUB_APP_ID }}
+        private-key: ${{ steps.secrets.outputs.GITHUB_APP_PRIVATE_KEY }}
+    - name: Login to GitHub Container Registry
+      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
+      run: |
+        echo ${{ steps.app-token.outputs.token }} | helm registry login ghcr.io -u ${{ steps.secrets.outputs.GITHUB_APP_ID }} --password-stdin
+    - name: Check snapshot chart age
+      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
+      run: |
+        snapshot_age=$(helm show chart oci://ghcr.io/camunda/helm/camunda-platform --version 0.0.0-main-snapshot --debug > /dev/null 2>&1 \
+          | grep -o 'response\.header\.last-modified="[^"]*' \
+          | tail -1)
+        snapshot_age=${snapshot_age#response.header.last-modified=\"}
+
+        # Convert given date to UNIX timestamp
+        given_timestamp=$(date -d "$snapshot_age" +%s)
+        current_timestamp=$(date +%s)
+        difference=$((current_timestamp - given_timestamp))
+
+        # Check if the difference is greater than 72 hours - 3 days (259200 seconds)
+        if [ $difference -gt 259200 ]; then
+          echo "::error ::SNAPSHOT Chart is older than 3 days"
+        fi
+
+        # If the SNAPSHOT is older than 7 days, fail the job
+        if [ $difference -gt 604800 ]; then
+          echo "::error ::SNAPSHOT Chart is older than 7 days"
+          exit 1
+        fi
+
     #### Export required environment variables ####
     - name: Export C8 namespaces and versions
       run: |
@@ -169,10 +218,10 @@ jobs:
         version_with_hyphens="${version//./-}"
 
         if [ "$version" == "SNAPSHOT" ]; then
-          LATEST_HELM_CHART=$(curl -s https://api.github.com/repos/camunda/camunda-platform-helm/releases/latest | jq -r '.tag_name' | sed 's/camunda-platform-//')
           {
             echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-            echo "HELM_CHART_VERSION=$LATEST_HELM_CHART"
+            echo "HELM_CHART_VERSION=0.0.0-main-snapshot"
+            echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
             version_with_hyphens="snapshot"
           } >> "$GITHUB_ENV"
         else
