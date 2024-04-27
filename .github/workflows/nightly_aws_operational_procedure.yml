@@ -19,7 +19,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -52,7 +52,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -133,7 +133,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
@@ -239,7 +239,7 @@ jobs:
     steps:
     ################## Checkout ##################
     - name: Checkout repository
-      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4
+      uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4
     ############# Tool Installation ##############
     - name: Setup AWS and Tools
       uses: ./.github/actions/setup-aws
