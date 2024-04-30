@@ -5,6 +5,17 @@ on:
   schedule:
   - cron: '0 2 * * 1-5'
   workflow_dispatch:
+  pull_request:
+    # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+    paths:
+    - '.github/workflows/nightly_aws_operational_procedure.yml'
+    - 'aws/dual-region/kubernetes/**'
+    - 'aws/dual-region/terraform/**'
+    - 'test/**'
+
+# limit to a single execution per actor of this workflow
+concurrency:
+  group: "${{ github.workflow }}-${{ github.actor }}"
 
 env:
   AWS_PROFILE: infex
@@ -125,8 +136,11 @@ jobs:
       fail-fast: false
       matrix:
         c8-version:
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 8.3.11
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 9.3.3
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 10.0.2
         - SNAPSHOT
 

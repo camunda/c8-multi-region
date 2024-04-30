@@ -34,6 +34,16 @@
     enabled: true
   },
   packageRules: [
+    {
+      matchPackageNames: ["camunda-platform"],
+      addLabels: ["group:camunda-platform"],
+      groupName: "Camunda Platform",
+    },
+    {
+      matchDatasources: ["go"],
+      addLabels: ["group:go"],
+      groupName: "Go",
+    },
     // limit the PR creation for the Renovate pre-commit hook (it's released very frequently)
     {
       matchPackageNames: ["renovatebot/pre-commit-hooks"],
@@ -131,6 +141,36 @@
         "rhysd/actionlint",
       ],
       extractVersion: "^v(?<version>.*)$",
+    },
+  ],
+  customManagers: [
+    {
+      customType: "regex",
+      fileMatch: [
+        "\.yml",
+        "\.sh",
+        ],
+      matchStrings: [
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?)( registryUrl=(?<registryUrl>.*?))?( versioning=(?<versioning>.*?))?\\s.*?(- |=|: )(?<currentValue>.*)",
+      ],
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    // Separating Go due to capturing different value with the above statement
+    {
+      customType: "regex",
+      fileMatch: ["\.go"],
+      matchStrings: [
+        "datasource=(?<datasource>.*?) depName=(?<depName>.*?) registryUrl=(?<registryUrl>.*?)( versioning=(?<versioning>.*?))?\\s.*? \"(?<currentValue>.*)\"",
+      ],
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+    },
+    {
+      fileMatch: ["\.tool-versions$"],
+      customType: "regex",
+      matchStrings: [
+        "renovate: datasource=(?<datasource>.*?) depName=(?<depName>.*?)( versioning=(?<versioning>.*?))?( extractVersion=(?<extractVersion>.*?))?\\s.*? (?<currentValue>.*)\\s"
+      ],
+      versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}",
     },
   ],
 }

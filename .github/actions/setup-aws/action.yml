@@ -15,18 +15,15 @@ runs:
   using: composite
   steps:
   ############# Tool Installations #############
-  - name: gather asdf versions
-    uses: endorama/asdf-parse-tool-versions@v1.3.0
-    id: versions
-  - name: Set up Go environment
-    uses: actions/setup-go@v5
-    with:
-      go-version: ${{ env.GOLANG_VERSION }}
-      cache-dependency-path: "**/go.sum"
-  - name: Set up Terraform
-    uses: hashicorp/setup-terraform@v3
-    with:
-      terraform_version: ${{ env.TERRAFORM_VERSION }}
+  - name: Install tooling using asdf
+    uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6  # v3
+  - name: Print used versions
+    shell: bash
+    run: |
+      asdf current
+      go version
+      helm version
+      terraform version
   ################## Secrets ###################
   - name: Import Secrets
     id: secrets
