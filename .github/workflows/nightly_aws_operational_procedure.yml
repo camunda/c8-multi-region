@@ -163,30 +163,6 @@ jobs:
       run: |
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
     ########### Snapshot adjustments ##############
-    - name: Pull required secrets
-      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
-      id: secrets
-      uses: hashicorp/vault-action@d1720f055e0635fd932a1d2a48f87a666a57906c  # v3
-      with:
-        url: ${{ secrets.VAULT_ADDR }}
-        method: approle
-        roleId: ${{ secrets.VAULT_ROLE_ID }}
-        secretId: ${{ secrets.VAULT_SECRET_ID }}
-        exportEnv: false
-        secrets: |
-          secret/data/products/infrastructure-experience/ci/common GITHUB_APP_ID;
-          secret/data/products/infrastructure-experience/ci/common GITHUB_APP_PRIVATE_KEY;
-    - name: Create temporary GitHub App token
-      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
-      uses: actions/create-github-app-token@7bfa3a4717ef143a604ee0a99d859b8886a96d00  # v1
-      id: app-token
-      with:
-        app-id: ${{ steps.secrets.outputs.GITHUB_APP_ID }}
-        private-key: ${{ steps.secrets.outputs.GITHUB_APP_PRIVATE_KEY }}
-    - name: Login to GitHub Container Registry
-      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
-      run: |
-        echo ${{ steps.app-token.outputs.token }} | helm registry login ghcr.io -u ${{ steps.secrets.outputs.GITHUB_APP_ID }} --password-stdin
     - name: Check snapshot chart age
       if: ${{ matrix.c8-version == 'SNAPSHOT' }}
       run: |
