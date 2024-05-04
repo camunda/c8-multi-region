@@ -15,4 +15,4 @@ shellcheck 0.10.0
 
 terraform 1.7.5
 
-tflint 0.50.3
+tflint 0.51.0
