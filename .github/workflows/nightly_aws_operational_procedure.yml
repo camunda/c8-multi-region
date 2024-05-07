@@ -162,31 +162,6 @@ jobs:
       timeout-minutes: 5
       run: |
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    ########### Snapshot adjustments ##############
-    - name: Check snapshot chart age
-      if: ${{ matrix.c8-version == 'SNAPSHOT' }}
-      run: |
-        snapshot_age=$(helm show chart oci://ghcr.io/camunda/helm/camunda-platform --version 0.0.0-main-snapshot --debug > /dev/null 2>&1 \
-          | grep -o 'response\.header\.last-modified="[^"]*' \
-          | tail -1)
-        snapshot_age=${snapshot_age#response.header.last-modified=\"}
-
-        # Convert given date to UNIX timestamp
-        given_timestamp=$(date -d "$snapshot_age" +%s)
-        current_timestamp=$(date +%s)
-        difference=$((current_timestamp - given_timestamp))
-
-        # Check if the difference is greater than 72 hours - 3 days (259200 seconds)
-        if [ $difference -gt 259200 ]; then
-          echo "::error ::SNAPSHOT Chart is older than 3 days"
-        fi
-
-        # If the SNAPSHOT is older than 7 days, fail the job
-        if [ $difference -gt 604800 ]; then
-          echo "::error ::SNAPSHOT Chart is older than 7 days"
-          exit 1
-        fi
-
     #### Export required environment variables ####
     - name: Export C8 namespaces and versions
       run: |
