@@ -1,4 +1,4 @@
-awscli 2.15.42
+awscli 2.15.45
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.6.26
