@@ -321,7 +321,9 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		SetValues:      setValues,
 	}
 
-	helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
+	if !strings.Contains(remoteChartVersion, "snapshot") {
+		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
+	}
 
 	if upgrade {
 		// Terratest is actively ignoring the version in an upgrade

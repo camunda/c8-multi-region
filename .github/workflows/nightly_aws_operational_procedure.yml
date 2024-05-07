@@ -169,10 +169,10 @@ jobs:
         version_with_hyphens="${version//./-}"
 
         if [ "$version" == "SNAPSHOT" ]; then
-          LATEST_HELM_CHART=$(curl -s https://api.github.com/repos/camunda/camunda-platform-helm/releases/latest | jq -r '.tag_name' | sed 's/camunda-platform-//')
           {
             echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-            echo "HELM_CHART_VERSION=$LATEST_HELM_CHART"
+            echo "HELM_CHART_VERSION=0.0.0-main-snapshot"
+            echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
             version_with_hyphens="snapshot"
           } >> "$GITHUB_ENV"
         else

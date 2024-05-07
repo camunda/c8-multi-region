@@ -16,7 +16,6 @@ import (
 
 const (
 	remoteChartSource = "https://helm.camunda.io"
-	remoteChartName   = "camunda/camunda-platform"
 
 	resourceDir         = "../aws/dual-region"
 	terraformDir        = "../aws/dual-region/terraform"
@@ -28,9 +27,10 @@ const (
 var (
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
 	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "10.0.2")
-	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")    // allows overwriting the image tag via GHA of every Camunda image
-	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly") // allows supplying random cluster name via GHA
-	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")  // allows supplying random backup name via GHA
+	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
+	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
+	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
+	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                      // allows supplying random backup name via GHA
 	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infex")
 
 	primary   helpers.Cluster
