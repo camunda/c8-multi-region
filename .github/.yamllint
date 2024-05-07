@@ -8,6 +8,7 @@ rules:
     level: error
   comments:
     level: error
+    min-spaces-from-content: 1
   comments-indentation:
     level: error
   line-length:
