@@ -43,3 +43,9 @@ variable "np_instance_types" {
   description = "Instance types for the node pool"
   default     = ["m6i.xlarge"]
 }
+
+variable "np_capacity_type" {
+  type        = string
+  default     = "SPOT"
+  description = "Allows setting the capacity type to ON_DEMAND or SPOT to determine stable nodes"
+}
