@@ -49,3 +49,10 @@ variable "np_capacity_type" {
   default     = "SPOT"
   description = "Allows setting the capacity type to ON_DEMAND or SPOT to determine stable nodes"
 }
+
+# Overwriting the default as otherwise the SPOT instances block the nodepool of getting ready
+variable "np_max_node_count" {
+  type        = number
+  default     = 4
+  description = "Maximum number of nodes in the node pool"
+}

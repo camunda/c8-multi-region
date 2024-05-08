@@ -11,6 +11,7 @@ module "eks_cluster_region_0" {
   kubernetes_version = var.kubernetes_version
   np_instance_types  = var.np_instance_types
   np_capacity_type   = var.np_capacity_type
+  np_max_node_count  = var.np_max_node_count
 
   cluster_service_ipv4_cidr = local.owner.service_cidr_block
   cluster_node_ipv4_cidr    = local.owner.vpc_cidr_block
@@ -25,6 +26,7 @@ module "eks_cluster_region_1" {
   kubernetes_version = var.kubernetes_version
   np_instance_types  = var.np_instance_types
   np_capacity_type   = var.np_capacity_type
+  np_max_node_count  = var.np_max_node_count
 
   cluster_service_ipv4_cidr = local.accepter.service_cidr_block
   cluster_node_ipv4_cidr    = local.accepter.vpc_cidr_block
