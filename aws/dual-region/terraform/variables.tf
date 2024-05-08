@@ -38,20 +38,18 @@ variable "kubernetes_version" {
   default     = "1.28"
 }
 
-# Spot instances require a selection of instance types to be considered healthy
 variable "np_instance_types" {
   type        = list(string)
   description = "Instance types for the node pool"
-  default     = ["m6i.xlarge", "m5.xlarge", "m5d.xlarge"]
+  default     = ["m6i.xlarge"]
 }
 
 variable "np_capacity_type" {
   type        = string
-  default     = "SPOT"
+  default     = "ON_DEMAND"
   description = "Allows setting the capacity type to ON_DEMAND or SPOT to determine stable nodes"
 }
 
-# Overwriting the default as otherwise the SPOT instances block the nodepool of getting ready
 variable "np_max_node_count" {
   type        = number
   default     = 10
