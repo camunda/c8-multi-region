@@ -499,3 +499,28 @@ func CreateAllRequiredSecrets(t *testing.T, source helpers.Cluster, namespaces, 
 		RunSensitiveKubectlCommand(t, &source.KubectlNamespace, "create", "--namespace", ns, "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
 	}
 }
+
+func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
+	t.Logf("[POD LOGS] Dumping logs for pod %s", kubectlOptions.Namespace)
+
+	// Temporarily disable logging to not overflow with all logs
+	defer func() {
+		kubectlOptions.Logger = nil
+	}()
+	kubectlOptions.Logger = logger.Discard
+
+	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{})
+
+	for _, pod := range pods {
+		podLogs, err := k8s.GetPodLogsE(t, kubectlOptions, &pod, "")
+		if err != nil {
+			t.Fatalf("Error getting pod logs: %v", err)
+		}
+
+		// Write logs to a file
+		err = os.WriteFile(fmt.Sprintf("%s-%s.log", kubectlOptions.Namespace, pod.Name), []byte(podLogs), 0644)
+		if err != nil {
+			t.Fatalf("Error writing logs to file: %v", err)
+		}
+	}
+}
