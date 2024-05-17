@@ -239,10 +239,11 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 		TerraformBinary: tfBinary,
 		TerraformDir:    terraformDir,
 		Vars: map[string]interface{}{
-			"cluster_name":      clusterName,
-			"aws_profile":       awsProfile,
-			"np_capacity_type":  "SPOT",
-			"np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
+			"cluster_name": clusterName,
+			"aws_profile":  awsProfile,
+			// Disabling spot instances for now since tests have become very flakey
+			// "np_capacity_type":  "SPOT",
+			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
 		},
 		NoColor: true,
 	})
@@ -269,10 +270,11 @@ func TestTeardownTerraform(t *testing.T, terraformDir, clusterName, awsProfile, 
 		TerraformBinary: tfBinary,
 		TerraformDir:    terraformDir,
 		Vars: map[string]interface{}{
-			"cluster_name":      clusterName,
-			"aws_profile":       awsProfile,
-			"np_capacity_type":  "SPOT",
-			"np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
+			"cluster_name": clusterName,
+			"aws_profile":  awsProfile,
+			// Disabling spot instances for now since tests have become very flakey
+			// "np_capacity_type":  "SPOT",
+			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
 		},
 		NoColor: true,
 	})

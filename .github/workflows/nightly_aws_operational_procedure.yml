@@ -226,6 +226,18 @@ jobs:
         if [ "$duration" -gt "1500" ]; then
           echo "::error ::Failback of ${{ matrix.c8-version }} is taking longer than 25 minutes"
         fi
+    - name: Debug Step
+      working-directory: ./test
+      if: failure()
+      run: |
+        go test --count=1 -v -timeout 4m -run TestDebugStep
+    - name: Upload Pod Logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pod-logs
+        retention-days: 7
+        path: ./test/*.log
     - name: Cleanup - ${{ matrix.c8-version }}
       working-directory: ./test
       if: always()

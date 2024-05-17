@@ -64,8 +64,8 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		return
 	}
 
-	// Check if the first value is smaller than 10
-	if firstValue < 10 {
+	// Check if the first value is smaller than 10 or not snapshot (0)
+	if firstValue < 10 && firstValue != 0 {
 		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
 		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
 		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
@@ -104,8 +104,8 @@ func TestAWSDualRegFailover(t *testing.T) {
 		return
 	}
 
-	// Check if the first value is smaller than 10
-	if firstValue < 10 {
+	// Check if the first value is smaller than 10 or not snapshot (0)
+	if firstValue < 10 && firstValue != 0 {
 		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
 		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
 		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
@@ -145,8 +145,8 @@ func TestAWSDualRegFailback(t *testing.T) {
 		return
 	}
 
-	// Check if the first value is smaller than 10
-	if firstValue < 10 {
+	// Check if the first value is smaller than 10 or not snapshot (0)
+	if firstValue < 10 && firstValue != 0 {
 		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
 		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
 		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
@@ -178,6 +178,21 @@ func TestAWSDualRegFailback(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestDebugStep(t *testing.T) {
+	t.Log("[DEBUG] Debugging step 🚀")
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDebugStep", debugStep},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -263,6 +278,19 @@ func teardownAllC8Helm(t *testing.T) {
 	t.Log("[C8 HELM TEARDOWN] Tearing down Camunda Platform Helm Chart 🚀")
 	kubectlHelpers.TeardownC8Helm(t, &primary.KubectlNamespace)
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
+}
+
+func debugStep(t *testing.T) {
+	t.Log("[DEBUG] Debugging step 🚀")
+
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
+
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "pods")
+
+	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlNamespace)
+	kubectlHelpers.DumpAllPodLogs(t, &secondary.KubectlNamespace)
 }
 
 // Multi-Region Operational Procedure Additions
