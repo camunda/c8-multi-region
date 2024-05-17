@@ -142,6 +142,7 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 			cookieAuth = val.Value
 		}
 	}
+	require.NotEmpty(t, cookieAuth)
 
 	// create http client to add cookie to the request
 	client := &http.Client{}
