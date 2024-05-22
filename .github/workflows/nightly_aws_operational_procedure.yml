@@ -233,9 +233,9 @@ jobs:
         go test --count=1 -v -timeout 4m -run TestDebugStep
     - name: Upload Pod Logs
       if: failure()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
       with:
-        name: pod-logs
+        name: pod-logs-${{ matrix.c8-version }}
         retention-days: 7
         path: ./test/*.log
     - name: Cleanup - ${{ matrix.c8-version }}
