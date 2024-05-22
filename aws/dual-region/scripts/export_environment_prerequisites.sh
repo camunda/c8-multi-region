@@ -27,4 +27,4 @@ export CAMUNDA_NAMESPACE_1_FAILOVER=camunda-paris-failover
 # The Helm release name used for installing Camunda 8 in both Kubernetes clusters
 export HELM_RELEASE_NAME=camunda
 # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
-export HELM_CHART_VERSION=10.0.4
+export HELM_CHART_VERSION=10.0.5
