@@ -136,10 +136,16 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 		return
 	}
 
+	csrfToken := resp.Header.Get("Operate-X-Csrf-Token")
+
 	var cookieAuth string
+	var csrfTokenId string
 	for _, val := range resp.Cookies() {
 		if val.Name == "OPERATE-SESSION" {
 			cookieAuth = val.Value
+		}
+		if val.Name == "OPERATE-X-CSRF-TOKEN" {
+			csrfTokenId = val.Value
 		}
 	}
 	require.NotEmpty(t, cookieAuth)
@@ -152,7 +158,14 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s", cookieAuth))
+	// > 8.5.1, we need to supply the csrf token
+	if csrfTokenId != "" {
+		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s; OPERATE-X-CSRF-TOKEN=%s", cookieAuth, csrfTokenId))
+		req.Header.Add("OPERATE-X-CSRF-TOKEN", csrfToken)
+		req.Header.Add("accept", "application/json")
+	} else {
+		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s", cookieAuth))
+	}
 
 	var bodyString string
 	for i := 0; i < 8; i++ {
