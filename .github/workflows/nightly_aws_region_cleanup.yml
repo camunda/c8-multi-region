@@ -53,7 +53,7 @@ jobs:
         chmod +x cloud-nuke_linux_amd64
       env:
         # renovate: datasource=github-tags depName=gruntwork-io/cloud-nuke
-        CLOUD_NUKE_VERSION: v0.35.0
+        CLOUD_NUKE_VERSION: v0.36.0
 
     # This is likely to fail, therefore we ignore the error
     # We're ignoring ec2_dhcp_option as they couldn't be deleted
