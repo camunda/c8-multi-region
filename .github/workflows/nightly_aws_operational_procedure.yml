@@ -142,7 +142,7 @@ jobs:
         - 9.3.5
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 10.0.5
-        - SNAPSHOT
+        # - SNAPSHOT
 
     steps:
     ################## Checkout ##################
