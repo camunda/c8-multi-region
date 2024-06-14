@@ -1,4 +1,11 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["github>camunda/infraex-common-config:default.json5"],
+  packageRules: [
+    // actively pinning k8s.io/apimachinery to 0.28.x as terratest is not compatible with > 0.28.x
+    {
+      matchPackageNames: ["k8s.io/apimachinery"],
+      allowedVersions: "0.28.x"
+    }
+  ]
 }
