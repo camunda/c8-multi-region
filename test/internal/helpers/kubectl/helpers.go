@@ -136,7 +136,12 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 		return
 	}
 
+	csrfTokenName := "OPERATE-X-CSRF-TOKEN"
 	csrfToken := resp.Header.Get("Operate-X-Csrf-Token")
+	if csrfToken == "" {
+		csrfToken = resp.Header.Get("X-Csrf-Token")
+		csrfTokenName = "X-CSRF-TOKEN"
+	}
 
 	var cookieAuth string
 	var csrfTokenId string
@@ -144,7 +149,7 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 		if val.Name == "OPERATE-SESSION" {
 			cookieAuth = val.Value
 		}
-		if val.Name == "OPERATE-X-CSRF-TOKEN" {
+		if val.Name == csrfTokenName {
 			csrfTokenId = val.Value
 		}
 	}
@@ -160,8 +165,8 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	req.Header.Add("Content-Type", "application/json")
 	// > 8.5.1, we need to supply the csrf token
 	if csrfTokenId != "" {
-		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s; OPERATE-X-CSRF-TOKEN=%s", cookieAuth, csrfTokenId))
-		req.Header.Add("OPERATE-X-CSRF-TOKEN", csrfToken)
+		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s; %s=%s", cookieAuth, csrfTokenName, csrfTokenId))
+		req.Header.Add(csrfTokenName, csrfToken)
 		req.Header.Add("accept", "application/json")
 	} else {
 		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s", cookieAuth))
