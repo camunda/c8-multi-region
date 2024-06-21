@@ -53,11 +53,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	if globalImageTag != "" {
 		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
 		// global.image.tag does not overwrite the image tag for all images
-		// therefore we set each image tag individually
-		baseHelmVars["zeebe.image.tag"] = globalImageTag
-		baseHelmVars["zeebeGateway.image.tag"] = globalImageTag
-		baseHelmVars["operate.image.tag"] = globalImageTag
-		baseHelmVars["tasklist.image.tag"] = globalImageTag
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
 	}
 
 	parts := strings.Split(remoteChartVersion, ".")
@@ -98,11 +94,7 @@ func TestAWSDualRegFailover(t *testing.T) {
 	if globalImageTag != "" {
 		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
 		// global.image.tag does not overwrite the image tag for all images
-		// therefore we set each image tag individually
-		baseHelmVars["zeebe.image.tag"] = globalImageTag
-		baseHelmVars["zeebeGateway.image.tag"] = globalImageTag
-		baseHelmVars["operate.image.tag"] = globalImageTag
-		baseHelmVars["tasklist.image.tag"] = globalImageTag
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
 	}
 
 	parts := strings.Split(remoteChartVersion, ".")
@@ -144,11 +136,7 @@ func TestAWSDualRegFailback(t *testing.T) {
 	if globalImageTag != "" {
 		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
 		// global.image.tag does not overwrite the image tag for all images
-		// therefore we set each image tag individually
-		baseHelmVars["zeebe.image.tag"] = globalImageTag
-		baseHelmVars["zeebeGateway.image.tag"] = globalImageTag
-		baseHelmVars["operate.image.tag"] = globalImageTag
-		baseHelmVars["tasklist.image.tag"] = globalImageTag
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
 	}
 
 	parts := strings.Split(remoteChartVersion, ".")

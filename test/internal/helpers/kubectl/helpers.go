@@ -137,10 +137,10 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	}
 
 	csrfTokenName := "OPERATE-X-CSRF-TOKEN"
-	csrfToken := resp.Header.Get("Operate-X-Csrf-Token")
+	csrfToken := resp.Header.Get(csrfTokenName)
 	if csrfToken == "" {
-		csrfToken = resp.Header.Get("X-Csrf-Token")
 		csrfTokenName = "X-CSRF-TOKEN"
+		csrfToken = resp.Header.Get(csrfTokenName)
 	}
 
 	var cookieAuth string
