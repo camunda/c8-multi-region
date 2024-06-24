@@ -141,7 +141,7 @@ jobs:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 9.3.6
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.1.0
+        - 10.1.1
         - SNAPSHOT
 
     steps:
@@ -326,7 +326,7 @@ jobs:
     - name: Notify in Slack in case of failure
       id: slack-notification
       if: github.event_name == 'schedule'
-      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@c5385faee2626c08f68f764786e61b1b53013f45 # main
+      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9c9f7cdb9f96da7e75401c33182d4af5f3df513c # main
       with:
         vault_addr: ${{ secrets.VAULT_ADDR }}
         vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
