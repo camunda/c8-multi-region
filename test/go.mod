@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.165.1
 	github.com/aws/aws-sdk-go-v2/service/eks v1.44.1
 	github.com/camunda/camunda/clients/go/v8 v8.6.0-alpha3-rc3
-	github.com/gruntwork-io/terratest v0.46.15
+	github.com/gruntwork-io/terratest v0.46.16
 	github.com/stretchr/testify v1.9.0
 	k8s.io/apimachinery v0.28.11
 )
@@ -68,7 +68,7 @@ require (
 	github.com/gruntwork-io/go-commons v0.8.0 // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-getter v1.7.4 // indirect
+	github.com/hashicorp/go-getter v1.7.5 // indirect
 	github.com/hashicorp/go-multierror v1.1.0 // indirect
 	github.com/hashicorp/go-safetemp v1.0.0 // indirect
 	github.com/hashicorp/go-version v1.6.0 // indirect
