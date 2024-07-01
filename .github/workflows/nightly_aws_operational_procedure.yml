@@ -13,9 +13,10 @@ on:
     - 'aws/dual-region/terraform/**'
     - 'test/**'
 
-# limit to a single execution per actor of this workflow
+# limit to a single execution per ref (branch) of this workflow
 concurrency:
-  group: "${{ github.workflow }}-${{ github.actor }}"
+  group: "${{ github.workflow }}-${{ github.ref }}"
+  cancel-in-progress: true
 
 env:
   AWS_PROFILE: infex
