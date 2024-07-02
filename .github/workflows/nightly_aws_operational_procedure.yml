@@ -145,6 +145,13 @@ jobs:
         - 10.1.1
         - SNAPSHOT
 
+        # we don't include SNAPSHOT in PR or push due to the instability of its nature
+        isPRorPush:
+        - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+        exclude:
+        - c8-version: SNAPSHOT
+          isPRorPush: true
+
     steps:
     ################## Checkout ##################
     - name: Checkout repository
