@@ -244,7 +244,7 @@ jobs:
         go test --count=1 -v -timeout 4m -run TestDebugStep
     - name: Upload Pod Logs
       if: failure()
-      uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4
+      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4
       with:
         name: pod-logs-${{ matrix.c8-version }}
         retention-days: 7
@@ -334,7 +334,7 @@ jobs:
     - name: Notify in Slack in case of failure
       id: slack-notification
       if: github.event_name == 'schedule'
-      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@584d5ebc12e23e0c4420860fe4d2575fecf09b94 # main
+      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@305746fcb09d1b606f32ac365e6cf1f1b66e48fd # main
       with:
         vault_addr: ${{ secrets.VAULT_ADDR }}
         vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
