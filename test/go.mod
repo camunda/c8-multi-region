@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.170.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.46.2
 	github.com/camunda/camunda/clients/go/v8 v8.6.0-alpha3-rc3
-	github.com/gruntwork-io/terratest v0.46.16
+	github.com/gruntwork-io/terratest v0.47.0
 	github.com/stretchr/testify v1.9.0
 	k8s.io/apimachinery v0.28.11
 )
