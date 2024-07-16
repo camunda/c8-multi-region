@@ -142,7 +142,7 @@ jobs:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 9.3.7
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.1.1
+        - 10.2.0
         - SNAPSHOT
 
         # we don't include SNAPSHOT in PR or push due to the instability of its nature
