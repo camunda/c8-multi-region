@@ -302,6 +302,7 @@ jobs:
       run: |
         .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
     - name: Terraform Destroy
+      id: terraform-destroy
       working-directory: ./test
       if: always()
       timeout-minutes: 46
@@ -314,7 +315,7 @@ jobs:
       run: |
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
     - name: Cleanup S3 state bucket
-      if: always()
+      if: always() && steps.terraform-destroy.outcome == 'success'
       run: |
         aws s3 rm "s3://tf-state-multi-reg/state/$CLUSTER_NAME/terraform.tfstate"
     - name: Remove profile credentials from ~/.aws/credentials

@@ -499,7 +499,7 @@ func pointC8BackToElastic(t *testing.T) {
 
 	require.True(t, kubectlHelpers.StatefulSetContains(t, &primary.KubectlFailover, "camunda-zeebe", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", secondaryNamespace)))
 
-	// secondary pointint back to secondary
+	// secondary pointing back to secondary
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValuesSecondary))
 
 	// Allow the pods to start rollout, otherwise might be unavailable when trying to delete
