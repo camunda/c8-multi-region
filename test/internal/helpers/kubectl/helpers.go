@@ -210,10 +210,12 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 	k8s.RunKubectl(t, kubectlOptions, command...)
 }
 
-func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName string) {
+func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"backups\"}}", clusterName))
+	version := strings.ReplaceAll(inputVersion, ".", "-")
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return
@@ -241,17 +243,41 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	t.Logf("[ELASTICSEARCH BACKUP] Created backup: %s", output)
 }
 
-func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, backupName string) {
+func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, backupName, clusterName, remoteChartVersion string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Checking that Elasticsearch backup is present for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
-	if err != nil {
-		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
-		return
+	output := ""
+	var err error
+
+	for i := 0; i < 3; i++ {
+		output, err = getAllElasticBackups(t, cluster)
+		if err == nil && output != "" {
+			break
+		}
+		removeElasticBackup(t, cluster)
+		time.Sleep(5 * time.Second)
+		ConfigureElasticBackup(t, cluster, clusterName, remoteChartVersion)
+		time.Sleep(5 * time.Second)
 	}
 
 	require.Contains(t, output, backupName)
 	t.Logf("[ELASTICSEARCH BACKUP] Backup present: %s", output)
+}
+
+func removeElasticBackup(t *testing.T, cluster helpers.Cluster) {
+	t.Logf("[ELASTICSEARCH BACKUP] Backup not found, removing backup store to recreate %s", cluster.ClusterName)
+
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XDELETE", "localhost:9200/_snapshot/camunda_backup")
+}
+
+func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error) {
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XGET", "localhost:9200/_snapshot/camunda_backup/_all")
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
+		return "", err
+	}
+
+	return output, nil
 }
 
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {

@@ -35,7 +35,7 @@ variable "aws_profile" {
 variable "kubernetes_version" {
   type        = string
   description = "Kubernetes version to use"
-  default     = "1.28"
+  default     = "1.30"
 }
 
 variable "np_instance_types" {

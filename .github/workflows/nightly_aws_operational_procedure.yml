@@ -302,6 +302,7 @@ jobs:
       run: |
         .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
     - name: Terraform Destroy
+      id: terraform-destroy
       working-directory: ./test
       if: always()
       timeout-minutes: 46
@@ -314,9 +315,9 @@ jobs:
       run: |
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
     - name: Cleanup S3 state bucket
-      if: always()
+      if: always() && steps.terraform-destroy.outcome == 'success'
       run: |
-        aws s3 rm s3://tf-state-multi-reg --recursive
+        aws s3 rm "s3://tf-state-multi-reg/state/$CLUSTER_NAME/terraform.tfstate"
     - name: Remove profile credentials from ~/.aws/credentials
       if: always()
       run: |
@@ -324,7 +325,7 @@ jobs:
 
   notify-on-failure:
     runs-on: ubuntu-latest
-    if: failure()
+    if: github.event_name == 'schedule' && failure()
     needs:
     - cluster-creation
     - cluster-configuration
@@ -333,7 +334,6 @@ jobs:
     steps:
     - name: Notify in Slack in case of failure
       id: slack-notification
-      if: github.event_name == 'schedule'
       uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@305746fcb09d1b606f32ac365e6cf1f1b66e48fd # main
       with:
         vault_addr: ${{ secrets.VAULT_ADDR }}
