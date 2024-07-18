@@ -37,10 +37,10 @@ var (
 	secondary helpers.Cluster
 
 	// Allows setting namespaces via GHA
-	primaryNamespace           = helpers.GetEnv("CLUSTER_0_NAMESPACE", "camunda-primary")
-	primaryNamespaceFailover   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER", "camunda-primary-failover")
-	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "camunda-secondary")
-	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "camunda-secondary-failover")
+	primaryNamespace           = helpers.GetEnv("CLUSTER_0_NAMESPACE", "c8-snap-cluster-0")
+	primaryNamespaceFailover   = helpers.GetEnv("CLUSTER_0_NAMESPACE_FAILOVER", "c8-snap-cluster-0-failover")
+	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
+	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
 
 	baseHelmVars = map[string]string{}
 )
@@ -287,13 +287,19 @@ func debugStep(t *testing.T) {
 	t.Log("[DEBUG] Debugging step 🚀")
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
+	k8s.RunKubectl(t, &primary.KubectlFailover, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlFailover, "get", "pods")
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "pods")
+	k8s.RunKubectl(t, &primary.KubectlFailover, "describe", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlFailover, "describe", "pods")
 
 	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlNamespace)
+	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlFailover)
 	kubectlHelpers.DumpAllPodLogs(t, &secondary.KubectlNamespace)
+	kubectlHelpers.DumpAllPodLogs(t, &secondary.KubectlFailover)
 }
 
 // Multi-Region Operational Procedure Additions
@@ -303,7 +309,7 @@ func debugStep(t *testing.T) {
 func createElasticBackupRepoPrimary(t *testing.T) {
 	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
 
-	kubectlHelpers.ConfigureElasticBackup(t, primary, clusterName)
+	kubectlHelpers.ConfigureElasticBackup(t, primary, clusterName, remoteChartVersion)
 }
 
 func createElasticBackupPrimary(t *testing.T) {
@@ -315,19 +321,19 @@ func createElasticBackupPrimary(t *testing.T) {
 func checkThatElasticBackupIsPresentPrimary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Checking if Elasticsearch Backup is present 🚀")
 
-	kubectlHelpers.CheckThatElasticBackupIsPresent(t, primary, backupName)
+	kubectlHelpers.CheckThatElasticBackupIsPresent(t, primary, backupName, clusterName, remoteChartVersion)
 }
 
 func createElasticBackupRepoSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
 
-	kubectlHelpers.ConfigureElasticBackup(t, secondary, clusterName)
+	kubectlHelpers.ConfigureElasticBackup(t, secondary, clusterName, remoteChartVersion)
 }
 
 func checkThatElasticBackupIsPresentSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Checking if Elasticsearch Backup is present 🚀")
 
-	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName)
+	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName, clusterName, remoteChartVersion)
 }
 
 func restoreElasticBackupSecondary(t *testing.T) {
@@ -521,6 +527,9 @@ func removeFailBackSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Removing failback flag 🚀")
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
+
+	// Allow the pods to start rollout, otherwise might be unavailable when trying to delete
+	time.Sleep(10 * time.Second)
 
 	// 2 pods are sleeping indefinitely and block rollout
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pod", "camunda-zeebe-0", "camunda-zeebe-1", "camunda-zeebe-2", "camunda-zeebe-3", "--force", "--grace-period=0")
