@@ -138,11 +138,11 @@ jobs:
       matrix:
         c8-version:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 8.3.14
+        - 8.3.15
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 9.3.7
+        - 9.3.8
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.2.0
+        - 10.2.1
         - SNAPSHOT
 
         # we don't include SNAPSHOT in PR or push due to the instability of its nature
@@ -334,7 +334,7 @@ jobs:
     steps:
     - name: Notify in Slack in case of failure
       id: slack-notification
-      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2358d92913d2e89e6062525687d7ba40a4ceb683 # main
+      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@44ea6ed8c70214b8ef629c292ae0e84710179633 # main
       with:
         vault_addr: ${{ secrets.VAULT_ADDR }}
         vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
