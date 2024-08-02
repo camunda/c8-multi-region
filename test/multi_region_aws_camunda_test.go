@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -125,6 +126,70 @@ func TestAWSDualRegFailover(t *testing.T) {
 		{"TestCreateFailoverDeploymentPrimary", createFailoverDeploymentPrimary},
 		{"TestCheckTheMathFailover", checkTheMathFailover},
 		{"TestPointPrimaryZeebeToFailver", pointPrimaryZeebeToFailver},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
+	t.Log("[2 REGION TEST] Checking Failover procedure for 8.6+ 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Multi-Region Operational Procedure
+		// Failover
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDeleteSecondaryRegion", deleteSecondaryRegion},
+		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
+		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
+		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
+	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Multi-Region Operational Procedure
+		// Failback
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestRecreateCamundaInSecondary", recreateCamundaInSecondary_8_6_plus},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestScaleDownWebApps", scaleDownWebApps},
+		{"TestCreateElasticBackupRepoPrimary", createElasticBackupRepoPrimary},
+		{"TestCreateElasticBackupPrimary", createElasticBackupPrimary},
+		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
+		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
+		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
+		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
+		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
+		{"TestAddSecondaryBrokers", addSecondaryBrokers},
+		{"TestScaleUpWebApps", scaleUpWebApps},
+		{"TestInstallWebAppsSecondary", installWebAppsSecondary_8_6_plus},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -400,6 +465,21 @@ func recreateCamundaInSecondary(t *testing.T) {
 	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-3", 20, 15*time.Second)
 }
 
+func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
+	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
+
+	setValues := map[string]string{
+		"operate.enabled":  "false",
+		"tasklist.enabled": "false",
+	}
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
+	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
+}
+
 func stopZeebeExporters(t *testing.T) {
 	t.Log("[ZEEBE EXPORTERS] Stopping Zeebe Exporters 🚀")
 
@@ -480,6 +560,13 @@ func installWebAppsSecondary(t *testing.T) {
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
+}
+
+func installWebAppsSecondary_8_6_plus(t *testing.T) {
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
 
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
@@ -578,4 +665,187 @@ func checkTheMathFailover(t *testing.T) {
 	t.Log("[MATH] Checking if the failover deployment has odd broker IDs")
 	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlFailover, "camunda-zeebe-0")))
 	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlFailover, "camunda-zeebe-1")))
+}
+
+func checkTheMathFailover_8_6_plus(t *testing.T) {
+	t.Log("[MATH] Checking the math for Failover 🚀")
+
+	t.Log("[MATH] Checking if the primary deployment has even broker IDs")
+	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-0")))
+	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-1")))
+	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-2")))
+	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-3")))
+}
+
+func removeSecondaryBrokers(t *testing.T) {
+	t.Log("[FAILOVER] Removing secondary brokers 🚀")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
+	defer tunnel.Close()
+	tunnel.ForwardPort(t)
+
+	// Redistribute to remaining brokers
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/cluster/brokers?force=true", tunnel.Endpoint()), bytes.NewBuffer([]byte(`["0", "2", "4", "6"]`)))
+	if res == nil {
+		t.Fatal("[FAILOVER] Failed to create request")
+		return
+	}
+
+	require.Equal(t, 202, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "plannedChanges")
+	require.Contains(t, body, "PARTITION_FORCE_RECONFIGURE")
+
+	t.Log("[FAILOVER] Give the system some time to redistribute the partitions")
+	time.Sleep(5 * time.Second)
+
+	// Check that the removal of obsolete brokers was completed
+	for i := 0; i < 3; i++ {
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()), nil)
+		if res == nil {
+			t.Fatal("[FAILOVER] Failed to create request")
+			return
+		}
+
+		if !strings.Contains(body, "pendingChange") {
+			break
+		}
+		t.Log("[FAILOVER] Broker removal not yet completed, retrying...")
+		time.Sleep(15 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "COMPLETED")
+	require.NotContains(t, body, "pendingChange")
+	require.NotContains(t, body, "PARTITION_FORCE_RECONFIGURE")
+}
+
+func disableElasticExportersToSecondary(t *testing.T) {
+	t.Log("[FAILOVER] Disabling Elasticsearch Exporters to secondary 🚀")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
+	defer tunnel.Close()
+	tunnel.ForwardPort(t)
+
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/elasticsearchregion1/disable", tunnel.Endpoint()), nil)
+	if res == nil {
+		t.Fatal("[FAILOVER] Failed to create request")
+		return
+	}
+
+	require.Equal(t, 202, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "DISABLED")
+	require.Contains(t, body, "PARTITION_DISABLE_EXPORTER")
+
+	// Check that the exporter was disabled
+	for i := 0; i < 3; i++ {
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()), nil)
+		if res == nil {
+			t.Fatal("[FAILOVER] Failed to create request")
+			return
+		}
+
+		if strings.Contains(body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"}") {
+			break
+		}
+		t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
+		time.Sleep(15 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"}")
+}
+
+func enableElasticExportersToSecondary(t *testing.T) {
+	t.Log("[FAILBACK] Enabling Elasticsearch Exporters to secondary 🚀")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
+	defer tunnel.Close()
+	tunnel.ForwardPort(t)
+
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/elasticsearchregion1/enable", tunnel.Endpoint()), bytes.NewBuffer([]byte(`{"initializeFrom":"elasticsearchregion0"}`)))
+	if res == nil {
+		t.Fatal("[FAILBACK] Failed to create request")
+		return
+	}
+
+	require.Equal(t, 202, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "ENABLED")
+	require.Contains(t, body, "PARTITION_ENABLE_EXPORTER")
+
+	// Check that the exporter was enabled
+	for i := 0; i < 3; i++ {
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()), nil)
+		if res == nil {
+			t.Fatal("[FAILBACK] Failed to create request")
+			return
+		}
+
+		if strings.Contains(body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"ENABLED\"}") {
+			break
+		}
+		t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
+		time.Sleep(15 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"ENABLED\"}")
+}
+
+func addSecondaryBrokers(t *testing.T) {
+	t.Log("[FAILBACK] Adding secondary brokers 🚀")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
+	defer tunnel.Close()
+	tunnel.ForwardPort(t)
+
+	// Redistribute to new brokers
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/cluster/brokers?replicationFactor=4", tunnel.Endpoint()), bytes.NewBuffer([]byte(`["0", "1", "2", "3", "4", "5", "6", "7"]`)))
+	if res == nil {
+		t.Fatal("[FAILBACK] Failed to create request")
+		return
+	}
+
+	require.Equal(t, 202, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "\"id\":8,\"state\":\"ACTIVE\"")
+
+	// Check that the addition of new brokers was completed
+	// This can take a while
+	for i := 0; i < 20; i++ {
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()), nil)
+		if res == nil {
+			t.Fatal("[FAILBACK] Failed to create request")
+			return
+		}
+
+		if !strings.Contains(body, "pendingChange") {
+			break
+		}
+		t.Log("[FAILBACK] Broker addition not yet completed, retrying...")
+		time.Sleep(15 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "COMPLETED")
+	require.NotContains(t, body, "pendingChange")
+
+	// Check that the new brokers have become ready, now that they're integrated in the zeebe cluster again
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
 }
