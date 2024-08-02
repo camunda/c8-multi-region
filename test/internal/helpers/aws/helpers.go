@@ -235,12 +235,20 @@ func ClusterReadyCheck(t *testing.T, cluster helpers.Cluster) {
 }
 
 func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfBinary string) {
+	CI := helpers.GetEnv("CI", "false") // always true on GHA
+	np_desired_node_count := 4
+
+	if CI == "true" {
+		np_desired_node_count = 5
+	}
+
 	terraformOptions := terraform.WithDefaultRetryableErrors(t, &terraform.Options{
 		TerraformBinary: tfBinary,
 		TerraformDir:    terraformDir,
 		Vars: map[string]interface{}{
-			"cluster_name": clusterName,
-			"aws_profile":  awsProfile,
+			"cluster_name":          clusterName,
+			"aws_profile":           awsProfile,
+			"np_desired_node_count": np_desired_node_count,
 			// Disabling spot instances for now since tests have become very flakey
 			// "np_capacity_type":  "SPOT",
 			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
