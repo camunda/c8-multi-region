@@ -1,9 +1,9 @@
 ---
-name: Nightly AWS EKS Operational Procedure Test
+name: Nightly AWS EKS New Operational Procedure Test
 
 on:
   schedule:
-  - cron: '0 2 * * 1-5'
+  - cron: '0 23 * * 1-5'
   workflow_dispatch:
   pull_request:
     # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
@@ -41,7 +41,7 @@ jobs:
     - name: Generate random cluster_name
       id: random
       run: |
-        echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+        echo "CLUSTER_NAME=nightly-new-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
     ############# Terraform Apply ################
     - name: Configure Terraform Backend
       run: |
@@ -81,7 +81,7 @@ jobs:
         go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
     ########### Parse GHA for versions ###########
     - name: Parse GHA for namespace setup
-      run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure.yml
+      run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_new_aws_operational_procedure.yml
     ############ Export S3 credentials ############
     - name: Configure Terraform Backend
       run: |
@@ -137,20 +137,14 @@ jobs:
       fail-fast: false
       matrix:
         c8-version:
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 8.3.16
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 9.3.9
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.3.2
         - SNAPSHOT
 
-        # we don't include SNAPSHOT in PR or push due to the instability of its nature
-        isPRorPush:
-        - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+        # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
+        isPR:
+        - ${{ github.event_name == 'pull_request' && !contains(github.ref, 'SNAPSHOT') }}
         exclude:
         - c8-version: SNAPSHOT
-          isPRorPush: true
+          isPR: true
 
     steps:
     ################## Checkout ##################
@@ -195,7 +189,7 @@ jobs:
           echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
           echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
           echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
-          echo "BACKUP_NAME=nightly-${version_with_hyphens}"
+          echo "BACKUP_NAME=nightly-new-${version_with_hyphens}"
         } >> "$GITHUB_ENV"
     ########### Operational Procedure ############
     - name: Deploy - ${{ matrix.c8-version }}
@@ -211,7 +205,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 21
       run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
     - name: Calculate Failover duration
       run: |
         printf -v now '%(%s)T'
@@ -228,7 +222,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 46
       run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
     - name: Calculate Failover duration
       run: |
         printf -v now '%(%s)T'
@@ -244,7 +238,7 @@ jobs:
         go test --count=1 -v -timeout 4m -run TestDebugStep
     - name: Upload Pod Logs
       if: failure()
-      uses: actions/upload-artifact@834a144ee995460fba8ed112a2fc961b36a5ec5a # v4
+      uses: actions/upload-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4
       with:
         name: pod-logs-${{ matrix.c8-version }}
         retention-days: 7
@@ -334,7 +328,7 @@ jobs:
     steps:
     - name: Notify in Slack in case of failure
       id: slack-notification
-      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@48c7c5a309a544bb425ef0a7887d5bec80f5a6a5 # main
+      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@44ea6ed8c70214b8ef629c292ae0e84710179633 # main
       with:
         vault_addr: ${{ secrets.VAULT_ADDR }}
         vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
