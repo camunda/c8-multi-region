@@ -55,3 +55,9 @@ variable "np_max_node_count" {
   default     = 10
   description = "Maximum number of nodes in the node pool"
 }
+
+variable "np_desired_node_count" {
+  type        = number
+  default     = 4
+  description = "Desired number of nodes in the node pool"
+}

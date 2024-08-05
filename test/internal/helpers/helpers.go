@@ -1,6 +1,8 @@
 package helpers
 
 import (
+	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -104,4 +106,34 @@ func OverwriteImageTag(map1 map[string]string, tag string) map[string]string {
 	map1["tasklist.image.tag"] = tag
 
 	return map1
+}
+
+func HttpRequest(t *testing.T, method, url string, payload io.Reader) (*http.Response, string) {
+	req, err := http.NewRequest(method, url, payload)
+	if err != nil {
+		t.Fatalf("Failed to create request: %v", err)
+		return nil, ""
+	}
+
+	if method == "POST" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	// Initialize an HTTP client and execute the request
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("Failed to execute request: %v", err)
+		return nil, ""
+	}
+	defer res.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		t.Fatalf("Failed to parse response body: %v", err)
+		return nil, ""
+	}
+
+	return res, string(body)
 }
