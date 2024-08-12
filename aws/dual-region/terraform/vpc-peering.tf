@@ -1,94 +1,93 @@
 
-################################
-# Peering Connection          #
-################################
-# This is the peering connection between the two VPCs
-# You always have a requester and an accepter. The requester is the one who initiates the connection.
-# That's why were using the owner and accepter naming convention.
-# Auto_accept is only required in the accepter. Otherwise you have to manually accept the connection.
-# Auto_accept only works in the "owner" if the VPCs are in the same region
+module "vpc_peering_london_paris" {
+  source = "./modules/vpc-peering"
 
-resource "aws_vpc_peering_connection" "owner" {
-  vpc_id      = module.eks_cluster_region_0.vpc_id
-  peer_vpc_id = module.eks_cluster_region_1.vpc_id
-  peer_region = local.accepter.region
-  auto_accept = false
+  owner_vpc_id                            = module.eks_cluster_region_london.vpc_id
+  owner_region_full_name                  = local.london.region_full_name
+  owner_main_route_table_id               = module.eks_cluster_region_london.vpc_main_route_table_id
+  owner_cidr_block                        = local.london.vpc_cidr_block
+  owner_private_route_table_ids           = module.eks_cluster_region_london.private_route_table_ids
+  owner_cluster_primary_security_group_id = module.eks_cluster_region_london.cluster_primary_security_group_id
 
-  tags = {
-    Name = "${var.cluster_name}-${local.owner.region_full_name}-to-${local.accepter.region_full_name}"
+  accepter_vpc_id                            = module.eks_cluster_region_paris.vpc_id
+  accepter_region                            = local.paris.region
+  accepter_region_full_name                  = local.paris.region_full_name
+  accepter_main_route_table_id               = module.eks_cluster_region_paris.vpc_main_route_table_id
+  accepter_cidr_block                        = local.paris.vpc_cidr_block
+  accepter_private_route_table_ids           = module.eks_cluster_region_paris.private_route_table_ids
+  accepter_cluster_primary_security_group_id = module.eks_cluster_region_paris.cluster_primary_security_group_id
+
+  prefix = var.cluster_name
+
+  depends_on = [
+    module.eks_cluster_region_london,
+    module.eks_cluster_region_paris
+  ]
+
+  providers = {
+    aws.owner    = aws.london
+    aws.accepter = aws.paris
   }
 }
 
-resource "aws_vpc_peering_connection_accepter" "accepter" {
-  provider = aws.accepter
+module "vpc_peering_london_frankfurt" {
+  source = "./modules/vpc-peering"
 
-  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-  auto_accept               = true
+  owner_vpc_id                            = module.eks_cluster_region_london.vpc_id
+  owner_region_full_name                  = local.london.region_full_name
+  owner_main_route_table_id               = module.eks_cluster_region_london.vpc_main_route_table_id
+  owner_cidr_block                        = local.london.vpc_cidr_block
+  owner_private_route_table_ids           = module.eks_cluster_region_london.private_route_table_ids
+  owner_cluster_primary_security_group_id = module.eks_cluster_region_london.cluster_primary_security_group_id
 
-  tags = {
-    Name = "${var.cluster_name}-${local.accepter.region_full_name}-to-${local.owner.region_full_name}"
+  accepter_vpc_id                            = module.eks_cluster_region_frankfurt.vpc_id
+  accepter_region                            = local.frankfurt.region
+  accepter_region_full_name                  = local.frankfurt.region_full_name
+  accepter_main_route_table_id               = module.eks_cluster_region_frankfurt.vpc_main_route_table_id
+  accepter_cidr_block                        = local.frankfurt.vpc_cidr_block
+  accepter_private_route_table_ids           = module.eks_cluster_region_frankfurt.private_route_table_ids
+  accepter_cluster_primary_security_group_id = module.eks_cluster_region_frankfurt.cluster_primary_security_group_id
+
+  prefix = var.cluster_name
+
+  depends_on = [
+    module.eks_cluster_region_london,
+    module.eks_cluster_region_frankfurt
+  ]
+
+  providers = {
+    aws.owner    = aws.london
+    aws.accepter = aws.frankfurt
   }
 }
 
-################################
-# Route Table Updates          #
-################################
-# These are required to let the VPC know where to route the traffic to
-# In this case non local cidr range --> VPC Peering connection.
+module "vpc_peering_frankfurt_paris" {
+  source = "./modules/vpc-peering"
 
-resource "aws_route" "owner" {
-  route_table_id            = module.eks_cluster_region_0.vpc_main_route_table_id
-  destination_cidr_block    = local.accepter.vpc_cidr_block
-  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-}
+  owner_vpc_id                            = module.eks_cluster_region_frankfurt.vpc_id
+  owner_region_full_name                  = local.frankfurt.region_full_name
+  owner_main_route_table_id               = module.eks_cluster_region_frankfurt.vpc_main_route_table_id
+  owner_cidr_block                        = local.frankfurt.vpc_cidr_block
+  owner_private_route_table_ids           = module.eks_cluster_region_frankfurt.private_route_table_ids
+  owner_cluster_primary_security_group_id = module.eks_cluster_region_frankfurt.cluster_primary_security_group_id
 
-resource "aws_route" "owner_private" {
-  count          = length(module.eks_cluster_region_0.private_route_table_ids)
-  route_table_id = module.eks_cluster_region_0.private_route_table_ids[count.index]
+  accepter_vpc_id                            = module.eks_cluster_region_paris.vpc_id
+  accepter_region                            = local.paris.region
+  accepter_region_full_name                  = local.paris.region_full_name
+  accepter_main_route_table_id               = module.eks_cluster_region_paris.vpc_main_route_table_id
+  accepter_cidr_block                        = local.paris.vpc_cidr_block
+  accepter_private_route_table_ids           = module.eks_cluster_region_paris.private_route_table_ids
+  accepter_cluster_primary_security_group_id = module.eks_cluster_region_paris.cluster_primary_security_group_id
 
-  destination_cidr_block    = local.accepter.vpc_cidr_block
-  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-}
+  prefix = var.cluster_name
 
-resource "aws_route" "accepter" {
-  provider = aws.accepter
+  depends_on = [
+    module.eks_cluster_region_frankfurt,
+    module.eks_cluster_region_paris
+  ]
 
-  route_table_id            = module.eks_cluster_region_1.vpc_main_route_table_id
-  destination_cidr_block    = local.owner.vpc_cidr_block
-  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-}
-
-resource "aws_route" "accepter_private" {
-  provider = aws.accepter
-
-  count          = length(module.eks_cluster_region_1.private_route_table_ids)
-  route_table_id = module.eks_cluster_region_1.private_route_table_ids[count.index]
-
-  destination_cidr_block    = local.owner.vpc_cidr_block
-  vpc_peering_connection_id = aws_vpc_peering_connection.owner.id
-}
-
-################################
-# Security Groups Updates      #
-################################
-# These changes are required to actually allow inbound traffic from the other VPC.
-
-resource "aws_vpc_security_group_ingress_rule" "owner_eks_primary" {
-  security_group_id = module.eks_cluster_region_0.cluster_primary_security_group_id
-
-  cidr_ipv4   = local.accepter.vpc_cidr_block
-  from_port   = -1
-  ip_protocol = -1
-  to_port     = -1
-}
-
-resource "aws_vpc_security_group_ingress_rule" "accepter_eks_primary" {
-  provider = aws.accepter
-
-  security_group_id = module.eks_cluster_region_1.cluster_primary_security_group_id
-
-  cidr_ipv4   = local.owner.vpc_cidr_block
-  from_port   = -1
-  ip_protocol = -1
-  to_port     = -1
+  providers = {
+    aws.owner    = aws.frankfurt
+    aws.accepter = aws.paris
+  }
 }
