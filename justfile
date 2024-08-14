@@ -150,6 +150,18 @@ deploy_monitoring:
 
 get_grafana_admin:
   #!/bin/sh
-  admin=$(kubectl get secret graf-grafana -o jsonpath='{.data.admin-user}' | base64 --decode)
-  password=$(kubectl get secret graf-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+  admin=$(kubectl get secret graf-grafana -n monitoring -o jsonpath='{.data.admin-user}' | base64 --decode)
+  password=$(kubectl get secret graf-grafana -n monitoring -o jsonpath='{.data.admin-password}' | base64 --decode)
   echo "$admin:$password"
+
+get_elastic_lbs:
+  #!/bin/sh
+  just set_cluster_context london
+  london_lb=$(kubectl get service camunda-london-elasticsearch -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  just set_cluster_context frankfurt
+  frankfurt_lb=$(kubectl get service camunda-frankfurt-elasticsearch -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  just set_cluster_context paris
+  paris_lb=$(kubectl get service camunda-paris-elasticsearch -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+  echo "London: $london_lb"
+  echo "Frankfurt: $frankfurt_lb"
+  echo "Paris: $paris_lb"
