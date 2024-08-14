@@ -120,3 +120,36 @@ dns_stitching:
   just set_cluster_context paris
   kubectl apply -f ./aws/dual-region/kubernetes/internal-dns-lb.yml
   just generate_core_dns_entry
+
+deploy_elastic:
+  just set_cluster_context london
+  helm upgrade --install camunda-london oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-london -f ./aws/dual-region/kubernetes/elastic-values.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
+  just set_cluster_context frankfurt
+  helm upgrade --install camunda-frankfurt oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-frankfurt -f ./aws/dual-region/kubernetes/elastic-values.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
+  just set_cluster_context paris
+  helm upgrade --install camunda-paris oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-paris -f ./aws/dual-region/kubernetes/elastic-values.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
+
+remove_elastic:
+  just set_cluster_context london
+  helm uninstall camunda-london -n camunda-london
+  kubectl delete pvc -n camunda-london --all
+  just set_cluster_context frankfurt
+  helm uninstall camunda-frankfurt -n camunda-frankfurt
+  kubectl delete pvc -n camunda-frankfurt --all
+  just set_cluster_context paris
+  helm uninstall camunda-paris -n camunda-paris
+  kubectl delete pvc -n camunda-paris --all
+
+deploy_monitoring:
+  just set_cluster_context paris
+  helm upgrade --install prom prometheus-community/prometheus -f ./aws/dual-region/kubernetes/prometheus-values.yml -n monitoring --create-namespace
+  helm upgrade --install graf grafana/grafana -n monitoring --set persistence.enabled=true
+
+get_grafana_admin:
+  #!/bin/sh
+  admin=$(kubectl get secret graf-grafana -o jsonpath='{.data.admin-user}' | base64 --decode)
+  password=$(kubectl get secret graf-grafana -o jsonpath='{.data.admin-password}' | base64 --decode)
+  echo "$admin:$password"

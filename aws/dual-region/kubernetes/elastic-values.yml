@@ -1,0 +1,22 @@
+---
+security:
+  enabled: false
+
+master:
+  replicaCount: 3
+  networkPolicy:
+    enabled: false
+  extraEnvVars:
+  - name: ELASTICSEARCH_CLUSTER_MASTER_HOSTS
+    # yamllint disable-line rule:line-length
+    value: "camunda-london-elasticsearch-master-0 camunda-london-elasticsearch-master-1 camunda-london-elasticsearch-master-2 camunda-paris-elasticsearch-master-0 camunda-paris-elasticsearch-master-1 camunda-paris-elasticsearch-master-2 camunda-frankfurt-elasticsearch-master-0 camunda-frankfurt-elasticsearch-master-1 camunda-frankfurt-elasticsearch-master-2"
+  - name: ELASTICSEARCH_MINIMUM_MASTER_NODES
+    value: "5"
+  - name: ELASTICSEARCH_TOTAL_NODES
+    value: "15"
+  - name: ELASTICSEARCH_CLUSTER_HOSTS
+    # yamllint disable-line rule:line-length
+    value: "camunda-london-elasticsearch-master-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-coordinating-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-data-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-ingest-hl.camunda-london.svc.cluster.local,camunda-paris-elasticsearch-master-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-coordinating-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-data-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-ingest-hl.camunda-paris.svc.cluster.local,camunda-frankfurt-elasticsearch-master-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-coordinating-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-data-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-ingest-hl.camunda-frankfurt.svc.cluster.local,"
+
+metrics:
+  enabled: true

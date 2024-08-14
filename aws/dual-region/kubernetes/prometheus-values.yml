@@ -1,0 +1,26 @@
+---
+alertmanager:
+  enabled: false
+
+prometheus-pushgateway:
+  enabled: false
+
+kube-state-metrics:
+  enabled: false
+
+prometheus-node-exporter:
+  enabled: false
+
+server:
+  persistentVolume:
+    size: 50Gi
+
+serverFiles:
+  prometheus.yml:
+    scrape_configs:
+    - job_name: prometheus
+      static_configs:
+      - targets:
+        - camunda-elasticsearch-metrics-hl.camunda-london.svc.cluster.local:9114
+        - camunda-elasticsearch-metrics-hl.camunda-paris.svc.cluster.local:9114
+        - camunda-elasticsearch-metrics-hl.camunda-frankfurt.svc.cluster.local:9114
