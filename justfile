@@ -123,13 +123,25 @@ dns_stitching:
 
 deploy_elastic:
   just set_cluster_context london
-  helm upgrade --install camunda-london oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-london -f ./aws/dual-region/kubernetes/elastic-values.yml
+  helm upgrade --install camunda-london oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    -n camunda-london \
+    -f ./aws/dual-region/kubernetes/elastic-values.yml \
+    --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
+    --set extraConfig.node.attr.region=london
   kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
   just set_cluster_context frankfurt
-  helm upgrade --install camunda-frankfurt oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-frankfurt -f ./aws/dual-region/kubernetes/elastic-values.yml
+  helm upgrade --install camunda-frankfurt oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    -n camunda-frankfurt \
+    -f ./aws/dual-region/kubernetes/elastic-values.yml \
+    --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
+    --set extraConfig.node.attr.region=frankfurt
   kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
   just set_cluster_context paris
-  helm upgrade --install camunda-paris oci://registry-1.docker.io/bitnamicharts/elasticsearch -n camunda-paris -f ./aws/dual-region/kubernetes/elastic-values.yml
+  helm upgrade --install camunda-paris oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    -n camunda-paris \
+    -f ./aws/dual-region/kubernetes/elastic-values.yml \
+    --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
+    --set extraConfig.node.attr.region=paris
   kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
 
 remove_elastic:

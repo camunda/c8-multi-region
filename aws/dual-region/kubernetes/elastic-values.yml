@@ -20,10 +20,26 @@ master:
   - name: ELASTICSEARCH_MINIMUM_MASTER_NODES
     value: "5"
   - name: ELASTICSEARCH_TOTAL_NODES
-    value: "15"
+    value: "18"
   - name: ELASTICSEARCH_CLUSTER_HOSTS
     # yamllint disable-line rule:line-length
     value: "camunda-london-elasticsearch-master-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-coordinating-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-data-hl.camunda-london.svc.cluster.local,camunda-london-elasticsearch-ingest-hl.camunda-london.svc.cluster.local,camunda-paris-elasticsearch-master-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-coordinating-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-data-hl.camunda-paris.svc.cluster.local,camunda-paris-elasticsearch-ingest-hl.camunda-paris.svc.cluster.local,camunda-frankfurt-elasticsearch-master-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-coordinating-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-data-hl.camunda-frankfurt.svc.cluster.local,camunda-frankfurt-elasticsearch-ingest-hl.camunda-frankfurt.svc.cluster.local,"
+  - name: ELASTICSEARCH_ENABLE_REST_TLS
+    value: "false"
+
+# ideally affinities are used to distribute the pods across zones
+data:
+  replicaCount: 3
+  heapSize: 3072m
+  persistence:
+    size: 100Gi # suggests a heap size of 3 GB and total size of 6 GB
+  resources:
+    requests:
+      memory: 6Gi
+      cpu: 1
+    limits:
+      memory: 6Gi
+      cpu: 1
 
 metrics:
   enabled: true
