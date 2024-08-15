@@ -165,3 +165,46 @@ get_elastic_lbs:
   echo "London: $london_lb"
   echo "Frankfurt: $frankfurt_lb"
   echo "Paris: $paris_lb"
+
+create_kubeconfig region_alias region:
+  #!/bin/sh
+  TOKEN=$(kubectl get secret temp-admin-secret -n default -o jsonpath="{.data.token}" | base64 --decode)
+  CLUSTER_NAME=$(kubectl config view --minify -o jsonpath='{.clusters[0].name}')
+  SERVER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+  CERTIFICATE=$(aws eks describe-cluster --region={{region}} --name={{cluster_prefix}}-{{region_alias}} --output text --query 'cluster.{certificateAuthorityData: certificateAuthority.data}')
+  cat <<EOF > kubeconfig-{{region_alias}}.yaml
+  apiVersion: v1
+  kind: Config
+  clusters:
+  - cluster:
+      certificate-authority-data: $CERTIFICATE
+      server: $SERVER_URL
+    name: $CLUSTER_NAME
+  contexts:
+  - context:
+      cluster: $CLUSTER_NAME
+      user: temp-admin
+    name: {{region_alias}}
+  current-context: {{region_alias}}
+  users:
+  - name: temp-admin
+    user:
+      token: $TOKEN
+  EOF
+
+create_temp_admin:
+  #!/bin/sh
+  just set_cluster_context paris
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  just create_kubeconfig paris {{paris}}
+  just set_cluster_context london
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  just create_kubeconfig london {{london}}
+  just set_cluster_context frankfurt
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  just create_kubeconfig frankfurt {{frankfurt}}
+
+  KUBECONFIG=./kubeconfig-paris.yaml:./kubeconfig-london.yaml:./kubeconfig-frankfurt.yaml
+  kubectl config view --merge --flatten > temp-admin-kubeconfig.yaml
+
+  rm -f ./kubeconfig-paris.yaml ./kubeconfig-london.yaml ./kubeconfig-frankfurt.yaml

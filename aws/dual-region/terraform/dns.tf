@@ -21,6 +21,7 @@ resource "aws_route53_zone" "internal" {
 # We are creating an A record for to move the traffic to the correct region based on the country
 # In case of unhealthy target, the traffic will be moved to the next region
 
+### Exclude following block on initial run - Start ###
 data "aws_lb" "de_internal_elastic" {
   provider = aws.frankfurt
   tags = {
@@ -92,3 +93,4 @@ resource "aws_route53_record" "de_internal_elastic" {
     country = "DE"
   }
 }
+### Exclude following block on initial run - End ###
