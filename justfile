@@ -7,6 +7,7 @@ elastic_helm_version := "21.3.8"
 grafana_helm_version := "8.4.4"
 prometheus_helm_version := "25.26.0"
 cluster_autoscaler_helm_version := "9.37.0"
+camunda_helm_version := "10.3.2"
 
 # AWS CLI profile (optional, set to "" if not using profiles)
 aws_profile := "--profile infex"
@@ -262,3 +263,53 @@ deploy_cluster_autoscaler:
     --set autoDiscovery.clusterName={{cluster_prefix}}-paris \
     --set awsRegion={{paris}} \
     --set rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$role_arn
+
+deploy_camunda:
+  #!/bin/sh
+  export REGIONS=3
+  export CAMUNDA_NAMESPACE_0=camunda-london
+  export CAMUNDA_NAMESPACE_1=camunda-frankfurt
+  export CAMUNDA_NAMESPACE_2=camunda-paris
+  export HELM_RELEASE_NAME=camunda
+  export CLUSTER_SIZE=12
+
+  # we need to escape the comma for helm set
+  contact_points=$(./aws/dual-region/scripts/generate_zeebe_helm_values.sh | sed 's/,/\\,/g')
+
+  just set_cluster_context london
+  helm upgrade --install camunda camunda/camunda-platform \
+    --version {{camunda_helm_version}} \
+    -n camunda-london \
+    -f ./aws/dual-region/kubernetes/camunda-values.yml \
+    --set zeebe.env[3].name=ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS \
+    --set zeebe.env[3].value="$contact_points" \
+    --set global.multiregion.regionId="0"
+  just set_cluster_context frankfurt
+  helm upgrade --install camunda camunda/camunda-platform \
+    --version {{camunda_helm_version}} \
+    -n camunda-frankfurt \
+    -f ./aws/dual-region/kubernetes/camunda-values.yml \
+    --set zeebe.env[3].name=ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS \
+    --set zeebe.env[3].value="$contact_points" \
+    --set global.multiregion.regionId="1"
+  just set_cluster_context paris
+  helm upgrade --install camunda camunda/camunda-platform \
+    -n camunda-paris \
+    --version {{camunda_helm_version}} \
+    -f ./aws/dual-region/kubernetes/camunda-values.yml \
+    --set zeebe.env[3].name=ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS \
+    --set zeebe.env[3].value="$contact_points" \
+    --set-string 'operate.env[0].value=true' \
+    --set-string 'operate.env[1].value=true' \
+    --set global.multiregion.regionId="2"
+
+remove_camunda:
+  just set_cluster_context london
+  helm uninstall camunda -n camunda-london
+  kubectl delete pvc -l app.kubernetes.io/component=zeebe-broker
+  just set_cluster_context frankfurt
+  helm uninstall camunda -n camunda-frankfurt
+  kubectl delete pvc -l app.kubernetes.io/component=zeebe-broker
+  just set_cluster_context paris
+  helm uninstall camunda -n camunda-paris
+  kubectl delete pvc -l app.kubernetes.io/component=zeebe-broker

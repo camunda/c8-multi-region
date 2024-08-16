@@ -18,9 +18,30 @@ server:
 serverFiles:
   prometheus.yml:
     scrape_configs:
-    - job_name: prometheus
+    - job_name: elasticsearch
+      scrape_interval: 15s
       static_configs:
       - targets:
         - camunda-elasticsearch-metrics-hl.camunda-london.svc.cluster.local:9114
         - camunda-elasticsearch-metrics-hl.camunda-paris.svc.cluster.local:9114
         - camunda-elasticsearch-metrics-hl.camunda-frankfurt.svc.cluster.local:9114
+    - job_name: zeebe
+      scrape_interval: 15s
+      metrics_path: /actuator/prometheus
+      static_configs:
+      - targets:
+        - camunda-zeebe-0.camunda-zeebe.camunda-london.svc.cluster.local:9600
+        - camunda-zeebe-0.camunda-zeebe.camunda-frankfurt.svc.cluster.local:9600
+        - camunda-zeebe-0.camunda-zeebe.camunda-paris.svc.cluster.local:9600
+        - camunda-zeebe-1.camunda-zeebe.camunda-london.svc.cluster.local:9600
+        - camunda-zeebe-1.camunda-zeebe.camunda-frankfurt.svc.cluster.local:9600
+        - camunda-zeebe-1.camunda-zeebe.camunda-paris.svc.cluster.local:9600
+        - camunda-zeebe-2.camunda-zeebe.camunda-london.svc.cluster.local:9600
+        - camunda-zeebe-2.camunda-zeebe.camunda-frankfurt.svc.cluster.local:9600
+        - camunda-zeebe-2.camunda-zeebe.camunda-paris.svc.cluster.local:9600
+        - camunda-zeebe-3.camunda-zeebe.camunda-london.svc.cluster.local:9600
+        - camunda-zeebe-3.camunda-zeebe.camunda-frankfurt.svc.cluster.local:9600
+        - camunda-zeebe-3.camunda-zeebe.camunda-paris.svc.cluster.local:9600
+        - camunda-operate.camunda-london.svc.cluster.local:80
+        - camunda-operate.camunda-frankfurt.svc.cluster.local:80
+        - camunda-operate.camunda-paris.svc.cluster.local:80
