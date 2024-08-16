@@ -4,7 +4,7 @@
 
 module "eks_cluster_region_london" {
   # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-tf-eks-module//modules/eks-cluster"
+  source = "github.com/camunda/camunda-tf-eks-module?ref=oidc-output//modules/eks-cluster"
 
   region             = local.london.region
   name               = "${var.cluster_name}-${local.london.region_full_name}"
@@ -23,7 +23,7 @@ module "eks_cluster_region_london" {
 
 module "eks_cluster_region_paris" {
   # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-tf-eks-module//modules/eks-cluster"
+  source = "github.com/camunda/camunda-tf-eks-module?ref=oidc-output//modules/eks-cluster"
 
   region             = local.paris.region
   name               = "${var.cluster_name}-${local.paris.region_full_name}"
@@ -45,7 +45,7 @@ module "eks_cluster_region_paris" {
 
 module "eks_cluster_region_frankfurt" {
   # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-tf-eks-module//modules/eks-cluster"
+  source = "github.com/camunda/camunda-tf-eks-module?ref=oidc-output//modules/eks-cluster"
 
   region             = local.frankfurt.region
   name               = "${var.cluster_name}-${local.frankfurt.region_full_name}"

@@ -3,6 +3,10 @@ paris := "eu-west-3"
 london := "eu-west-2"
 frankfurt := "eu-central-1"
 cluster_prefix := "lars-saas-test"
+elastic_helm_version := "21.3.8"
+grafana_helm_version := "8.4.4"
+prometheus_helm_version := "25.26.0"
+cluster_autoscaler_helm_version := "9.37.0"
 
 # AWS CLI profile (optional, set to "" if not using profiles)
 aws_profile := "--profile infex"
@@ -124,6 +128,7 @@ dns_stitching:
 deploy_elastic:
   just set_cluster_context london
   helm upgrade --install camunda-london oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    --version {{elastic_helm_version}} \
     -n camunda-london \
     -f ./aws/dual-region/kubernetes/elastic-values.yml \
     --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
@@ -131,6 +136,7 @@ deploy_elastic:
   kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
   just set_cluster_context frankfurt
   helm upgrade --install camunda-frankfurt oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    --version {{elastic_helm_version}} \
     -n camunda-frankfurt \
     -f ./aws/dual-region/kubernetes/elastic-values.yml \
     --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
@@ -138,6 +144,7 @@ deploy_elastic:
   kubectl apply -f ./aws/dual-region/kubernetes/elastic-metrics-headless.yml
   just set_cluster_context paris
   helm upgrade --install camunda-paris oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    --version {{elastic_helm_version}} \
     -n camunda-paris \
     -f ./aws/dual-region/kubernetes/elastic-values.yml \
     --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
@@ -157,8 +164,15 @@ remove_elastic:
 
 deploy_monitoring:
   just set_cluster_context paris
-  helm upgrade --install prom prometheus-community/prometheus -f ./aws/dual-region/kubernetes/prometheus-values.yml -n monitoring --create-namespace
-  helm upgrade --install graf grafana/grafana -n monitoring --set persistence.enabled=true
+  helm upgrade --install prom prometheus-community/prometheus \
+    --version {{prometheus_helm_version}} \
+    -f ./aws/dual-region/kubernetes/prometheus-values.yml \
+    -n monitoring \
+    --create-namespace
+  helm upgrade --install graf grafana/grafana \
+    --version {{grafana_helm_version}} \
+    -n monitoring \
+    --set persistence.enabled=true
 
 get_grafana_admin:
   #!/bin/sh
@@ -220,3 +234,31 @@ create_temp_admin:
   kubectl config view --merge --flatten > temp-admin-kubeconfig.yaml
 
   rm -f ./kubeconfig-paris.yaml ./kubeconfig-london.yaml ./kubeconfig-frankfurt.yaml
+
+deploy_cluster_autoscaler:
+  #!/bin/sh
+  role_arn=$(terraform output -state ./aws/dual-region/terraform/terraform.tfstate -raw eks_autoscaling_role_arn)
+  just set_cluster_context london
+  helm upgrade --install cluster-autoscaler cluster-autoscaler/cluster-autoscaler \
+    --version {{cluster_autoscaler_helm_version}} \
+    -n cluster-autoscaler \
+    --create-namespace \
+    --set autoDiscovery.clusterName={{cluster_prefix}}-london \
+    --set awsRegion={{london}} \
+    --set rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$role_arn
+  just set_cluster_context frankfurt
+  helm upgrade --install cluster-autoscaler cluster-autoscaler/cluster-autoscaler \
+    --version {{cluster_autoscaler_helm_version}} \
+    -n cluster-autoscaler \
+    --create-namespace \
+    --set autoDiscovery.clusterName={{cluster_prefix}}-frankfurt \
+    --set awsRegion={{frankfurt}} \
+    --set rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$role_arn
+  just set_cluster_context paris
+  helm upgrade --install cluster-autoscaler cluster-autoscaler/cluster-autoscaler \
+    --version {{cluster_autoscaler_helm_version}} \
+    -n cluster-autoscaler \
+    --create-namespace \
+    --set autoDiscovery.clusterName={{cluster_prefix}}-paris \
+    --set awsRegion={{paris}} \
+    --set rbac.serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=$role_arn
