@@ -13,11 +13,17 @@ prometheus-node-exporter:
 
 server:
   persistentVolume:
-    size: 50Gi
+    enabled: true
+    size: 200Gi
+  retention: 90d
 
 serverFiles:
   prometheus.yml:
     scrape_configs:
+    - job_name: prometheus
+      static_configs:
+      - targets:
+        - localhost:9090
     - job_name: elasticsearch
       scrape_interval: 15s
       static_configs:
