@@ -3,11 +3,22 @@ paris := "eu-west-3"
 london := "eu-west-2"
 frankfurt := "eu-central-1"
 cluster_prefix := "lars-saas-test"
+
+# Helm chart versions
 elastic_helm_version := "21.3.8"
 grafana_helm_version := "8.4.4"
 prometheus_helm_version := "25.26.0"
 cluster_autoscaler_helm_version := "9.37.0"
 camunda_helm_version := "10.3.2"
+
+# Optional DNS Stuff
+INGRESS_HELM_CHART_VERSION := "4.11.2"
+EXTERNAL_DNS_HELM_CHART_VERSION := "1.14.5"
+CERT_MANAGER_HELM_CHART_VERSION := "1.15.3"
+
+EXTERNAL_DNS_IRSA_ARN := "arn:aws:iam::444804106854:role/lars-saas-test-paris-external-dns-role"
+CERT_MANAGER_IRSA_ARN := "arn:aws:iam::444804106854:role/lars-saas-test-paris-cert-manager-role"
+mail := "lars.lange@camunda.com"
 
 # AWS CLI profile (optional, set to "" if not using profiles)
 aws_profile := "--profile infex"
@@ -313,3 +324,62 @@ remove_camunda:
   just set_cluster_context paris
   helm uninstall camunda -n camunda-paris
   kubectl delete pvc -l app.kubernetes.io/component=zeebe-broker
+
+deploy_dns_stack:
+  #!/bin/sh
+  just set_cluster_context paris
+  # ingress-nginx
+  helm upgrade --install \
+  ingress-nginx ingress-nginx \
+  --repo https://kubernetes.github.io/ingress-nginx \
+  --version {{INGRESS_HELM_CHART_VERSION}} \
+  --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-backend-protocol=tcp' \
+  --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-cross-zone-load-balancing-enabled=true' \
+  --set 'controller.service.annotations.service\.beta\.kubernetes\.io\/aws-load-balancer-type=nlb' \
+  --namespace ingress-nginx \
+  --create-namespace
+  # external-dns
+  helm upgrade --install \
+    external-dns external-dns \
+    --repo https://kubernetes-sigs.github.io/external-dns/ \
+    --version {{EXTERNAL_DNS_HELM_CHART_VERSION}} \
+    --set "env[0].name=AWS_DEFAULT_REGION" \
+    --set "env[0].value={{paris}}" \
+    --set txtOwnerId=external-dns-ml-saas \
+    --set policy=sync \
+    --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn={{EXTERNAL_DNS_IRSA_ARN}}" \
+    --namespace external-dns \
+    --create-namespace
+  # cert-manager
+  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v{{CERT_MANAGER_HELM_CHART_VERSION}}/cert-manager.crds.yaml
+  helm upgrade --install \
+    cert-manager cert-manager \
+    --repo https://charts.jetstack.io \
+    --version {{CERT_MANAGER_HELM_CHART_VERSION}} \
+    --namespace cert-manager \
+    --create-namespace \
+    --set "serviceAccount.annotations.eks\.amazonaws\.com\/role-arn={{CERT_MANAGER_IRSA_ARN}}" \
+    --set securityContext.fsGroup=1001 \
+    --set ingressShim.defaultIssuerName=letsencrypt \
+    --set ingressShim.defaultIssuerKind=ClusterIssuer \
+    --set ingressShim.defaultIssuerGroup=cert-manager.io
+  cat << EOF | kubectl apply -f -
+  ---
+  apiVersion: cert-manager.io/v1
+  kind: ClusterIssuer
+  metadata:
+    name: letsencrypt
+  spec:
+    acme:
+      server: https://acme-v02.api.letsencrypt.org/directory
+      email: {{mail}}
+      privateKeySecretRef:
+        name: letsencrypt-issuer-account-key
+      solvers:
+        - selector: {}
+          dns01:
+            route53:
+              region: {{paris}}
+              # Cert-manager will automatically observe the hosted zones
+              # Cert-manager will automatically make use of the IRSA assigned service account
+  EOF

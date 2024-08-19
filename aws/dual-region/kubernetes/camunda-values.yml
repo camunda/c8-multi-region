@@ -112,9 +112,7 @@ elasticsearch:
 
 operate:
   migration:
-    env:
-    - name: CAMUNDA_OPERATE_ELASTICSEARCH_HOST
-      value: "http://elastic.blobfish.local"
+    enabled: false
   env:
   - name: CAMUNDA_OPERATE_IMPORTER_ENABLED
     value: "false"

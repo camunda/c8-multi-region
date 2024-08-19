@@ -24,3 +24,13 @@ output "eks_autoscaling_role_arn" {
   value       = module.eks_autoscaling_role.iam_role_arn
   description = "The ARN of the IAM role for the EKS autoscaling service account"
 }
+
+output "paris_external_dns_role_arn" {
+  value       = module.eks_cluster_region_paris.external_dns_arn
+  description = "The ARN of the IAM role for the EKS external-dns service account in the Paris region"
+}
+
+output "paris_cert_manager_role_arn" {
+  value       = module.eks_cluster_region_paris.cert_manager_arn
+  description = "The ARN of the IAM role for the EKS cert-manager service account in the Paris region"
+}
