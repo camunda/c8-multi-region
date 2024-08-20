@@ -383,3 +383,30 @@ deploy_dns_stack:
               # Cert-manager will automatically observe the hosted zones
               # Cert-manager will automatically make use of the IRSA assigned service account
   EOF
+
+remove_region_elastic region_alias delete_pvc:
+  #!/bin/sh
+  just set_cluster_context {{region_alias}}
+  helm uninstall camunda-{{region_alias}} -n camunda-{{region_alias}}
+  if [[ {{delete_pvc}} == "true" ]]; then
+    kubectl delete pvc -l app.kubernetes.io/name=elasticsearch -n camunda-{{region_alias}}
+  fi
+
+remove_region_zeebe region_alias delete_pvc:
+  #!/bin/sh
+  just set_cluster_context {{region_alias}}
+  helm uninstall camunda -n camunda-{{region_alias}}
+  if [[ {{delete_pvc}} == "true" ]]; then
+    kubectl delete pvc -l app.kubernetes.io/component=zeebe-broker -n camunda-{{region_alias}}
+  fi
+
+deploy_region_elastic region_alias:
+  just set_cluster_context {{region_alias}}
+  helm upgrade --install camunda-{{region_alias}} oci://registry-1.docker.io/bitnamicharts/elasticsearch \
+    --version {{elastic_helm_version}} \
+    -n camunda-{{region_alias}} \
+    -f ./aws/dual-region/kubernetes/elastic-values.yml \
+    --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
+    --set extraConfig.node.attr.region={{region_alias}}
+
+# For camunda just use `just deploy_camunda`
