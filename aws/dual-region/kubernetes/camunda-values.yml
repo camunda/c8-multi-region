@@ -76,6 +76,8 @@ zeebe:
     value: "1s"
   - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_INDEX_NUMBEROFREPLICAS
     value: "2"
+  - name: ZEEBE_BROKER_EXECUTIONMETRICSEXPORTERENABLED
+    value: "true"
   pvcSize: 32Gi
 
   resources:
