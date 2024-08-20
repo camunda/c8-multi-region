@@ -546,7 +546,7 @@ func CreateAllRequiredSecrets(t *testing.T, source helpers.Cluster, namespaces, 
 }
 
 func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
-	t.Logf("[POD LOGS] Dumping logs for pod %s", kubectlOptions.Namespace)
+	t.Logf("[POD LOGS] Dumping logs for namespace %s", kubectlOptions.Namespace)
 
 	// Temporarily disable logging to not overflow with all logs
 	defer func() {
@@ -557,15 +557,44 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	pods := k8s.ListPods(t, kubectlOptions, metav1.ListOptions{})
 
 	for _, pod := range pods {
-		podLogs, err := k8s.GetPodLogsE(t, kubectlOptions, &pod, "")
-		if err != nil {
-			t.Fatalf("Error getting pod logs: %v", err)
+		t.Logf("[POD LOGS] Found pod %s", pod.Name)
+
+		type containerInfo struct {
+			name            string
+			containerType   string
+		}
+		var allContainers []containerInfo
+
+		for _, container := range pod.Spec.InitContainers {
+			t.Logf("[POD LOGS] Found init container %s in pod %s", container.Name, pod.Name)
+
+			allContainers = append(allContainers, containerInfo{
+				name:            container.Name,
+				containerType:   "init",
+			})
 		}
 
-		// Write logs to a file
-		err = os.WriteFile(fmt.Sprintf("%s-%s.log", kubectlOptions.Namespace, pod.Name), []byte(podLogs), 0644)
-		if err != nil {
-			t.Fatalf("Error writing logs to file: %v", err)
+		for _, container := range pod.Spec.Containers {
+			t.Logf("[POD LOGS] Found container %s in pod %s", container.Name, pod.Name)
+			allContainers = append(allContainers, containerInfo{
+				name:            container.Name,
+				containerType:   "",
+			})
+		}
+
+		for _, container := range allContainers {
+			t.Logf("[POD LOGS] Dumping logs for %s container %s in pod %s", container.containerType, container.name, pod.Name)
+
+			podLogs, err := k8s.GetPodLogsE(t, kubectlOptions, &pod, container.name)
+			if err != nil {
+				t.Fatalf("Error getting pod logs: %v", err)
+			}
+
+			// Write logs to a file
+			err = os.WriteFile(fmt.Sprintf("%s-%s-%s-%s.log", kubectlOptions.Namespace, pod.Name, container.containerType, container.name), []byte(podLogs), 0644)
+			if err != nil {
+				t.Fatalf("Error writing logs to file: %v", err)
+			}
 		}
 	}
 }

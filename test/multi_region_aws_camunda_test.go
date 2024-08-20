@@ -286,15 +286,26 @@ func teardownAllC8Helm(t *testing.T) {
 func debugStep(t *testing.T) {
 	t.Log("[DEBUG] Debugging step 🚀")
 
+	t.Log("[DEBUG] Running kubectl get pods")
+
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
 	k8s.RunKubectl(t, &primary.KubectlFailover, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlFailover, "get", "pods")
 
+	t.Log("[DEBUG] Running kubectl describe pods")
+
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "pods")
 	k8s.RunKubectl(t, &primary.KubectlFailover, "describe", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlFailover, "describe", "pods")
+
+	t.Log("[DEBUG] Running kubectl describe configmaps")
+
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "configmaps")
+	k8s.RunKubectl(t, &primary.KubectlFailover, "describe", "configmaps")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "configmaps")
+	k8s.RunKubectl(t, &secondary.KubectlFailover, "describe", "configmaps")
 
 	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlNamespace)
 	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlFailover)
