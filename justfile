@@ -409,4 +409,14 @@ deploy_region_elastic region_alias:
     --set extraConfig.cluster.routing.allocation.awareness.attributes=region \
     --set extraConfig.node.attr.region={{region_alias}}
 
+deploy_benchmark:
+  just set_cluster_context paris
+  kubectl apply -n camunda-paris -f ./benchmark/starter.yaml
+  kubectl apply -n camunda-paris -f ./benchmark/worker.yaml
+
+remove_benchmark:
+  just set_cluster_context paris
+  kubectl delete -n camunda-paris -f ./benchmark/starter.yaml
+  kubectl delete -n camunda-paris -f ./benchmark/worker.yaml
+
 # For camunda just use `just deploy_camunda`
