@@ -48,6 +48,9 @@ serverFiles:
         - camunda-zeebe-3.camunda-zeebe.camunda-london.svc.cluster.local:9600
         - camunda-zeebe-3.camunda-zeebe.camunda-frankfurt.svc.cluster.local:9600
         - camunda-zeebe-3.camunda-zeebe.camunda-paris.svc.cluster.local:9600
-        - camunda-operate.camunda-london.svc.cluster.local:80
-        - camunda-operate.camunda-frankfurt.svc.cluster.local:80
-        - camunda-operate.camunda-paris.svc.cluster.local:80
+        - camunda-operate-hl.camunda-london.svc.cluster.local:8080
+        - camunda-operate-hl.camunda-frankfurt.svc.cluster.local:8080
+        - camunda-operate-hl.camunda-paris.svc.cluster.local:8080
+        - camunda-zeebe-gateway-hl.camunda-london.svc.cluster.local:9600
+        - camunda-zeebe-gateway-hl.camunda-frankfurt.svc.cluster.local:9600
+        - camunda-zeebe-gateway-hl.camunda-paris.svc.cluster.local:9600
