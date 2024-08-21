@@ -36,10 +36,22 @@ data:
   resources:
     requests:
       memory: 6Gi
-      cpu: 1
+      cpu: 2
     limits:
       memory: 6Gi
-      cpu: 1
+      cpu: 2
+
+# need more resources for high load benchmarks
+coordinating:
+  replicaCount: 3
+  heapSize: 2048m
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 2
+    limits:
+      memory: 4Gi
+      cpu: 2
 
 metrics:
   enabled: true
