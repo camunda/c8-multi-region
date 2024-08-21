@@ -39,9 +39,9 @@ connectors:
   enabled: false
 
 zeebe:
-  clusterSize: 12
-  partitionCount: 12
-  replicationFactor: 6
+  clusterSize: 6
+  partitionCount: 6
+  replicationFactor: 3
   env:
   - name: ZEEBE_BROKER_DATA_SNAPSHOTPERIOD
     value: "5m"
@@ -78,15 +78,17 @@ zeebe:
     value: "2"
   - name: ZEEBE_BROKER_EXECUTIONMETRICSEXPORTERENABLED
     value: "true"
+  - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_INDEX_INDEXSUFFIXDATEPATTERN
+    value: "yyyy-MM-dd_HH"
   pvcSize: 32Gi
 
   resources:
     requests:
-      cpu: "3000m"
-      memory: "8Gi"
+      cpu: "1350m"
+      memory: "4Gi"
     limits:
-      cpu: "3000m"
-      memory: "8Gi"
+      cpu: "1350m"
+      memory: "4Gi"
 
 zeebe-gateway:
   replicas: 2
@@ -133,6 +135,9 @@ operate:
     limits:
       cpu: "2000m"
       memory: "2Gi"
+  retention:
+    enabled: true
+    minimumAge: 120m # there is no need to keep data longer for our benchmarks, otherwise we will fill up ES pretty quick
 
 tasklist:
   enabled: false

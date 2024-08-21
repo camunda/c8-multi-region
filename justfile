@@ -282,7 +282,7 @@ deploy_camunda:
   export CAMUNDA_NAMESPACE_1=camunda-frankfurt
   export CAMUNDA_NAMESPACE_2=camunda-paris
   export HELM_RELEASE_NAME=camunda
-  export CLUSTER_SIZE=12
+  export CLUSTER_SIZE=6
 
   # we need to escape the comma for helm set
   contact_points=$(./aws/dual-region/scripts/generate_zeebe_helm_values.sh | sed 's/,/\\,/g')
