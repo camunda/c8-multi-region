@@ -61,6 +61,6 @@ variable "np_capacity_type" {
 
 variable "np_max_node_count" {
   type        = number
-  default     = 10
+  default     = 15
   description = "Maximum number of nodes in the node pool"
 }
