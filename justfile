@@ -221,11 +221,11 @@ create_kubeconfig region_alias region:
   contexts:
   - context:
       cluster: $CLUSTER_NAME
-      user: temp-admin
+      user: temp-admin-{{region_alias}}
     name: {{region_alias}}
   current-context: {{region_alias}}
   users:
-  - name: temp-admin
+  - name: temp-admin-{{region_alias}}
     user:
       token: $TOKEN
   EOF
@@ -233,13 +233,13 @@ create_kubeconfig region_alias region:
 create_temp_admin:
   #!/bin/sh
   just set_cluster_context paris
-  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin-paris.yml -n default
   just create_kubeconfig paris {{paris}}
   just set_cluster_context london
-  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin-london.yml -n default
   just create_kubeconfig london {{london}}
   just set_cluster_context frankfurt
-  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin.yml
+  kubectl apply -f ./aws/dual-region/kubernetes/temp-admin-frankfurt.yml -n default
   just create_kubeconfig frankfurt {{frankfurt}}
 
   KUBECONFIG=./kubeconfig-paris.yaml:./kubeconfig-london.yaml:./kubeconfig-frankfurt.yaml

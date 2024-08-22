@@ -1,0 +1,29 @@
+---
+# Temp admin user for the Kubernetes cluster to allow non AWS users access for benchmarking
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: temp-admin-frankfurt
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: temp-admin-binding
+subjects:
+- kind: ServiceAccount
+  name: temp-admin-frankfurt
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: temp-admin-secret
+  namespace: default
+  annotations:
+    kubernetes.io/service-account.name: temp-admin-frankfurt
+type: kubernetes.io/service-account-token
