@@ -1,0 +1,31 @@
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: camunda-elasticsearch-settings
+spec:
+  schedule: "*/1 * * * *" # This schedule runs the job every minute
+  successfulJobsHistoryLimit: 1  # Retain only the last successful job
+  failedJobsHistoryLimit: 1      # Retain only the last failed job
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: curl-container
+            image: curlimages/curl:latest
+            args:
+            - -X
+            - PUT
+            - "http://camunda-paris-elasticsearch:9200/*/_settings?pretty"
+            - -H
+            - 'Content-Type: application/json'
+            - -d
+            - '{
+                "index" : {
+                  "write": {
+                      "wait_for_active_shards" : 2
+                  }
+                }
+              }'
+          restartPolicy: OnFailure
