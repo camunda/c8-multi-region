@@ -29,17 +29,17 @@ master:
 
 # ideally affinities are used to distribute the pods across zones
 data:
-  replicaCount: 1
+  replicaCount: 2
   heapSize: 3072m
   persistence:
     size: 200Gi # 100 GB suggests a heap size of 3 GB and total size of 6 GB
   resources:
     requests:
       memory: 6Gi
-      cpu: 2
+      cpu: 3
     limits:
       memory: 6Gi
-      cpu: 2
+      cpu: 3
 
 # need more resources for high load benchmarks
 coordinating:
