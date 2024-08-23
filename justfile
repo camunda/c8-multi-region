@@ -175,6 +175,12 @@ remove_elastic:
   kubectl delete pvc -l app.kubernetes.io/name=elasticsearch
 
 deploy_monitoring:
+  just set_cluster_context london
+  helm upgrade --install cadvisor ckotzbauer/cadvisor --version 2.3.3 -n camunda-london
+  kubectl apply -f ./aws/dual-region/kubernetes/cadvisor-service-headless.yml -n camunda-london
+  just set_cluster_context frankfurt
+  helm upgrade --install cadvisor ckotzbauer/cadvisor --version 2.3.3 -n camunda-frankfurt
+  kubectl apply -f ./aws/dual-region/kubernetes/cadvisor-service-headless.yml -n camunda-frankfurt
   just set_cluster_context paris
   helm upgrade --install prom prometheus-community/prometheus \
     --version {{prometheus_helm_version}} \
@@ -185,6 +191,8 @@ deploy_monitoring:
     --version {{grafana_helm_version}} \
     -n monitoring \
     --set persistence.enabled=true
+  helm upgrade --install cadvisor ckotzbauer/cadvisor --version 2.3.3 -n camunda-paris
+  kubectl apply -f ./aws/dual-region/kubernetes/cadvisor-service-headless.yml -n camunda-paris
 
 get_grafana_admin:
   #!/bin/sh
