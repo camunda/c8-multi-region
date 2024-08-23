@@ -118,9 +118,9 @@ operate:
   migration:
     enabled: false
   env:
-  - name: CAMUNDA_OPERATE_IMPORTER_ENABLED
+  - name: CAMUNDA_OPERATE_IMPORTERENABLED
     value: "false"
-  - name: CAMUNDA_OPERATE_ARCHIVER_ENABLED
+  - name: CAMUNDA_OPERATE_ARCHIVERENABLED
     value: "false"
   - name: CAMUNDA_OPERATE_ELASTICSEARCH_URL
     value: "http://elastic.blobfish.local:9200"

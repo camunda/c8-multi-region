@@ -166,13 +166,13 @@ deploy_elastic:
 remove_elastic:
   just set_cluster_context london
   helm uninstall camunda-london -n camunda-london
-  kubectl delete pvc -n camunda-london --all
+  kubectl delete pvc -l app.kubernetes.io/name=elasticsearch
   just set_cluster_context frankfurt
   helm uninstall camunda-frankfurt -n camunda-frankfurt
-  kubectl delete pvc -n camunda-frankfurt --all
+  kubectl delete pvc -l app.kubernetes.io/name=elasticsearch
   just set_cluster_context paris
   helm uninstall camunda-paris -n camunda-paris
-  kubectl delete pvc -n camunda-paris --all
+  kubectl delete pvc -l app.kubernetes.io/name=elasticsearch
 
 deploy_monitoring:
   just set_cluster_context paris
