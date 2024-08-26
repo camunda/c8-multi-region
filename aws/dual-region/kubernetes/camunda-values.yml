@@ -89,6 +89,9 @@ zeebe:
     limits:
       cpu: "1350m"
       memory: "4Gi"
+  retention:
+    enabled: true
+    minimumAge: 120m
 
 zeebe-gateway:
   replicas: 2
