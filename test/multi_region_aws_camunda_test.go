@@ -89,7 +89,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	}
 }
 
-func TestAWSDualRegFailover(t *testing.T) {
+func TestAWSDualRegFailover_8_6_below(t *testing.T) {
 	t.Log("[2 REGION TEST] Checking Failover procedure 🚀")
 
 	if globalImageTag != "" {
@@ -131,6 +131,7 @@ func TestAWSDualRegFailover(t *testing.T) {
 	}
 }
 
+// Simplified failover procedure for 8.6+
 func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 	t.Log("[2 REGION TEST] Checking Failover procedure for 8.6+ 🚀")
 
@@ -157,6 +158,7 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 	}
 }
 
+// Simplified failback procedure for 8.6+
 func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
 
@@ -197,7 +199,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 	}
 }
 
-func TestAWSDualRegFailback(t *testing.T) {
+func TestAWSDualRegFailback_8_6_below(t *testing.T) {
 	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
 
 	if globalImageTag != "" {

@@ -73,7 +73,7 @@ go test --count=1 -v -timeout 120m -run TestClusterPrerequisites
 12. This will do the DNS chaining by deploying internal loadbalancers and configuring CoreDNS. Run in `test` the command:
 
 ```bash
-go test --count=1 -v -timeout 120m -run TestAWSDNSChaining`
+go test --count=1 -v -timeout 120m -run TestAWSDNSChaining
 ```
 
 ### Running Tests
@@ -100,8 +100,8 @@ go test --count=1 -v -timeout 120m -run TestAWSDeployDualRegCamunda
 - If checking against <= 8.6 with the old procedure
 
 ```bash
-go test --count=1 -v -timeout 120m -run TestAWSDualRegFailover
-go test --count=1 -v -timeout 120m -run TestAWSDualRegFailback
+go test --count=1 -v -timeout 120m -run TestAWSDualRegFailover_8_6_below
+go test --count=1 -v -timeout 120m -run TestAWSDualRegFailback_8_6_below
 ```
 
 - If checking against >= 8.6 with the new procedure

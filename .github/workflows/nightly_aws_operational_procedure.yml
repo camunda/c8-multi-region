@@ -233,7 +233,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 21
       run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
     - name: Failover New - ${{ matrix.c8-version }}
       if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
       working-directory: ./test
@@ -257,7 +257,7 @@ jobs:
       working-directory: ./test
       timeout-minutes: 46
       run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
     - name: Failback New - ${{ matrix.c8-version }}
       if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
       working-directory: ./test
