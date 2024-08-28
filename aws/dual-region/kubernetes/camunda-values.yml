@@ -139,8 +139,8 @@ operate:
     value: "http://elastic.blobfish.local:9200"
   resources:
     requests:
-      cpu: "600m"
-      memory: "400Mi"
+      cpu: "2000m"
+      memory: "2Gi"
     limits:
       cpu: "2000m"
       memory: "2Gi"
