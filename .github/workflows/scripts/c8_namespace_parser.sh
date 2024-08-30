@@ -47,6 +47,10 @@ for var in "${variables[@]}"; do
             version="snapshot"
         fi
 
+        if [ "$version" == "SNAPSHOT-NEW" ]; then
+            version="snapshot-new"
+        fi
+
         version_with_hyphens="${version//./-}"
         namespaces+="${version_with_hyphens}${namespace_suffix},"
     done <<< "$versions"

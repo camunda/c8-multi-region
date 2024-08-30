@@ -144,13 +144,16 @@ jobs:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 10.3.2
         - SNAPSHOT
+        - SNAPSHOT-NEW
 
-        # we don't include SNAPSHOT in PR or push due to the instability of its nature
-        isPRorPush:
-        - ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
+        # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
+        isPR:
+        - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
         exclude:
         - c8-version: SNAPSHOT
-          isPRorPush: true
+          isPR: true
+        - c8-version: SNAPSHOT-NEW
+          isPR: true
 
     steps:
     ################## Checkout ##################
@@ -179,15 +182,20 @@ jobs:
         # SNAPSHOT image = future minor version
         # SNAPSHOT chart = current minor version
         # ALPHA chart = future minor version
-        if [ "$version" == "SNAPSHOT" ]; then
+        if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-NEW" ]; then
           {
             echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
             echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
             echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-            version_with_hyphens="snapshot"
           } >> "$GITHUB_ENV"
         else
           echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
+        fi
+
+        if [ "$version" == "SNAPSHOT" ]; then
+          version_with_hyphens="snapshot"
+        elif [ "$version" == "SNAPSHOT-NEW" ]; then
+          version_with_hyphens="snapshot-new"
         fi
 
         {
@@ -197,6 +205,19 @@ jobs:
           echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
           echo "BACKUP_NAME=nightly-${version_with_hyphens}"
         } >> "$GITHUB_ENV"
+    - name: Determine old or new operational procedure
+      run: |
+        version=${{ matrix.c8-version }}
+
+        major_version=$(echo $version | cut -d '.' -f 1)
+
+        if (( major_version > 10 )); then
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        elif [[ $version == "SNAPSHOT-NEW" ]]; then
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        else
+          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        fi
     ########### Operational Procedure ############
     - name: Deploy - ${{ matrix.c8-version }}
       working-directory: ./test
@@ -207,11 +228,18 @@ jobs:
       id: failover-start
       run: |
         printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failover - ${{ matrix.c8-version }}
+    - name: Failover Old - ${{ matrix.c8-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
       working-directory: ./test
       timeout-minutes: 21
       run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
+    - name: Failover New - ${{ matrix.c8-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 21
+      run: |
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
     - name: Calculate Failover duration
       run: |
         printf -v now '%(%s)T'
@@ -220,16 +248,23 @@ jobs:
         if [ "$duration" -gt "900" ]; then
           echo "::error ::Failover of ${{ matrix.c8-version }} is taking longer than 15 minutes"
         fi
-    - name: Set start timestamp for Failover
+    - name: Set start timestamp for Failback
       id: failback-start
       run: |
         printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failback - ${{ matrix.c8-version }}
+    - name: Failback Old - ${{ matrix.c8-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
       working-directory: ./test
       timeout-minutes: 46
       run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback
-    - name: Calculate Failover duration
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
+    - name: Failback New - ${{ matrix.c8-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 46
+      run: |
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+    - name: Calculate Failback duration
       run: |
         printf -v now '%(%s)T'
         duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
