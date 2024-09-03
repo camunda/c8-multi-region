@@ -38,7 +38,7 @@ for var in "${variables[@]}"; do
     version_regex="[0-9]+\.[0-9]+\.[0-9]+|SNAPSHOT"
 
     while read -r version; do
-        version=$(echo $version | cut -d '=' -f 2)
+        version=$(echo "$version" | cut -d '=' -f 2)
         # Ignore strings that do not match the version regex
         if ! [[ "$version" =~ $version_regex ]]; then
             continue

@@ -159,7 +159,7 @@ jobs:
           }')
           versions='{"helm-version":['${output}']}'
         fi
-        
+
         echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
 
   operational-procedure:
