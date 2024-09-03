@@ -65,15 +65,20 @@ jobs:
         # SNAPSHOT image = future minor version
         # SNAPSHOT chart = current minor version
         # ALPHA chart = future minor version
-        if [ "$version" == "SNAPSHOT" ]; then
+        if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-OLD" ]; then
           {
             echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
             echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
             echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-            version_with_hyphens="snapshot"
           } >> "$GITHUB_ENV"
         else
           echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
+        fi
+
+        if [ "$version" == "SNAPSHOT" ]; then
+          version_with_hyphens="snapshot"
+        elif [ "$version" == "SNAPSHOT-OLD" ]; then
+          version_with_hyphens="snapshot-old"
         fi
 
         {
@@ -83,6 +88,21 @@ jobs:
           echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
           echo "BACKUP_NAME=nightly-${version_with_hyphens}"
         } >> "$GITHUB_ENV"
+    - name: Determine old or new operational procedure
+      run: |
+        version=${{ inputs.helm-version }}
+
+        major_version=$(echo $version | cut -d '.' -f 1)
+
+        if (( major_version > 10 )); then
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        elif [[ $version == "SNAPSHOT-OLD" ]]; then
+          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        elif [[ $version == "OLD" ]]; then
+          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        else
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        fi
     ########### Operational Procedure ############
     - name: Deploy - ${{ inputs.helm-version }}
       working-directory: ./test
@@ -93,11 +113,18 @@ jobs:
       id: failover-start
       run: |
         printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failover - ${{ inputs.helm-version }}
+    - name: Failover Old - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
       working-directory: ./test
       timeout-minutes: 21
       run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
+    - name: Failover New - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 21
+      run: |
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
     - name: Calculate Failover duration
       run: |
         printf -v now '%(%s)T'
@@ -106,16 +133,23 @@ jobs:
         if [ "$duration" -gt "900" ]; then
           echo "::error ::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
         fi
-    - name: Set start timestamp for Failover
+    - name: Set start timestamp for Failback
       id: failback-start
       run: |
         printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failback - ${{ inputs.helm-version }}
+    - name: Failback Old - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
       working-directory: ./test
       timeout-minutes: 46
       run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback
-    - name: Calculate Failover duration
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
+    - name: Failback New - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 46
+      run: |
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+    - name: Calculate Failback duration
       run: |
         printf -v now '%(%s)T'
         duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))

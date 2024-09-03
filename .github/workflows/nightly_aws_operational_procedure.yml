@@ -147,10 +147,10 @@ jobs:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         c85=10.3.2
         c86=SNAPSHOT
-        c86_new=SNAPSHOT-NEW
+        c86_old=SNAPSHOT-OLD
 
         if [ "${{ inputs.helm-versions }}" == "" ]; then
-          versions='{"helm-version":["'${c83}'","'${c84}'","'${c85}'","'${c86}'","'${c86_new}'"]}'
+          versions='{"helm-version":["'${c83}'","'${c84}'","'${c85}'","'${c86}'","'${c86_old}'"]}'
         else
         output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
             for(i=1;i<=NF;i++) {
@@ -181,7 +181,7 @@ jobs:
         exclude:
         - helm-version: SNAPSHOT
           isPR: true
-        - helm-version: SNAPSHOT-NEW
+        - helm-version: SNAPSHOT-OLD
           isPR: true
     uses: ./.github/workflows/reuseable_aws_operational_procedure.yml
     with:

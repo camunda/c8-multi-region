@@ -48,8 +48,8 @@ for var in "${variables[@]}"; do
             version="snapshot"
         fi
 
-        if [ "$version" == "SNAPSHOT-NEW" ]; then
-            version="snapshot-new"
+        if [ "$version" == "SNAPSHOT-OLD" ]; then
+            version="snapshot-old"
         fi
 
         version_with_hyphens="${version//./-}"
