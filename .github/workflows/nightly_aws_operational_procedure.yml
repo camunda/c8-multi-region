@@ -5,10 +5,15 @@ on:
   schedule:
   - cron: '0 2 * * 1-5'
   workflow_dispatch:
+    inputs:
+      helm-versions:
+        description: 'The Helm versions to use as comma separated list'
+        type: string
   pull_request:
     # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
     paths:
     - '.github/workflows/nightly_aws_operational_procedure.yml'
+    - '.github/workflows/reuseable_aws_operational_procedure.yml'
     - 'aws/dual-region/kubernetes/**'
     - 'aws/dual-region/terraform/**'
     - 'test/**'
@@ -127,179 +132,62 @@ jobs:
       run: |
         rm -rf ~/.aws/credentials
 
-  operational-procedure:
+  dynamic-matrix:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    outputs:
+      matrix: ${{ steps.generate-matrix.outputs.matrix }}
+    steps:
+    - name: Generate matrix
+      id: generate-matrix
+      run: |
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+        h83=8.3.16
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+        h84=9.3.9
+        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+        h85=10.3.2
+        h86=SNAPSHOT
+        h86_new=SNAPSHOT-NEW
+
+        if [ "${{ inputs.helm-versions }}" == "" ]; then
+          versions='{"helm-version":["'${h83}'","'${h84}'","'${h85}'","'${h86}'","'${h86_new}'"]}'
+        else
+        output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+            for(i=1;i<=NF;i++) {
+              if ($i ~ /^".*"$/) {
+                printf("%s%s", $i, (i==NF)?"":",")
+              } else {
+                printf("\"%s\"%s", $i, (i==NF)?"":",")
+              }
+            }
+          }')
+          versions='{"helm-version":['${output}']}'
+        fi
+        
+        echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
+
+  operational-procedure:
     needs:
     - cluster-creation
     - cluster-configuration
+    - dynamic-matrix
     strategy:
       fail-fast: false
       matrix:
-        c8-version:
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^8(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 8.3.16
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 9.3.9
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.3.2
-        - SNAPSHOT
-        - SNAPSHOT-NEW
-
+        helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
         # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
         isPR:
         - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
         exclude:
-        - c8-version: SNAPSHOT
+        - helm-version: SNAPSHOT
           isPR: true
-        - c8-version: SNAPSHOT-NEW
+        - helm-version: SNAPSHOT-NEW
           isPR: true
-
-    steps:
-    ################## Checkout ##################
-    - name: Checkout repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-    ############# Tool Installation ##############
-    - name: Setup AWS and Tools
-      uses: ./.github/actions/setup-aws
-      with:
-        secrets: ${{ toJSON(secrets) }}
-    ########### KubeConfig Generation ############
-    - name: Export Cluster Name
-      run: |
-        echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
-    - name: KubeConfig generation
-      working-directory: ./test
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    #### Export required environment variables ####
-    - name: Export C8 namespaces and versions
-      run: |
-        version=${{ matrix.c8-version }}
-        version_with_hyphens="${version//./-}"
-
-        # SNAPSHOT image = future minor version
-        # SNAPSHOT chart = current minor version
-        # ALPHA chart = future minor version
-        if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-NEW" ]; then
-          {
-            echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-            echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-            echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-          } >> "$GITHUB_ENV"
-        else
-          echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
-        fi
-
-        if [ "$version" == "SNAPSHOT" ]; then
-          version_with_hyphens="snapshot"
-        elif [ "$version" == "SNAPSHOT-NEW" ]; then
-          version_with_hyphens="snapshot-new"
-        fi
-
-        {
-          echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
-          echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
-          echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
-          echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
-          echo "BACKUP_NAME=nightly-${version_with_hyphens}"
-        } >> "$GITHUB_ENV"
-    - name: Determine old or new operational procedure
-      run: |
-        version=${{ matrix.c8-version }}
-
-        major_version=$(echo $version | cut -d '.' -f 1)
-
-        if (( major_version > 10 )); then
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-        elif [[ $version == "SNAPSHOT-NEW" ]]; then
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-        else
-          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-        fi
-    ########### Operational Procedure ############
-    - name: Deploy - ${{ matrix.c8-version }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
-    - name: Set start timestamp for Failover
-      id: failover-start
-      run: |
-        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failover Old - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
-    - name: Failover New - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
-    - name: Calculate Failover duration
-      run: |
-        printf -v now '%(%s)T'
-        duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
-        echo $duration
-        if [ "$duration" -gt "900" ]; then
-          echo "::error ::Failover of ${{ matrix.c8-version }} is taking longer than 15 minutes"
-        fi
-    - name: Set start timestamp for Failback
-      id: failback-start
-      run: |
-        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failback Old - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-      working-directory: ./test
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
-    - name: Failback New - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-      working-directory: ./test
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
-    - name: Calculate Failback duration
-      run: |
-        printf -v now '%(%s)T'
-        duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
-        echo $duration
-        if [ "$duration" -gt "1500" ]; then
-          echo "::error ::Failback of ${{ matrix.c8-version }} is taking longer than 25 minutes"
-        fi
-    - name: Debug Step
-      working-directory: ./test
-      if: failure()
-      run: |
-        go test --count=1 -v -timeout 4m -run TestDebugStep
-    - name: Upload Pod Logs
-      if: failure()
-      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4
-      with:
-        name: pod-logs-${{ matrix.c8-version }}
-        retention-days: 7
-        path: ./test/*.log
-    - name: Cleanup - ${{ matrix.c8-version }}
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 16
-      run: |
-        go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
-    - name: KubeConfig Removal
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
-    - name: Remove profile credentials from ~/.aws/credentials
-      if: always()
-      run: |
-        rm -rf ~/.aws/credentials
+    uses: ./.github/workflows/reuseable_aws_operational_procedure.yml
+    with:
+      helm-version: ${{ matrix.helm-version }}
+      cluster-name: ${{ needs.cluster-creation.outputs.cluster_name }}
+    secrets: inherit
 
   tf-teardown:
     runs-on: ubuntu-latest
