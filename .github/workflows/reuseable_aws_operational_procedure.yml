@@ -12,6 +12,11 @@ on:
         description: 'The Helm version to use'
         type: string
         required: true
+      aws-profile:
+        description: 'The AWS profile to use'
+        type: string
+        required: false
+        default: 'infex'
   workflow_call:
     inputs:
       cluster-name:
@@ -22,6 +27,11 @@ on:
         description: 'The Helm version to use'
         type: string
         required: true
+      aws-profile:
+        description: 'The AWS profile to use'
+        type: string
+        required: false
+        default: 'infex'
 
 jobs:
   deploy:
@@ -41,6 +51,8 @@ jobs:
         else
           echo "branch=main" >> "$GITHUB_ENV"
         fi
+
+        echo "AWS_PROFILE=${{ inputs.aws-profile }}" >> "$GITHUB_ENV"
     - name: Checkout repository
       uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
       with:
