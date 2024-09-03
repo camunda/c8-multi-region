@@ -30,10 +30,12 @@ jobs:
     steps:
     - name: Map Helm version to branch
       id: helm-version
-      run:
+      run: |
         # SNAPSHOT / Any string --> -5
         # 10.x.y --> stable/8.(10-5)
-        result=$(( $(echo ${{ inputs.helm-version }} | cut -d'.' -f1) - 5 ))
+        version=${{ inputs.helm-version }}
+        major_version=$(echo "$version" | cut -d '.' -f 1)
+        result=$(( major_version - 5 ))
         if [ "$result" -gt "0" ]; then
           echo "branch=stable/8.${result}" >> "$GITHUB_ENV"
         else
