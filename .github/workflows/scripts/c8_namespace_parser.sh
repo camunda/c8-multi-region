@@ -14,7 +14,7 @@ fi
 
 # For new versions bump -A argument by 1
 # It greps the c8-version and the next x lines
-versions=$(grep 'c8-version:' -A 8 "$1" | awk '/c8-version:/ {flag=1; next} flag {print $2}')
+versions=$(grep 'id: generate-matrix' -A 10 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
 
 variables=("CLUSTER_0_NAMESPACE" "CLUSTER_1_NAMESPACE" "CLUSTER_0_NAMESPACE_FAILOVER" "CLUSTER_1_NAMESPACE_FAILOVER")
 
@@ -38,6 +38,7 @@ for var in "${variables[@]}"; do
     version_regex="[0-9]+\.[0-9]+\.[0-9]+|SNAPSHOT"
 
     while read -r version; do
+        version=$(echo $version | cut -d '=' -f 2)
         # Ignore strings that do not match the version regex
         if ! [[ "$version" =~ $version_regex ]]; then
             continue
