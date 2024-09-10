@@ -97,7 +97,7 @@ zeebe:
       cpu: "512m"
       memory: "2Gi"
 
-zeebe-gateway:
+zeebeGateway:
   replicas: 1
 
   env:
