@@ -7,5 +7,7 @@
       matchPackageNames: ["k8s.io/apimachinery"],
       allowedVersions: "0.28.x"
     }
-  ]
+  ],
+  // We are overwriting the baseBranches as want to keep stable branches up2date concerning Helm chart releases
+  baseBranches: ["main", "/^stable\\/.*/"]
 }

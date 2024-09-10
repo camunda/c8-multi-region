@@ -1,0 +1,202 @@
+---
+name: Reusable AWS Operational Procedure
+
+on:
+  workflow_dispatch:
+    inputs:
+      cluster-name:
+        description: 'The name of the AWS EKS cluster to use'
+        type: string
+        required: true
+      helm-version:
+        description: 'The Helm version to use'
+        type: string
+        required: true
+      aws-profile:
+        description: 'The AWS profile to use'
+        type: string
+        required: false
+        default: 'infex'
+  workflow_call:
+    inputs:
+      cluster-name:
+        description: 'The name of the AWS EKS cluster to use'
+        type: string
+        required: true
+      helm-version:
+        description: 'The Helm version to use'
+        type: string
+        required: true
+      aws-profile:
+        description: 'The AWS profile to use'
+        type: string
+        required: false
+        default: 'infex'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Map Helm version to branch
+      id: helm-version
+      run: |
+        # SNAPSHOT / Any string --> -5
+        # 10.x.y --> stable/8.(10-5)
+        version=${{ inputs.helm-version }}
+        major_version=$(echo "$version" | cut -d '.' -f 1)
+        result=$(( major_version - 5 ))
+        if [ "$result" -gt "0" ]; then
+          echo "branch=stable/8.${result}" >> "$GITHUB_ENV"
+        else
+          echo "branch=main" >> "$GITHUB_ENV"
+        fi
+
+        echo "AWS_PROFILE=${{ inputs.aws-profile }}" >> "$GITHUB_ENV"
+    - name: Checkout repository
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+      with:
+        ref: ${{ env.branch }}
+    ############# Tool Installation ##############
+    - name: Setup AWS and Tools
+      uses: ./.github/actions/setup-aws
+      with:
+        secrets: ${{ toJSON(secrets) }}
+    ########### KubeConfig Generation ############
+    - name: Export Cluster Name
+      run: |
+        echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
+    - name: KubeConfig generation
+      working-directory: ./test
+      timeout-minutes: 5
+      run: |
+        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+    #### Export required environment variables ####
+    - name: Export C8 namespaces and versions
+      run: |
+        version=${{ inputs.helm-version }}
+        version_with_hyphens="${version//./-}"
+
+        # SNAPSHOT image = future minor version
+        # SNAPSHOT chart = current minor version
+        # ALPHA chart = future minor version
+        if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-OLD" ]; then
+          {
+            echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
+            echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+            echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+          } >> "$GITHUB_ENV"
+        else
+          echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
+        fi
+
+        if [ "$version" == "SNAPSHOT" ]; then
+          version_with_hyphens="snapshot"
+        elif [ "$version" == "SNAPSHOT-OLD" ]; then
+          version_with_hyphens="snapshot-old"
+        fi
+
+        {
+          echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
+          echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
+          echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
+          echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
+          echo "BACKUP_NAME=nightly-${version_with_hyphens}"
+        } >> "$GITHUB_ENV"
+    - name: Determine old or new operational procedure
+      run: |
+        version=${{ inputs.helm-version }}
+
+        major_version=$(echo $version | cut -d '.' -f 1)
+
+        if (( major_version > 10 )); then
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        elif [[ $version == "SNAPSHOT-OLD" ]]; then
+          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        elif [[ $version == "OLD" ]]; then
+          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        else
+          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        fi
+    ########### Operational Procedure ############
+    - name: Deploy - ${{ inputs.helm-version }}
+      working-directory: ./test
+      timeout-minutes: 21
+      run: |
+        go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
+    - name: Set start timestamp for Failover
+      id: failover-start
+      run: |
+        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+    - name: Failover Old - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
+      working-directory: ./test
+      timeout-minutes: 21
+      run: |
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
+    - name: Failover New - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 21
+      run: |
+        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+    - name: Calculate Failover duration
+      run: |
+        printf -v now '%(%s)T'
+        duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+        echo $duration
+        if [ "$duration" -gt "900" ]; then
+          echo "::error ::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+        fi
+    - name: Set start timestamp for Failback
+      id: failback-start
+      run: |
+        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+    - name: Failback Old - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
+      working-directory: ./test
+      timeout-minutes: 46
+      run: |
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
+    - name: Failback New - ${{ inputs.helm-version }}
+      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+      working-directory: ./test
+      timeout-minutes: 46
+      run: |
+        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+    - name: Calculate Failback duration
+      run: |
+        printf -v now '%(%s)T'
+        duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+        echo $duration
+        if [ "$duration" -gt "1500" ]; then
+          echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+        fi
+    - name: Debug Step
+      working-directory: ./test
+      if: failure()
+      run: |
+        go test --count=1 -v -timeout 4m -run TestDebugStep
+    - name: Upload Pod Logs
+      if: failure()
+      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4
+      with:
+        name: pod-logs-${{ inputs.helm-version }}
+        retention-days: 7
+        path: ./test/*.log
+    - name: Cleanup - ${{ inputs.helm-version }}
+      working-directory: ./test
+      if: always()
+      timeout-minutes: 16
+      run: |
+        go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+    - name: KubeConfig Removal
+      working-directory: ./test
+      if: always()
+      timeout-minutes: 5
+      run: |
+        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+    - name: Remove profile credentials from ~/.aws/credentials
+      if: always()
+      run: |
+        rm -rf ~/.aws/credentials
