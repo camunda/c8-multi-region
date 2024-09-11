@@ -107,16 +107,29 @@ jobs:
       run: |
         version=${{ inputs.helm-version }}
 
-        major_version=$(echo $version | cut -d '.' -f 1)
+        major_version=$(echo "$version" | cut -d '.' -f 1)
+        minor_version=$(echo "$version" | cut -d '.' -f 2)
 
-        if (( major_version > 10 )); then
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        # >= 11 >= 8.7 - new procedure
+        # >= 10.5 >= 8.6 - new procedure / old procedure
+        # <= 10.4 <= 8.5 - old procedure
+        # SNAPSHOT-OLD - old procedure
+        # SNAPSHOT - new procedure
+
+        if (( major_version >= 10 )) && (( minor_version >= 5 )); then
+            echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        elif (( major_version >= 11 )); then
+            echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
         elif [[ $version == "SNAPSHOT-OLD" ]]; then
-          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+            echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
         elif [[ $version == "OLD" ]]; then
-          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+            echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+        elif [[ $version == "SNAPSHOT" ]]; then
+            echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+        elif (( major_version < 11 )); then
+            echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
         else
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+            echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
         fi
     ########### Operational Procedure ############
     - name: Deploy - ${{ inputs.helm-version }}
