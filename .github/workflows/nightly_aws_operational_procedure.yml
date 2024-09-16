@@ -139,15 +139,9 @@ jobs:
         c8-version:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
         - 10.4.0
-
-        # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
-        isPR:
-        - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
-        exclude:
-        - c8-version: SNAPSHOT
-          isPR: true
-        - c8-version: SNAPSHOT-NEW
-          isPR: true
+        # workaround to let the c8_namespace_parser script still create the snapshot namespaces for DNS chaining
+        # yamllint disable-line
+        #- SNAPSHOT
 
     steps:
     ################## Checkout ##################
