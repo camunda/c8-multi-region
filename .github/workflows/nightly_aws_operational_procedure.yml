@@ -138,7 +138,7 @@ jobs:
       matrix:
         c8-version:
         # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 10.3.2
+        - 10.4.0
 
         # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
         isPR:
