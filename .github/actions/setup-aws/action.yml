@@ -1,47 +1,48 @@
 ---
-name: Setup AWS
+name: Setup AWS and tooling
 description: |
-  Step wrapper to setup AWS credentials and region.
-inputs:
-  secrets:
-    description: JSON wrapped secrets for easier secret passing
-    required: true
-  region:
-    description: AWS region to use
-    default: "eu-west-2"
-    required: false
+    A composite action to deduplicate the code.
+    It's setting up the AWS CLI, pull the required secrets, and minium tooling for Go and Terraform.
 
+inputs:
+    secrets:
+        description: JSON wrapped secrets for easier secret passing (one can use `${{ toJSON(secrets) }}`)
+        required: true
+    region:
+        description: Region to use for the AWS Profile
+        default: eu-west-2
+        required: false
 runs:
-  using: composite
-  steps:
-  ############# Tool Installations #############
-  - name: Install tooling using asdf
-    uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6  # v3
-  - name: Print used versions
-    shell: bash
-    run: |
-      asdf current
-      go version
-      helm version
-      terraform version
+    using: composite
+    steps:
+    ############# Tool Installations #############
+        - name: Install tooling using asdf
+          uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+        - name: Print used versions
+          shell: bash
+          run: |
+              asdf current
+              go version
+              helm version
+              terraform version
   ################## Secrets ###################
-  - name: Import Secrets
-    id: secrets
-    uses: hashicorp/vault-action@v3
-    with:
-      url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
-      method: approle
-      roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
-      secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
-      exportEnv: false
-      secrets: |
-        secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-        secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+        - name: Import Secrets
+          id: secrets
+          uses: hashicorp/vault-action@v3
+          with:
+              url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
+              method: approle
+              roleId: ${{ fromJSON(inputs.secrets).VAULT_ROLE_ID }}
+              secretId: ${{ fromJSON(inputs.secrets).VAULT_SECRET_ID }}
+              exportEnv: false
+              secrets: |
+                  secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                  secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
   ################ AWS Config ##################
   # Official action does not support profiles
-  - name: Add profile credentials to ~/.aws/credentials
-    shell: bash
-    run: |
-        aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-        aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-        aws configure set region ${{ inputs.region }} --profile ${{ env.AWS_PROFILE }}
+        - name: Add profile credentials to ~/.aws/credentials
+          shell: bash
+          run: |
+              aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
+              aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
+              aws configure set region ${{ inputs.region }} --profile ${{ env.AWS_PROFILE }}
