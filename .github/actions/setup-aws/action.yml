@@ -6,7 +6,7 @@ description: |
 
 inputs:
     secrets:
-        description: JSON wrapped secrets for easier secret passing (one can use `${{ toJSON(secrets) }}`)
+        description: JSON wrapped secrets for easier secret passing (one can use `{{ toJSON(secrets) }}`)
         required: true
     region:
         description: Region to use for the AWS Profile
