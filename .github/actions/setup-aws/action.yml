@@ -12,12 +12,15 @@ inputs:
         description: Region to use for the AWS Profile
         default: eu-west-2
         required: false
+
 runs:
     using: composite
     steps:
-    ############# Tool Installations #############
+
+        ############# Tool Installations #############
         - name: Install tooling using asdf
           uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+
         - name: Print used versions
           shell: bash
           run: |
@@ -25,7 +28,8 @@ runs:
               go version
               helm version
               terraform version
-  ################## Secrets ###################
+
+        ################## Secrets ###################
         - name: Import Secrets
           id: secrets
           uses: hashicorp/vault-action@v3
@@ -38,8 +42,9 @@ runs:
               secrets: |
                   secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
                   secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
-  ################ AWS Config ##################
-  # Official action does not support profiles
+
+        ################ AWS Config ##################
+        # Official action does not support profiles
         - name: Add profile credentials to ~/.aws/credentials
           shell: bash
           run: |
