@@ -5,8 +5,8 @@ go 1.22.0
 require (
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-sdk-go-v2/config v1.27.36
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.177.3
-	github.com/aws/aws-sdk-go-v2/service/eks v1.48.4
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.178.0
+	github.com/aws/aws-sdk-go-v2/service/eks v1.49.0
 	github.com/camunda/camunda/clients/go/v8 v8.6.0-alpha5-rc2
 	github.com/gruntwork-io/terratest v0.47.1
 	github.com/stretchr/testify v1.9.0
