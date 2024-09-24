@@ -2,363 +2,363 @@
 name: Nightly AWS EKS Operational Procedure Test
 
 on:
-  schedule:
-  - cron: '0 2 * * 1-5'
-  workflow_dispatch:
-  pull_request:
-    # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
-    paths:
-    - '.github/workflows/nightly_aws_operational_procedure.yml'
-    - 'aws/dual-region/kubernetes/**'
-    - 'aws/dual-region/terraform/**'
-    - 'test/**'
+    schedule:
+        - cron: 0 2 * * 1-5
+    workflow_dispatch:
+    pull_request:
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/workflows/nightly_aws_operational_procedure.yml
+            - aws/dual-region/kubernetes/**
+            - aws/dual-region/terraform/**
+            - test/**
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
-  group: "${{ github.workflow }}-${{ github.ref }}"
-  cancel-in-progress: true
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
 
 env:
-  AWS_PROFILE: infex
-  TESTS_TF_BINARY_NAME: "terraform"
+    AWS_PROFILE: infex
+    TESTS_TF_BINARY_NAME: terraform
 
 jobs:
-  cluster-creation:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    outputs:
-      cluster_name: ${{ steps.random.outputs.CLUSTER_NAME }}
-    steps:
-    ################## Checkout ##################
-    - name: Checkout repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-    ############# Tool Installation ##############
-    - name: Setup AWS and Tools
-      uses: ./.github/actions/setup-aws
-      with:
-        secrets: ${{ toJSON(secrets) }}
-    ################ Env Helper ###################
-    - name: Generate random cluster_name
-      id: random
-      run: |
-        echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
-    ############# Terraform Apply ################
-    - name: Configure Terraform Backend
-      run: |
-        .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
-    - name: Terratest Terraform Init And Apply
-      working-directory: ./test
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestSetupTerraform
-    - name: Remove profile credentials from ~/.aws/credentials
-      if: always()
-      run: |
-        rm -rf ~/.aws/credentials
+    cluster-creation:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        outputs:
+            cluster_name: ${{ steps.random.outputs.CLUSTER_NAME }}
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ################ Env Helper ###################
+            - name: Generate random cluster_name
+              id: random
+              run: |
+                  echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+            ############# Terraform Apply ################
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Terratest Terraform Init And Apply
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestSetupTerraform
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
 
-  cluster-configuration:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs:
-    - cluster-creation
-    steps:
-    ################## Checkout ##################
-    - name: Checkout repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-    ############# Tool Installation ##############
-    - name: Setup AWS and Tools
-      uses: ./.github/actions/setup-aws
-      with:
-        secrets: ${{ toJSON(secrets) }}
-    ########### KubeConfig Generation ############
-    - name: Export Cluster Name
-      run: |
-        echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
-    - name: KubeConfig generation
-      working-directory: ./test
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    ########### Parse GHA for versions ###########
-    - name: Parse GHA for namespace setup
-      run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure.yml
-    ############ Export S3 credentials ############
-    - name: Configure Terraform Backend
-      run: |
-        .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
-    - name: Get S3 credentials
-      id: s3-credentials
-      working-directory: ./aws/dual-region/terraform
-      run: |
-        terraform init
-        # adding mask to treat the value as secret
-        echo "::add-mask::$(terraform output -raw s3_aws_access_key)"
-        echo "::add-mask::$(terraform output -raw s3_aws_secret_access_key)"
-        echo "S3_AWS_ACCESS_KEY=$(terraform output -raw s3_aws_access_key)" >> "$GITHUB_OUTPUT"
-        echo "S3_AWS_SECRET_KEY=$(terraform output -raw s3_aws_secret_access_key)" >> "$GITHUB_OUTPUT"
-    - name: Create all required namespaces and secrets
-      timeout-minutes: 10
-      working-directory: ./test
-      env:
-        S3_AWS_ACCESS_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_ACCESS_KEY }}
-        S3_AWS_SECRET_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_SECRET_KEY }}
-      run: |
-        go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
-    ########### Namespace and DNS setup #########
-    - name: Do the DNS chaining for all required namespaces
-      working-directory: ./test
-      timeout-minutes: 15
-      env:
-        # Pick a known namespace for cross cluster testing
-        CLUSTER_0_NAMESPACE: "snapshot-cluster-0"
-        CLUSTER_0_NAMESPACE_FAILOVER: "snapshot-cluster-0-failover"
-        CLUSTER_1_NAMESPACE: "snapshot-cluster-1"
-        CLUSTER_1_NAMESPACE_FAILOVER: "snapshot-cluster-1-failover"
-      run: |
-        go test --count=1 -v -timeout 44m -run TestAWSDNSChaining
-    - name: KubeConfig Removal
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
-    - name: Remove profile credentials from ~/.aws/credentials
-      if: always()
-      run: |
-        rm -rf ~/.aws/credentials
+    cluster-configuration:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        needs:
+            - cluster-creation
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+            ########### Parse GHA for versions ###########
+            - name: Parse GHA for namespace setup
+              run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure.yml
+            ############ Export S3 credentials ############
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Get S3 credentials
+              id: s3-credentials
+              working-directory: ./aws/dual-region/terraform
+              run: |
+                  terraform init
+                  # adding mask to treat the value as secret
+                  echo "::add-mask::$(terraform output -raw s3_aws_access_key)"
+                  echo "::add-mask::$(terraform output -raw s3_aws_secret_access_key)"
+                  echo "S3_AWS_ACCESS_KEY=$(terraform output -raw s3_aws_access_key)" >> "$GITHUB_OUTPUT"
+                  echo "S3_AWS_SECRET_KEY=$(terraform output -raw s3_aws_secret_access_key)" >> "$GITHUB_OUTPUT"
+            - name: Create all required namespaces and secrets
+              timeout-minutes: 10
+              working-directory: ./test
+              env:
+                  S3_AWS_ACCESS_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_ACCESS_KEY }}
+                  S3_AWS_SECRET_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_SECRET_KEY }}
+              run: |
+                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
+            ########### Namespace and DNS setup #########
+            - name: Do the DNS chaining for all required namespaces
+              working-directory: ./test
+              timeout-minutes: 15
+              env:
+                  # Pick a known namespace for cross cluster testing
+                  CLUSTER_0_NAMESPACE: snapshot-cluster-0
+                  CLUSTER_0_NAMESPACE_FAILOVER: snapshot-cluster-0-failover
+                  CLUSTER_1_NAMESPACE: snapshot-cluster-1
+                  CLUSTER_1_NAMESPACE_FAILOVER: snapshot-cluster-1-failover
+              run: |
+                  go test --count=1 -v -timeout 44m -run TestAWSDNSChaining
+            - name: KubeConfig Removal
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
 
-  operational-procedure:
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
-    needs:
-    - cluster-creation
-    - cluster-configuration
-    strategy:
-      fail-fast: false
-      matrix:
-        c8-version:
-        # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-        - 9.4.0
-        # workaround to let the c8_namespace_parser script still create the snapshot namespaces for DNS chaining
-        # yamllint disable-line
-        #- SNAPSHOT
+    operational-procedure:
+        runs-on: ubuntu-latest
+        timeout-minutes: 120
+        needs:
+            - cluster-creation
+            - cluster-configuration
+        strategy:
+            fail-fast: false
+            matrix:
+                c8-version:
+                    # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+                    - 9.4.0
+                    # workaround to let the c8_namespace_parser script still create the snapshot namespaces for DNS chaining
+                    # yamllint disable-line
+                    #- SNAPSHOT
 
-    steps:
-    ################## Checkout ##################
-    - name: Checkout repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-    ############# Tool Installation ##############
-    - name: Setup AWS and Tools
-      uses: ./.github/actions/setup-aws
-      with:
-        secrets: ${{ toJSON(secrets) }}
-    ########### KubeConfig Generation ############
-    - name: Export Cluster Name
-      run: |
-        echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
-    - name: KubeConfig generation
-      working-directory: ./test
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    #### Export required environment variables ####
-    - name: Export C8 namespaces and versions
-      run: |
-        version=${{ matrix.c8-version }}
-        version_with_hyphens="${version//./-}"
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+            #### Export required environment variables ####
+            - name: Export C8 namespaces and versions
+              run: |
+                  version=${{ matrix.c8-version }}
+                  version_with_hyphens="${version//./-}"
 
-        # SNAPSHOT image = future minor version
-        # SNAPSHOT chart = current minor version
-        # ALPHA chart = future minor version
-        if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-NEW" ]; then
-          {
-            echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-            echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-            echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-          } >> "$GITHUB_ENV"
-        else
-          echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
-        fi
+                  # SNAPSHOT image = future minor version
+                  # SNAPSHOT chart = current minor version
+                  # ALPHA chart = future minor version
+                  if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-NEW" ]; then
+                    {
+                      echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
+                      echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+                      echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                    } >> "$GITHUB_ENV"
+                  else
+                    echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
+                  fi
 
-        if [ "$version" == "SNAPSHOT" ]; then
-          version_with_hyphens="snapshot"
-        elif [ "$version" == "SNAPSHOT-NEW" ]; then
-          version_with_hyphens="snapshot-new"
-        fi
+                  if [ "$version" == "SNAPSHOT" ]; then
+                    version_with_hyphens="snapshot"
+                  elif [ "$version" == "SNAPSHOT-NEW" ]; then
+                    version_with_hyphens="snapshot-new"
+                  fi
 
-        {
-          echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
-          echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
-          echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
-          echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
-          echo "BACKUP_NAME=nightly-${version_with_hyphens}"
-        } >> "$GITHUB_ENV"
-    - name: Determine old or new operational procedure
-      run: |
-        version=${{ matrix.c8-version }}
+                  {
+                    echo "CLUSTER_0_NAMESPACE=${version_with_hyphens}-cluster-0"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-0-failover"
+                    echo "CLUSTER_1_NAMESPACE=${version_with_hyphens}-cluster-1"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER=${version_with_hyphens}-cluster-1-failover"
+                    echo "BACKUP_NAME=nightly-${version_with_hyphens}"
+                  } >> "$GITHUB_ENV"
+            - name: Determine old or new operational procedure
+              run: |
+                  version=${{ matrix.c8-version }}
 
-        major_version=$(echo $version | cut -d '.' -f 1)
+                  major_version=$(echo $version | cut -d '.' -f 1)
 
-        if (( major_version > 10 )); then
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-        elif [[ $version == "SNAPSHOT-NEW" ]]; then
-          echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-        else
-          echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-        fi
-    ########### Operational Procedure ############
-    - name: Deploy - ${{ matrix.c8-version }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
-    - name: Set start timestamp for Failover
-      id: failover-start
-      run: |
-        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failover Old - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
-    - name: Failover New - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-      working-directory: ./test
-      timeout-minutes: 21
-      run: |
-        go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
-    - name: Calculate Failover duration
-      run: |
-        printf -v now '%(%s)T'
-        duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
-        echo $duration
-        if [ "$duration" -gt "900" ]; then
-          echo "::error ::Failover of ${{ matrix.c8-version }} is taking longer than 15 minutes"
-        fi
-    - name: Set start timestamp for Failback
-      id: failback-start
-      run: |
-        printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-    - name: Failback Old - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-      working-directory: ./test
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
-    - name: Failback New - ${{ matrix.c8-version }}
-      if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
-      working-directory: ./test
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
-    - name: Calculate Failback duration
-      run: |
-        printf -v now '%(%s)T'
-        duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
-        echo $duration
-        if [ "$duration" -gt "1500" ]; then
-          echo "::error ::Failback of ${{ matrix.c8-version }} is taking longer than 25 minutes"
-        fi
-    - name: Debug Step
-      working-directory: ./test
-      if: failure()
-      run: |
-        go test --count=1 -v -timeout 4m -run TestDebugStep
-    - name: Upload Pod Logs
-      if: failure()
-      uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4
-      with:
-        name: pod-logs-${{ matrix.c8-version }}
-        retention-days: 7
-        path: ./test/*.log
-    - name: Cleanup - ${{ matrix.c8-version }}
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 16
-      run: |
-        go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
-    - name: KubeConfig Removal
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
-    - name: Remove profile credentials from ~/.aws/credentials
-      if: always()
-      run: |
-        rm -rf ~/.aws/credentials
+                  if (( major_version > 10 )); then
+                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                  elif [[ $version == "SNAPSHOT-NEW" ]]; then
+                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                  else
+                    echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+                  fi
+            ########### Operational Procedure ############
+            - name: Deploy - ${{ matrix.c8-version }}
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  go test --count=1 -v -timeout 20m -run TestAWSDeployDualRegCamunda
+            - name: Set start timestamp for Failover
+              id: failover-start
+              run: |
+                  printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+            - name: Failover Old - ${{ matrix.c8-version }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
+            - name: Failover New - ${{ matrix.c8-version }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+            - name: Calculate Failover duration
+              run: |
+                  printf -v now '%(%s)T'
+                  duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+                  echo $duration
+                  if [ "$duration" -gt "900" ]; then
+                    echo "::error ::Failover of ${{ matrix.c8-version }} is taking longer than 15 minutes"
+                  fi
+            - name: Set start timestamp for Failback
+              id: failback-start
+              run: |
+                  printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+            - name: Failback Old - ${{ matrix.c8-version }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
+            - name: Failback New - ${{ matrix.c8-version }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+            - name: Calculate Failback duration
+              run: |
+                  printf -v now '%(%s)T'
+                  duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+                  echo $duration
+                  if [ "$duration" -gt "1500" ]; then
+                    echo "::error ::Failback of ${{ matrix.c8-version }} is taking longer than 25 minutes"
+                  fi
+            - name: Debug Step
+              working-directory: ./test
+              if: failure()
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestDebugStep
+            - name: Upload Pod Logs
+              if: failure()
+              uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4
+              with:
+                  name: pod-logs-${{ matrix.c8-version }}
+                  retention-days: 7
+                  path: ./test/*.log
+            - name: Cleanup - ${{ matrix.c8-version }}
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 16
+              run: |
+                  go test --count=1 -v -timeout 15m -run TestAWSDualRegCleanup
+            - name: KubeConfig Removal
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
 
-  tf-teardown:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs:
-    - operational-procedure
-    - cluster-creation
-    if: always()
-    steps:
-    ################## Checkout ##################
-    - name: Checkout repository
-      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
-    ############# Tool Installation ##############
-    - name: Setup AWS and Tools
-      uses: ./.github/actions/setup-aws
-      with:
-        secrets: ${{ toJSON(secrets) }}
-    ########### KubeConfig Generation ############
-    - name: Export Cluster Name
-      run: |
-        echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
-    - name: KubeConfig generation
-      working-directory: ./test
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
-    ########### Load Balancer Removal ############
-    - name: Delete LBs to unblock teardown
-      working-directory: ./test
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestClusterCleanup
-    ############# Terratest Teardown #############
-    - name: Configure Terraform Backend
-      run: |
-        .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
-    - name: Terraform Destroy
-      id: terraform-destroy
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 46
-      run: |
-        go test --count=1 -v -timeout 45m -run TestTeardownTerraform
-    - name: KubeConfig Removal
-      working-directory: ./test
-      if: always()
-      timeout-minutes: 5
-      run: |
-        go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
-    - name: Cleanup S3 state bucket
-      if: always() && steps.terraform-destroy.outcome == 'success'
-      run: |
-        aws s3 rm "s3://tf-state-multi-reg/state/$CLUSTER_NAME/terraform.tfstate"
-    - name: Remove profile credentials from ~/.aws/credentials
-      if: always()
-      run: |
-        rm -rf ~/.aws/credentials
+    tf-teardown:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        needs:
+            - operational-procedure
+            - cluster-creation
+        if: always()
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+            ########### Load Balancer Removal ############
+            - name: Delete LBs to unblock teardown
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestClusterCleanup
+            ############# Terratest Teardown #############
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Terraform Destroy
+              id: terraform-destroy
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestTeardownTerraform
+            - name: KubeConfig Removal
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+            - name: Cleanup S3 state bucket
+              if: always() && steps.terraform-destroy.outcome == 'success'
+              run: |
+                  aws s3 rm "s3://tf-state-multi-reg/state/$CLUSTER_NAME/terraform.tfstate"
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
 
-  notify-on-failure:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && failure()
-    needs:
-    - cluster-creation
-    - cluster-configuration
-    - operational-procedure
-    - tf-teardown
-    steps:
-    - name: Notify in Slack in case of failure
-      id: slack-notification
-      uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@102b2d46c2c3961ee04eb78fcf00f150d938422e # main
-      with:
-        vault_addr: ${{ secrets.VAULT_ADDR }}
-        vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-        vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' && failure()
+        needs:
+            - cluster-creation
+            - cluster-configuration
+            - operational-procedure
+            - tf-teardown
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@102b2d46c2c3961ee04eb78fcf00f150d938422e # main
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

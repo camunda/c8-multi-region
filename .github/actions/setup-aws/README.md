@@ -1,27 +1,36 @@
-# Setup AWS and tooling
+# Setup AWS
 
-## Intro
+## Description
 
-A composite action to deduplicate the code.
+Step wrapper to setup AWS credentials and region.
 
-It's setting up the AWS CLI, pull the required secrets, and minium tooling for Go and Terraform.
+
+## Inputs
+
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `secrets` | <p>JSON wrapped secrets for easier secret passing</p> | `true` | `""` |
+| `region` | <p>AWS region to use</p> | `false` | `eu-west-2` |
+
+
+## Runs
+
+This action is a `composite` action.
 
 ## Usage
 
-### Inputs
-
-| Input | Description | Required | Default |
-|-------|-------------|----------|---------|
-| secrets | JSON wrapped secrets for easier secret passing | true |         |
-| region | Region to use for the AWS Profile | false | eu-west-2 |
-
-## Example of using the action
-
 ```yaml
-steps:
-- uses: actions/checkout@v3
-- name: Setup AWS and Tooling
-    uses: ./.github/actions/setup-aws
-    with:
-        secrets: ${{ toJSON(secrets) }}
+- uses: camunda/c8-multi-region/.github/actions/setup-aws@main
+  with:
+    secrets:
+    # JSON wrapped secrets for easier secret passing
+    #
+    # Required: true
+    # Default: ""
+
+    region:
+    # AWS region to use
+    #
+    # Required: false
+    # Default: eu-west-2
 ```
