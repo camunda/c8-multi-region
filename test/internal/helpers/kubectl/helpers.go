@@ -2,11 +2,13 @@ package kubectlHelpers
 
 import (
 	"bytes"
-	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -16,12 +18,34 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/camunda/camunda/clients/go/v8/pkg/zbc"
 	"github.com/gruntwork-io/terratest/modules/helm"
+	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/gruntwork-io/terratest/modules/logger"
 	"github.com/stretchr/testify/require"
 )
+
+type Partition struct {
+	PartitionId int    `json:"partitionId"`
+	Role        string `json:"role"`
+	Health      string `json:"health"`
+}
+
+type Broker struct {
+	NodeId     int         `json:"nodeId"`
+	Host       string      `json:"host"`
+	Port       int         `json:"port"`
+	Partitions []Partition `json:"partitions"`
+	Version    string      `json:"version"`
+}
+
+type ClusterInfo struct {
+	Brokers           []Broker `json:"brokers"`
+	ClusterSize       int      `json:"clusterSize"`
+	PartitionsCount   int      `json:"partitionsCount"`
+	ReplicationFactor int      `json:"replicationFactor"`
+	GatewayVersion    string   `json:"gatewayVersion"`
+}
 
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster) {
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "nginx.yml")
@@ -435,29 +459,26 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 26500)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
-	client, err := zbc.NewClient(&zbc.ClientConfig{
-		GatewayAddress:         tunnel.Endpoint(),
-		UsePlaintextConnection: true,
-	})
-	if err != nil {
-		t.Fatalf("[C8 CHECK] Failed to create client: %v", err)
-		return
-	}
-
-	defer client.Close()
-
 	// Get the topology of the Zeebe cluster
-	topology, err := client.NewTopologyCommand().Send(context.Background())
-	if err != nil {
-		t.Fatalf("[C8 CHECK] Failed to get topology: %v", err)
+	code, body := http_helper.HttpGet(t, fmt.Sprintf("http://%s/v2/topology", tunnel.Endpoint()), nil)
+	if code != 200 {
+		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
 		return
 	}
 
-	require.Equal(t, 8, len(topology.Brokers))
+	var topology ClusterInfo
+
+	err := json.Unmarshal([]byte(body), &topology)
+	if err != nil {
+		t.Fatalf("[C8 CHECK] Error unmarshalling JSON:", err)
+		return
+	}
+
+	require.Equal(t, 8, topology.ClusterSize)
 
 	primaryCount := 0
 	secondaryCount := 0
@@ -480,43 +501,75 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 26500)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
-	client, err := zbc.NewClient(&zbc.ClientConfig{
-		GatewayAddress:         tunnel.Endpoint(),
-		UsePlaintextConnection: true,
+	file, err := os.Open(fmt.Sprintf("%s/single-task.bpmn", resourceDir))
+	if err != nil {
+		t.Fatalf("[C8 PROCESS] can't open file - %s", err)
+		return
+	}
+	defer file.Close()
+
+	reqBody := &bytes.Buffer{}
+	writer := multipart.NewWriter(reqBody)
+
+	part, err := writer.CreateFormFile("resources", filepath.Base(file.Name()))
+	if err != nil {
+		t.Fatalf("[C8 PROCESS] can't create form file - %s", err)
+		return
+	}
+
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("[C8 PROCESS] can't copy file - %s", err)
+		return
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("[C8 PROCESS] can't close writer - %s", err)
+		return
+	}
+
+	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method:    "POST",
+		Url:       fmt.Sprintf("http://%s/v2/deployments", tunnel.Endpoint()),
+		Body:      reqBody,
+		Headers:   map[string]string{"Content-Type": writer.FormDataContentType(), "Accept": "application/json"},
+		TlsConfig: nil,
+		Timeout:   30,
 	})
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] Failed to create client: %v", err)
+	if code != 200 {
+		t.Fatalf("[C8 PROCESS] Failed to deploy process: %s", resBody)
 		return
 	}
 
-	defer client.Close()
-
-	ctx := context.Background()
-	response, err := client.NewDeployResourceCommand().AddResourceFile(fmt.Sprintf("%s/single-task.bpmn", resourceDir)).Send(ctx)
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
-		return
-	}
-	t.Logf("[C8 PROCESS] Created process: %s", response.String())
-	require.NotEmpty(t, response.String())
-	require.Contains(t, response.String(), "bigVarProcess")
+	t.Logf("[C8 PROCESS] Created process: %s", resBody)
+	require.NotEmpty(t, resBody)
+	require.Contains(t, resBody, "bigVarProcess")
 
 	t.Log("[C8 PROCESS] Sleeping shortly to let process be propagated")
 	time.Sleep(30 * time.Second)
 
 	t.Log("[C8 PROCESS] Starting another Process instance 🚀")
-	msg, err := client.NewCreateInstanceCommand().BPMNProcessId("bigVarProcess").LatestVersion().Send(ctx)
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
+	code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method:    "POST",
+		Url:       fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
+		Body:      strings.NewReader("{\"bpmnProcessId\":\"bigVarProcess\",\"tenantId\":\"<default>\"}"),
+		Headers:   map[string]string{"Content-Type": "application/json", "Accept": "application/json"},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
+	if code != 200 {
+		t.Fatalf("[C8 PROCESS] Failed to start process instance: %s", resBody)
 		return
 	}
-	t.Logf("[C8 PROCESS] Created process: %s", msg.String())
-	require.NotEmpty(t, msg.String())
-	require.Contains(t, msg.String(), "bigVarProcess")
+
+	t.Logf("[C8 PROCESS] Created process: %s", resBody)
+	require.NotEmpty(t, resBody)
+	require.Contains(t, resBody, "bigVarProcess")
 
 	// check that was exported to ElasticSearch and available via Operate
 	CheckOperateForProcesses(t, primary)
@@ -560,8 +613,8 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 		t.Logf("[POD LOGS] Found pod %s", pod.Name)
 
 		type containerInfo struct {
-			name            string
-			containerType   string
+			name          string
+			containerType string
 		}
 		var allContainers []containerInfo
 
@@ -569,16 +622,16 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 			t.Logf("[POD LOGS] Found init container %s in pod %s", container.Name, pod.Name)
 
 			allContainers = append(allContainers, containerInfo{
-				name:            container.Name,
-				containerType:   "init",
+				name:          container.Name,
+				containerType: "init",
 			})
 		}
 
 		for _, container := range pod.Spec.Containers {
 			t.Logf("[POD LOGS] Found container %s in pod %s", container.Name, pod.Name)
 			allContainers = append(allContainers, containerInfo{
-				name:            container.Name,
-				containerType:   "",
+				name:          container.Name,
+				containerType: "",
 			})
 		}
 
