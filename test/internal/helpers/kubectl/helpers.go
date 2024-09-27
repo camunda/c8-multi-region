@@ -557,7 +557,7 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 		Method:    "POST",
 		Url:       fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
-		Body:      strings.NewReader("{\"bpmnProcessId\":\"bigVarProcess\",\"tenantId\":\"<default>\"}"),
+		Body:      strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
 		Headers:   map[string]string{"Content-Type": "application/json", "Accept": "application/json"},
 		TlsConfig: nil,
 		Timeout:   30,
