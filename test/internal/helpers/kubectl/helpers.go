@@ -478,7 +478,7 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 		return
 	}
 
-	require.Equal(t, 8, topology.ClusterSize)
+	require.Equal(t, 8, len(topology.Brokers))
 
 	primaryCount := 0
 	secondaryCount := 0
