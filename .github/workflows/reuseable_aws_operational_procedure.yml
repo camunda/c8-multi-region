@@ -43,9 +43,11 @@ jobs:
               run: |
                   version=${{ inputs.helm-version }}
 
+                  if [[ $version =~ "OLD" ]]; then
+                  version="$(echo $version | cut -d'.' -f2-)"
+                  fi
+
                   if [[ $version == "SNAPSHOT" ]]; then
-                  echo "branch=main" >> "$GITHUB_ENV"
-                  elif [[ $version == "SNAPSHOT-OLD" ]]; then
                   echo "branch=main" >> "$GITHUB_ENV"
                   else
                   c8_version=$(curl -X 'GET' -s \
@@ -78,12 +80,18 @@ jobs:
             - name: Export C8 namespaces and versions
               run: |
                   version=${{ inputs.helm-version }}
-                  version_with_hyphens="${version//./-}"
+                  version=$(echo "$version" | tr '[:upper:]' '[:lower:]') # lowercasing the version
+                  version_with_hyphens="${version//./-}" # replacing dots with hyphens
+
+                  # Cutting old out to get the helm chat version
+                  if [[ "$version" =~ "old" ]]; then
+                  version=$(echo "$version" | cut -d'.' -f2-)
+                  fi
 
                   # SNAPSHOT image = future minor version
                   # SNAPSHOT chart = current minor version
                   # ALPHA chart = future minor version
-                  if [ "$version" == "SNAPSHOT" ] || [ "$version" == "SNAPSHOT-OLD" ]; then
+                  if [ "$version" == "snapshot" ]; then
                   {
                   echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
                   echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
@@ -91,12 +99,6 @@ jobs:
                   } >> "$GITHUB_ENV"
                   else
                   echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
-                  fi
-
-                  if [ "$version" == "SNAPSHOT" ]; then
-                  version_with_hyphens="snapshot"
-                  elif [ "$version" == "SNAPSHOT-OLD" ]; then
-                  version_with_hyphens="snapshot-old"
                   fi
 
                   {
@@ -111,20 +113,14 @@ jobs:
                   version=${{ inputs.helm-version }}
 
                   major_version=$(echo "$version" | cut -d '.' -f 1)
-                  minor_version=$(echo "$version" | cut -d '.' -f 2)
 
-                  # >= 11 >= 8.7 - new procedure
-                  # >= 10.5 >= 8.6 - new procedure / old procedure
-                  # <= 10.4 <= 8.5 - old procedure
-                  # SNAPSHOT-OLD - old procedure
+                  # > 10 - new procedure
+                  # < 11 - old procedure
+                  # OLD - old procedure
                   # SNAPSHOT - new procedure
 
-                  if (( major_version >= 10 )) && (( minor_version >= 5 )); then
+                  if (( major_version > 10 )); then
                   echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  elif (( major_version >= 11 )); then
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  elif [[ $version == "SNAPSHOT-OLD" ]]; then
-                  echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
                   elif [[ $version == "OLD" ]]; then
                   echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
                   elif [[ $version == "SNAPSHOT" ]]; then
@@ -135,6 +131,7 @@ jobs:
                   echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
                   fi
     ########### Operational Procedure ############
+    # Needs to cater old and new procedure as this workflow is used for all versions
             - name: Deploy - ${{ inputs.helm-version }}
               working-directory: ./test
               timeout-minutes: 21

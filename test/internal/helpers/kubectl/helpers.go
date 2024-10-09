@@ -338,13 +338,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
 
 	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
-	if failover {
-		filePath = fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values-failover.yml", region)
-
-		valuesFiles = append(valuesFiles, filePath)
-	} else {
-		valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
-	}
+	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -364,17 +358,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Replace Elasticsearch endpoints with namespace specific ones
 	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0), -1)
 	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
-
-	if failover {
-		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
-	}
-
-	if esSwitch && !failover {
-		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
-	}
-	if esSwitch && failover {
-		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
-	}
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)

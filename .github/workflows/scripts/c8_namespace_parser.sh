@@ -44,13 +44,8 @@ for var in "${variables[@]}"; do
             continue
         fi
 
-        if [ "$version" == "SNAPSHOT" ]; then
-            version="snapshot"
-        fi
-
-        if [ "$version" == "SNAPSHOT-OLD" ]; then
-            version="snapshot-old"
-        fi
+        # lowercasing the version for e.g. OLD and SNAPSHOT
+        version=$(echo "$version" | tr '[:upper:]' '[:lower:]')
 
         version_with_hyphens="${version//./-}"
         namespaces+="${version_with_hyphens}${namespace_suffix},"

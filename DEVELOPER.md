@@ -97,13 +97,6 @@ export HELM_CHART_VERSION=9.3.8
 go test --count=1 -v -timeout 120m -run TestAWSDeployDualRegCamunda
 ```
 
-- If checking against <= 8.6 with the old procedure
-
-```bash
-go test --count=1 -v -timeout 120m -run TestAWSDualRegFailover_8_6_below
-go test --count=1 -v -timeout 120m -run TestAWSDualRegFailback_8_6_below
-```
-
 - If checking against >= 8.6 with the new procedure
 
 ```bash

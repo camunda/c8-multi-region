@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"fmt"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +26,7 @@ const (
 
 var (
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "10.4.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "11.0.0")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
@@ -57,22 +56,6 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
 	}
 
-	parts := strings.Split(remoteChartVersion, ".")
-
-	// Convert the first part to integer
-	firstValue, err := strconv.Atoi(parts[0])
-	if err != nil {
-		fmt.Println("Error parsing first value:", err)
-		return
-	}
-
-	// Check if the first value is smaller than 10 or not snapshot (0)
-	if firstValue < 10 && firstValue != 0 {
-		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
-		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
-		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
-	}
-
 	// Runs the tests sequentially
 	for _, testFuncs := range []struct {
 		name  string
@@ -84,48 +67,6 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
-	} {
-		t.Run(testFuncs.name, testFuncs.tfunc)
-	}
-}
-
-func TestAWSDualRegFailover_8_6_below(t *testing.T) {
-	t.Log("[2 REGION TEST] Checking Failover procedure 🚀")
-
-	if globalImageTag != "" {
-		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
-		// global.image.tag does not overwrite the image tag for all images
-		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
-	}
-
-	parts := strings.Split(remoteChartVersion, ".")
-
-	// Convert the first part to integer
-	firstValue, err := strconv.Atoi(parts[0])
-	if err != nil {
-		fmt.Println("Error parsing first value:", err)
-		return
-	}
-
-	// Check if the first value is smaller than 10 or not snapshot (0)
-	if firstValue < 10 && firstValue != 0 {
-		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
-		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
-		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
-	}
-
-	// Runs the tests sequentially
-	for _, testFuncs := range []struct {
-		name  string
-		tfunc func(*testing.T)
-	}{
-		// Multi-Region Operational Procedure
-		// Failover
-		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeleteSecondaryRegion", deleteSecondaryRegion},
-		{"TestCreateFailoverDeploymentPrimary", createFailoverDeploymentPrimary},
-		{"TestCheckTheMathFailover", checkTheMathFailover},
-		{"TestPointPrimaryZeebeToFailver", pointPrimaryZeebeToFailver},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -191,62 +132,6 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestScaleUpWebApps", scaleUpWebApps},
 		{"TestInstallWebAppsSecondary", installWebAppsSecondary_8_6_plus},
-		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", deployC8processAndCheck},
-		{"TestCheckTheMath", checkTheMath},
-	} {
-		t.Run(testFuncs.name, testFuncs.tfunc)
-	}
-}
-
-func TestAWSDualRegFailback_8_6_below(t *testing.T) {
-	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
-
-	if globalImageTag != "" {
-		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
-		// global.image.tag does not overwrite the image tag for all images
-		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
-	}
-
-	parts := strings.Split(remoteChartVersion, ".")
-
-	// Convert the first part to integer
-	firstValue, err := strconv.Atoi(parts[0])
-	if err != nil {
-		fmt.Println("Error parsing first value:", err)
-		return
-	}
-
-	// Check if the first value is smaller than 10 or not snapshot (0)
-	if firstValue < 10 && firstValue != 0 {
-		t.Log("[C8 VERSION] Detected <10 release, requiring Bitnami adjustment")
-		baseHelmVars["elasticsearch.extraVolumes[0].name"] = "empty-dir"
-		baseHelmVars["elasticsearch.extraVolumes[0].emptyDir.medium"] = "Memory"
-	}
-
-	// Runs the tests sequentially
-	for _, testFuncs := range []struct {
-		name  string
-		tfunc func(*testing.T)
-	}{
-		// Multi-Region Operational Procedure
-		// Failback
-		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestRecreateCamundaInSecondary", recreateCamundaInSecondary},
-		{"TestStopZeebeExporters", stopZeebeExporters},
-		{"TestScaleDownWebApps", scaleDownWebApps},
-		{"TestCreateElasticBackupRepoPrimary", createElasticBackupRepoPrimary},
-		{"TestCreateElasticBackupPrimary", createElasticBackupPrimary},
-		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
-		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
-		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
-		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
-		{"TestPointC8BackToElastic", pointC8BackToElastic},
-		{"TestStartZeebeExporters", startZeebeExporters},
-		{"TestScaleUpWebApps", scaleUpWebApps},
-		{"TestInstallWebAppsSecondary", installWebAppsSecondary},
-		{"TestRemoveFailOverRegion", removeFailOverRegion},
-		{"TestRemoveFailBackSecondary", removeFailBackSecondary},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
@@ -358,28 +243,20 @@ func debugStep(t *testing.T) {
 	t.Log("[DEBUG] Running kubectl get pods")
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
-	k8s.RunKubectl(t, &primary.KubectlFailover, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
-	k8s.RunKubectl(t, &secondary.KubectlFailover, "get", "pods")
 
 	t.Log("[DEBUG] Running kubectl describe pods")
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "pods")
-	k8s.RunKubectl(t, &primary.KubectlFailover, "describe", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "pods")
-	k8s.RunKubectl(t, &secondary.KubectlFailover, "describe", "pods")
 
 	t.Log("[DEBUG] Running kubectl describe configmaps")
 
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "describe", "configmaps")
-	k8s.RunKubectl(t, &primary.KubectlFailover, "describe", "configmaps")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "describe", "configmaps")
-	k8s.RunKubectl(t, &secondary.KubectlFailover, "describe", "configmaps")
 
 	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlNamespace)
-	kubectlHelpers.DumpAllPodLogs(t, &primary.KubectlFailover)
 	kubectlHelpers.DumpAllPodLogs(t, &secondary.KubectlNamespace)
-	kubectlHelpers.DumpAllPodLogs(t, &secondary.KubectlFailover)
 }
 
 // Multi-Region Operational Procedure Additions
@@ -426,47 +303,6 @@ func deleteSecondaryRegion(t *testing.T) {
 	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
 
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
-}
-
-func createFailoverDeploymentPrimary(t *testing.T) {
-	t.Log("[FAILOVER] Creating failover deployment 🚀")
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, true, false, baseHelmVars)
-
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlFailover, "camunda-zeebe-gateway", 20, 15*time.Second)
-
-	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
-	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
-}
-
-func pointPrimaryZeebeToFailver(t *testing.T) {
-	t.Log("[FAILOVER] Pointing primary Zeebe to failover Elastic 🚀")
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, true, baseHelmVars)
-
-	// Give it a short time start doing the rollout, otherwise it will send data to the recreated elasticsearch
-	time.Sleep(15 * time.Second)
-
-	// waiting explicitly for the rollout as the waitUntil can be flaky
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
-}
-
-func recreateCamundaInSecondary(t *testing.T) {
-	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
-
-	setValues := map[string]string{
-		"global.multiregion.installationType": "failBack",
-		"operate.enabled":                     "false",
-		"tasklist.enabled":                    "false",
-	}
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, true, helpers.CombineMaps(baseHelmVars, setValues))
-
-	// expected that only 1 and 3 comes on
-	// 0 and 4 should be in not ready state
-	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-1", 20, 15*time.Second)
-	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-3", 20, 15*time.Second)
 }
 
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
@@ -558,87 +394,11 @@ func scaleUpWebApps(t *testing.T) {
 	require.Equal(t, int32(1), *deploymentTasklist.Spec.Replicas)
 }
 
-func installWebAppsSecondary(t *testing.T) {
-	setValues := map[string]string{
-		"global.multiregion.installationType": "failBack",
-	}
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValues))
-
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
-}
-
 func installWebAppsSecondary_8_6_plus(t *testing.T) {
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
 
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
-}
-
-func pointC8BackToElastic(t *testing.T) {
-	setValuesSecondary := map[string]string{
-		"global.multiregion.installationType": "failBack",
-		"operate.enabled":                     "false",
-		"tasklist.enabled":                    "false",
-	}
-
-	// primary region pointing back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, false, baseHelmVars)
-
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "deployment", "camunda-operate", "--replicas=0")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "deployment", "camunda-tasklist", "--replicas=0")
-
-	// waiting explicitly for the rollout as the waitUntil can be flaky
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
-
-	require.True(t, kubectlHelpers.StatefulSetContains(t, &primary.KubectlNamespace, "camunda-zeebe", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", secondaryNamespace)))
-
-	// failover pointing back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, true, true, baseHelmVars)
-
-	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
-
-	require.True(t, kubectlHelpers.StatefulSetContains(t, &primary.KubectlFailover, "camunda-zeebe", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", secondaryNamespace)))
-
-	// secondary pointing back to secondary
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, helpers.CombineMaps(baseHelmVars, setValuesSecondary))
-
-	// Allow the pods to start rollout, otherwise might be unavailable when trying to delete
-	time.Sleep(10 * time.Second)
-
-	// 2 pods are sleeping indefinitely and block rollout
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pod", "camunda-zeebe-0", "camunda-zeebe-1", "camunda-zeebe-2", "camunda-zeebe-3", "--force", "--grace-period=0")
-
-	time.Sleep(15 * time.Second)
-
-	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-3", 20, 15*time.Second)
-	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-1", 20, 15*time.Second)
-
-	require.True(t, kubectlHelpers.StatefulSetContains(t, &secondary.KubectlNamespace, "camunda-zeebe", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", secondaryNamespace)))
-
-}
-
-func removeFailOverRegion(t *testing.T) {
-	t.Log("[FAILOVER] Removing failover region 🚀")
-
-	kubectlHelpers.TeardownC8Helm(t, &primary.KubectlFailover)
-}
-
-func removeFailBackSecondary(t *testing.T) {
-	t.Log("[FAILOVER] Removing failback flag 🚀")
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
-
-	// Allow the pods to start rollout, otherwise might be unavailable when trying to delete
-	time.Sleep(10 * time.Second)
-
-	// 2 pods are sleeping indefinitely and block rollout
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pod", "camunda-zeebe-0", "camunda-zeebe-1", "camunda-zeebe-2", "camunda-zeebe-3", "--force", "--grace-period=0")
-
-	time.Sleep(15 * time.Second)
-
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
 }
 
 func checkTheMath(t *testing.T) {
@@ -655,20 +415,6 @@ func checkTheMath(t *testing.T) {
 	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &secondary.KubectlNamespace, "camunda-zeebe-1")))
 	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &secondary.KubectlNamespace, "camunda-zeebe-2")))
 	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &secondary.KubectlNamespace, "camunda-zeebe-3")))
-}
-
-func checkTheMathFailover(t *testing.T) {
-	t.Log("[MATH] Checking the math for Failover 🚀")
-
-	t.Log("[MATH] Checking if the primary deployment has even broker IDs")
-	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-0")))
-	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-1")))
-	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-2")))
-	require.True(t, helpers.IsEven(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlNamespace, "camunda-zeebe-3")))
-
-	t.Log("[MATH] Checking if the failover deployment has odd broker IDs")
-	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlFailover, "camunda-zeebe-0")))
-	require.True(t, helpers.IsOdd(kubectlHelpers.GetZeebeBrokerId(t, &primary.KubectlFailover, "camunda-zeebe-1")))
 }
 
 func checkTheMathFailover_8_6_plus(t *testing.T) {
