@@ -131,6 +131,7 @@ jobs:
                   echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
                   fi
     ########### Operational Procedure ############
+    # Needs to cater old and new procedure as this workflow is used for all versions
             - name: Deploy - ${{ inputs.helm-version }}
               working-directory: ./test
               timeout-minutes: 21
