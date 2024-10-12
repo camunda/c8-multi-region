@@ -31,7 +31,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
             ############# Tool Installation ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -64,7 +64,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
             ############# Tool Installation ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -138,7 +138,7 @@ jobs:
             matrix:
                 c8-version:
                     # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                    - 9.4.0
+                    - 9.4.1
                     # workaround to let the c8_namespace_parser script still create the snapshot namespaces for DNS chaining
                     # yamllint disable-line
                     #- SNAPSHOT
@@ -146,7 +146,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
             ############# Tool Installation ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -267,7 +267,7 @@ jobs:
                   go test --count=1 -v -timeout 4m -run TestDebugStep
             - name: Upload Pod Logs
               if: failure()
-              uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4
+              uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4
               with:
                   name: pod-logs-${{ matrix.c8-version }}
                   retention-days: 7
@@ -299,7 +299,7 @@ jobs:
         steps:
             ################## Checkout ##################
             - name: Checkout repository
-              uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4
+              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
             ############# Tool Installation ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -357,7 +357,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@46eeb5aa8a394137a866917a310f219aaf88b1cb # main
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b343fc087e0041b3986a1e1b617cc65b3fa90006 # main
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
