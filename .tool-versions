@@ -16,11 +16,11 @@ actionlint 1.7.3
 
 golang 1.23.2
 
-helm 3.16.1
+helm 3.16.2
 
 kubectl 1.31.1
 
-pre-commit 4.0.0
+pre-commit 4.0.1
 
 shellcheck 0.10.0
 
