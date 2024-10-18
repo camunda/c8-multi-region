@@ -234,12 +234,40 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 	k8s.RunKubectl(t, kubectlOptions, command...)
 }
 
+func RunSensitiveKubectlCommandE(t *testing.T, kubectlOptions *k8s.KubectlOptions, command ...string) {
+	defer func() {
+		kubectlOptions.Logger = nil
+	}()
+	kubectlOptions.Logger = logger.Discard
+	k8s.RunKubectlE(t, kubectlOptions, command...)
+}
+
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
 	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
+	}
+
+	if strings.Contains(output, "Unknown s3 client name") {
+		t.Log("[ELASTICSEARCH] Error: Unknown s3 client name")
+		t.Log("[ELASTICSEARCH] Trying to create the client post start")
+
+		k8s.RunKubectlE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "bash", "-c", "elasticsearch-keystore list")
+
+		secret := k8s.GetSecret(t, &cluster.KubectlNamespace, "elasticsearch-env-secret")
+		secretKey := string(secret.Data["S3_SECRET_KEY"])
+		secretAccessKey := string(secret.Data["S3_ACCESS_KEY"])
+
+		// Since secrets are exposed, we're disabling the logger temporarily for the command
+		RunSensitiveKubectlCommandE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "bash", "-c", fmt.Sprintf("echo \"%s\" | elasticsearch-keystore add -f -x s3.client.camunda.access_key", secretAccessKey))
+		RunSensitiveKubectlCommandE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "bash", "-c", fmt.Sprintf("echo \"%s\" | elasticsearch-keystore add -f -x s3.client.camunda.secret_key", secretKey))
+	}
+
+	output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return
