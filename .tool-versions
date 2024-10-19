@@ -9,7 +9,7 @@
 #                                                                              #
 ################################################################################
 
-awscli 2.18.5
+awscli 2.18.10
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.3
@@ -24,6 +24,6 @@ pre-commit 4.0.1
 
 shellcheck 0.10.0
 
-terraform 1.9.7
+terraform 1.9.8
 
 tflint 0.53.0
