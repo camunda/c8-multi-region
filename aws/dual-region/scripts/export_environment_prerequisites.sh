@@ -15,18 +15,18 @@ export REGION_2=ca-central-1
 
 # The names of your Kubernetes clusters in regions 0, 1, and 2
 # default based on the tutorial is the following
-export CLUSTER_0=cluster-us-east-1
-export CLUSTER_1=cluster-us-east-2
-export CLUSTER_2=cluster-ca-central-1
+export CLUSTER_0=cluster-useast1
+export CLUSTER_1=cluster-useast2
+export CLUSTER_2=cluster-cacentral1
 
 # The Kubernetes namespaces for each region where Camunda 8 should be running and the failover namespaces
 # Namespace names must be unique to route the traffic
-export CAMUNDA_NAMESPACE_0=camunda-us-east-1
-export CAMUNDA_NAMESPACE_0_FAILOVER=camunda-us-east-1-failover
-export CAMUNDA_NAMESPACE_1=camunda-us-east-2
-export CAMUNDA_NAMESPACE_1_FAILOVER=camunda-us-east-2-failover
-export CAMUNDA_NAMESPACE_2=camunda-ca-central-1
-export CAMUNDA_NAMESPACE_2_FAILOVER=camunda-ca-central-1-failover
+export CAMUNDA_NAMESPACE_0=camunda-useast1
+export CAMUNDA_NAMESPACE_0_FAILOVER=camunda-useast1-failover
+export CAMUNDA_NAMESPACE_1=camunda-useast2
+export CAMUNDA_NAMESPACE_1_FAILOVER=camunda-useast2-failover
+export CAMUNDA_NAMESPACE_2=camunda-cacentral1
+export CAMUNDA_NAMESPACE_2_FAILOVER=camunda-cacentral1-failover
 
 # The Helm release name used for installing Camunda 8 in both Kubernetes clusters
 export HELM_RELEASE_NAME=camunda
