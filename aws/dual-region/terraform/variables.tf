@@ -3,25 +3,25 @@
 ################################
 
 locals {
-  # For dual-region we used ownner and accepter to distinguish between the two regions but with three regions we default on the region itself
+  # For dual-region we used owner and accepter to distinguish between the two regions but with three regions we default on the region itself
   # We will need multiple peerings, so the naming doesn't make sense anymore
-  london = {
-    region             = "eu-west-2"     # London
+  useast1 = {
+    region             = "us-east-1"     # London
     vpc_cidr_block     = "10.192.0.0/16" # vpc for the cluster and pod range
     service_cidr_block = "10.190.0.0/16" # internal network of the cluster
-    region_full_name   = "london"
+    region_full_name   = "useast1"
   }
-  paris = {
-    region             = "eu-west-3"     # Paris
+  useast2 = {
+    region             = "us-east-2"     # Paris
     vpc_cidr_block     = "10.202.0.0/16" # vpc for the cluster and pod range
     service_cidr_block = "10.200.0.0/16" # internal network of the cluster
-    region_full_name   = "paris"
+    region_full_name   = "useast2"
   }
-  frankfurt = {
-    region             = "eu-central-1"  # Frankfurt
+  cacentral1 = {
+    region             = "ca-central-1"  # Frankfurt
     vpc_cidr_block     = "10.212.0.0/16" # vpc for the cluster and pod range
     service_cidr_block = "10.210.0.0/16" # internal network of the cluster
-    region_full_name   = "frankfurt"
+    region_full_name   = "cacentral1"
   }
 }
 
@@ -32,7 +32,7 @@ locals {
 variable "cluster_name" {
   type        = string
   description = "Name of the cluster to prefix resources"
-  default     = "lars-saas-test"
+  default     = "dave-poc"
 }
 
 variable "aws_profile" {

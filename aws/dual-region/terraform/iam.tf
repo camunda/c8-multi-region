@@ -5,16 +5,16 @@ module "eks_autoscaling_role" {
   role_name = "${var.cluster_name}-eks-autoscaling-role"
 
   oidc_providers = {
-    london = {
-      provider_arn               = module.eks_cluster_region_london.oidc_provider_arn
+    useast1 = {
+      provider_arn               = module.eks_cluster_region_useast1.oidc_provider_arn
       namespace_service_accounts = ["cluster-autoscaler:cluster-autoscaler-aws-cluster-autoscaler"]
     }
-    paris = {
-      provider_arn               = module.eks_cluster_region_paris.oidc_provider_arn
+    useast2 = {
+      provider_arn               = module.eks_cluster_region_useast2.oidc_provider_arn
       namespace_service_accounts = ["cluster-autoscaler:cluster-autoscaler-aws-cluster-autoscaler"]
     }
-    frankfurt = {
-      provider_arn               = module.eks_cluster_region_frankfurt.oidc_provider_arn
+    cacentral1 = {
+      provider_arn               = module.eks_cluster_region_cacentral1.oidc_provider_arn
       namespace_service_accounts = ["cluster-autoscaler:cluster-autoscaler-aws-cluster-autoscaler"]
     }
   }

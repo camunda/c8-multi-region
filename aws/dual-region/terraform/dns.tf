@@ -4,16 +4,16 @@ resource "aws_route53_zone" "internal" {
   name    = "blobfish.local"
   comment = "Managed by Terraform within the Multi-Region SaaS POC"
   vpc {
-    vpc_id     = module.eks_cluster_region_frankfurt.vpc_id
-    vpc_region = "eu-central-1"
+    vpc_id     = module.eks_cluster_region_cacentral1.vpc_id
+    vpc_region = "ca-central-1"
   }
   vpc {
-    vpc_id     = module.eks_cluster_region_london.vpc_id
-    vpc_region = "eu-west-2"
+    vpc_id     = module.eks_cluster_region_useast1.vpc_id
+    vpc_region = "us-east-1"
   }
   vpc {
-    vpc_id     = module.eks_cluster_region_paris.vpc_id
-    vpc_region = "eu-west-3"
+    vpc_id     = module.eks_cluster_region_useast2.vpc_id
+    vpc_region = "us-east-2"
   }
 }
 
@@ -23,23 +23,23 @@ resource "aws_route53_zone" "internal" {
 
 ### Exclude following block on initial run - Start ###
 data "aws_lb" "de_internal_elastic" {
-  provider = aws.frankfurt
+  provider = aws.cacentral1
   tags = {
-    "kubernetes.io/service-name" = "camunda-frankfurt/camunda-frankfurt-elasticsearch"
+    "kubernetes.io/service-name" = "camunda-cacentral1/camunda-cacentral1-elasticsearch"
   }
 }
 
 data "aws_lb" "gb_internal_elastic" {
-  provider = aws.london
+  provider = aws.useast1
   tags = {
-    "kubernetes.io/service-name" = "camunda-london/camunda-london-elasticsearch"
+    "kubernetes.io/service-name" = "camunda-useast1/camunda-useast1-elasticsearch"
   }
 }
 
 data "aws_lb" "fr_internal_elastic" {
-  provider = aws.paris
+  provider = aws.useast2
   tags = {
-    "kubernetes.io/service-name" = "camunda-paris/camunda-paris-elasticsearch"
+    "kubernetes.io/service-name" = "camunda-useast2/camunda-useast2-elasticsearch"
   }
 }
 
