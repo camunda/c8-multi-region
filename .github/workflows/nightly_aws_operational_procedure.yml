@@ -27,7 +27,7 @@ jobs:
         steps:
             ################## Checkout  ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installation  ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -58,7 +58,7 @@ jobs:
         steps:
             ################## Checkout  ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installation  ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -136,7 +136,7 @@ jobs:
         steps:
             ################## Checkout  ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installation  ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -282,7 +282,7 @@ jobs:
         steps:
             ################## Checkout  ##################
             - name: Checkout repository
-              uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
             ############# Tool Installation  ##############
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -339,7 +339,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9fed4756fa88b45e153b75e23aab1087a361b9eb # main
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@860033d092587f4815ad1886e6e9d039743ceffd # main
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
