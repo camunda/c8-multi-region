@@ -339,7 +339,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@bae6ad063e256adb4aca413f8cfde8576f9cfa92 # main
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e5a2c22755b441a438eec2cb4860f7a98d126cc8 # main
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
