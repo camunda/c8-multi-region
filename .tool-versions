@@ -9,7 +9,7 @@
 #                                                                              #
 ################################################################################
 
-awscli 2.18.15
+awscli 2.19.4
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.4
