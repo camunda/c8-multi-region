@@ -1,9 +1,9 @@
 ---
-name: Nightly AWS EKS Operational Procedure Test
+name: Nightly AWS EKS Operational Procedure Test Stable
 
 on:
     schedule:
-        - cron: 0 2 * * 1-5
+        - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
     workflow_dispatch:
         inputs:
             helm-versions:
@@ -14,7 +14,7 @@ on:
             - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
-            - .github/workflows/nightly_aws_operational_procedure.yml
+            - .github/workflows/nightly_aws_operational_procedure_stable.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/kubernetes/**
             - aws/dual-region/terraform/**
@@ -88,7 +88,7 @@ jobs:
                   go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
             ########### Parse GHA for versions ###########
             - name: Parse GHA for namespace setup
-              run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure.yml
+              run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure_stable.yml
             ############ Export S3 credentials ############
             - name: Configure Terraform Backend
               run: |
@@ -147,13 +147,15 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c85=10.4.3
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.0.2
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86_old=OLD.11.0.0
+                  c86=11.0.4
+                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+                  c86_old=OLD.11.0.4
+                  # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
+                  # shellcheck disable=SC2034
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c84}'","'${c85}'","'${c86}'","'${c86_old}'","'${c87}'"]}'
+                    versions='{"helm-version":["'${c84}'","'${c85}'","'${c86}'","'${c86_old}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
@@ -179,12 +181,6 @@ jobs:
             fail-fast: false
             matrix:
                 helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
-                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
-                isPR:
-                    - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
-                exclude:
-                    - helm-version: SNAPSHOT
-                      isPR: true
         uses: ./.github/workflows/reuseable_aws_operational_procedure.yml
         with:
             helm-version: ${{ matrix.helm-version }}
