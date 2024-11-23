@@ -18,7 +18,7 @@ golang 1.23.3
 
 helm 3.16.3
 
-kubectl 1.31.2
+kubectl 1.31.3
 
 pre-commit 4.0.1
 
