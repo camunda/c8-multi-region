@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eks v1.52.1
 	github.com/camunda/camunda/clients/go/v8 v8.6.0-alpha5-rc2
 	github.com/gruntwork-io/terratest v0.47.2
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	k8s.io/apimachinery v0.28.15
 )
 
