@@ -6,7 +6,7 @@ require (
 	github.com/aws/aws-sdk-go v1.55.5
 	github.com/aws/aws-sdk-go-v2/config v1.28.7
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.198.1
-	github.com/aws/aws-sdk-go-v2/service/eks v1.55.0
+	github.com/aws/aws-sdk-go-v2/service/eks v1.56.0
 	github.com/camunda/camunda/clients/go/v8 v8.6.0-alpha5-rc2
 	github.com/gruntwork-io/terratest v0.48.1
 	github.com/stretchr/testify v1.10.0
