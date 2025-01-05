@@ -18,6 +18,7 @@ import (
 	eks_types "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 )
@@ -143,7 +144,6 @@ func GetPrivateIPsForInternalLB(region, description string) []string {
 }
 
 func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
-
 	t.Logf("[DNS CHAINING] applying from source %s to configure target %s", source.ClusterName, target.ClusterName)
 
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "internal-dns-lb.yml")
@@ -167,8 +167,27 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	// Just a check that the ConfigMap exists
 	k8s.GetConfigMap(t, &target.KubectlSystem, "coredns")
 
+	// Set environment variables for the script
+	os.Setenv("CLUSTER_0", source.ClusterName)
+	os.Setenv("CLUSTER_1", target.ClusterName)
+	os.Setenv("CAMUNDA_NAMESPACE_0", namespaces)
+	os.Setenv("CAMUNDA_NAMESPACE_1", namespacesFailover)
+	os.Setenv("REGION_0", source.Region)
+	os.Setenv("REGION_1", target.Region)
+
+	// Run the script and capture its output
+	output := shell.RunCommandAndGetOutput(t, shell.Command{
+		Command: "sh",
+		Args: []string{
+			"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/generate_core_dns_entry.sh",
+		},
+	})
+
+	// Extract the replacement text for the target cluster
+	replacement := extractReplacementText(output, target.ClusterName)
+
 	// Replace template placeholder for IPs
-	t.Logf("[DNS CHAINING] Replacing CoreDNS ConfigMap with private IPs: %s", strings.Join(privateIPs, " "))
+	t.Logf("[DNS CHAINING] Replacing CoreDNS ConfigMap with generated replacement text")
 	filePath := fmt.Sprintf("%s/%s", k8sManifests, "coredns.yml")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -179,30 +198,8 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	// Convert byte slice to string
 	fileContent := string(content)
 
-	// Get all namespaces
-
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	// Define the template and replacement string
-	template := "PLACEHOLDER"
-	replacement := ""
-
-	for _, ns := range arr {
-		replacement += fmt.Sprintf(`
-        %s.svc.cluster.local:53 {
-            errors
-            cache 30
-            forward . %s {
-                force_tcp
-            }
-        }`,
-			ns,
-			strings.Join(privateIPs, " "),
-		)
-	}
-
 	// Replace the template with the replacement string
-	modifiedContent := strings.Replace(fileContent, template, replacement, -1)
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", replacement, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -221,7 +218,17 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 		fmt.Printf("Error writing file: %v\n", err)
 		return
 	}
+}
 
+func extractReplacementText(output, clusterName string) string {
+	startMarker := fmt.Sprintf("### %s - Start ###", clusterName)
+	endMarker := fmt.Sprintf("### %s - End ###", clusterName)
+	startIndex := strings.Index(output, startMarker)
+	endIndex := strings.Index(output, endMarker)
+	if startIndex == -1 || endIndex == -1 {
+		return ""
+	}
+	return output[startIndex+len(startMarker) : endIndex]
 }
 
 func ClusterReadyCheck(t *testing.T, cluster helpers.Cluster) {

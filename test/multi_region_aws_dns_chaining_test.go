@@ -1,11 +1,15 @@
 package test
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"multiregiontests/internal/helpers"
 	awsHelpers "multiregiontests/internal/helpers/aws"
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
+
+	"github.com/gruntwork-io/terratest/modules/shell"
 )
 
 // Used for creating the global core dns configmap for all versions
@@ -39,16 +43,35 @@ func TestAWSDNSChaining(t *testing.T) {
 func TestClusterPrerequisites(t *testing.T) {
 	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
 
-	for _, testFuncs := range []struct {
-		name  string
-		tfunc func(*testing.T)
-	}{
-		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestCreateAllNamespaces", testCreateAllNamespaces},
-		{"TestCreateAllRequiredSecrets", testCreateAllRequiredSecrets},
-	} {
-		t.Run(testFuncs.name, testFuncs.tfunc)
-	}
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+
+	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
+		t.Log("[K8S] Creating all namespaces and secrets 🚀")
+
+		// Combine primary and failover namespaces
+		allPrimaryNamespaces := append(strings.Split(primaryNamespaceArr, ","), strings.Split(primaryNamespaceFailoverArr, ",")...)
+		allSecondaryNamespaces := append(strings.Split(secondaryNamespaceArr, ","), strings.Split(secondaryNamespaceFailoverArr, ",")...)
+
+		// Ensure both arrays have the same length
+		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
+			t.Fatal("Primary and secondary namespace arrays must have the same length")
+		}
+
+		// Iterate over namespaces
+		for i := range allPrimaryNamespaces {
+			os.Setenv("CLUSTER_0", primary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+			os.Setenv("CLUSTER_1", secondary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+
+			shell.RunCommand(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+				},
+			})
+		}
+	})
 }
 
 func clusterReadyCheck(t *testing.T) {
