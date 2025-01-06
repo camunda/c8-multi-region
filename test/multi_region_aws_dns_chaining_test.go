@@ -67,7 +67,7 @@ func TestClusterPrerequisites(t *testing.T) {
 			shell.RunCommand(t, shell.Command{
 				Command: "sh",
 				Args: []string{
-					"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+					"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
 				},
 			})
 		}
@@ -91,8 +91,8 @@ func applyDnsChaining(t *testing.T) {
 	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
 	// awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, primaryNamespaceFailoverArr)
 	// awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
-	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, secondaryNamespaceArr, primaryNamespaceArr)
-	awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, primaryNamespaceArr, secondaryNamespaceArr)
+	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, secondaryNamespaceArr)
+	//awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, secondaryNamespaceArr, primaryNamespaceArr)
 }
 
 func testCoreDNSReload(t *testing.T) {
