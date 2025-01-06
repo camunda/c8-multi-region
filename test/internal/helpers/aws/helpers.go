@@ -166,47 +166,64 @@ func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests stri
 
 	t.Logf("[LOAD BALANCER] Private IPs: %v", privateIPs)
 }
-func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
+func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespacesPrimary, namespacesSecondary string) {
 	// Split the namespace arrays
-	namespaceArr := strings.Split(namespaces, ",")
-	namespaceFailoverArr := strings.Split(namespacesFailover, ",")
+	namespacesPrimaryArr := strings.Split(namespacesPrimary, ",")
+	namespacesSecondaryArr := strings.Split(namespacesSecondary, ",")
 
 	// Ensure both arrays have the same length
-	if len(namespaceArr) != len(namespaceFailoverArr) {
+	if len(namespacesPrimaryArr) != len(namespacesSecondaryArr) {
 		t.Fatalf("Namespace arrays must have the same length")
 		return
 	}
 
-	var allReplacements string
+	var cluster0DnsEntries string
+	var cluster1DnsEntries string
 
-	for i := 0; i < len(namespaceArr); i++ {
-		ns := namespaceArr[i]
-		nsFailover := namespaceFailoverArr[i]
+	for i := 0; i < len(namespacesPrimaryArr); i++ {
+		nsP := namespacesPrimaryArr[i]
+		nsS := namespacesSecondaryArr[i]
 
 		// Set environment variables for the script
-		os.Setenv("CLUSTER_0", target.ClusterName)
+		os.Setenv("CLUSTER_0", source.ClusterName)
 		os.Setenv("CLUSTER_1", target.ClusterName)
-		os.Setenv("CAMUNDA_NAMESPACE_0", ns)
-		os.Setenv("CAMUNDA_NAMESPACE_1", nsFailover)
-		os.Setenv("REGION_0", target.Region)
+		os.Setenv("CAMUNDA_NAMESPACE_0", nsP)
+		os.Setenv("CAMUNDA_NAMESPACE_1", nsS)
+		os.Setenv("REGION_0", source.Region)
 		os.Setenv("REGION_1", target.Region)
 
 		// Run the script and capture its output
 		output := shell.RunCommandAndGetOutput(t, shell.Command{
 			Command: "sh",
 			Args: []string{
-				"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/generate_core_dns_entry.sh",
+				"../aws/dual-region/scripts/generate_core_dns_entry.sh",
 			},
 		})
 
+		t.Logf("[DNS CHAINING] Output from script: %s", output)
+
 		// Extract the replacement text for "Cluster 0"
-		replacement := extractReplacementText(output, "Cluster 0")
-		t.Logf("[DNS CHAINING] Replacement text for Cluster 0: %s", replacement)
+		cluster0DNSEntry := extractReplacementText(output, "Cluster 0")
+		t.Logf("[DNS CHAINING] Replacement text for Cluster 0: %s", cluster0DNSEntry)
 
 		// Accumulate the replacement texts with proper indentation
-		allReplacements += formatReplacementText(replacement)
+		cluster0DnsEntries += formatReplacementText(cluster0DNSEntry)
+
+		// Extract the replacement text for "Cluster 1"
+		cluster1DNSEntry := extractReplacementText(output, "Cluster 1")
+		t.Logf("[DNS CHAINING] Replacement text for Cluster 1: %s", cluster1DNSEntry)
+
+		// Accumulate the replacement texts with proper indentation
+		cluster1DnsEntries += formatReplacementText(cluster1DNSEntry)
 	}
 
+	// Generate and apply the CoreDNS manifest
+	generateAndApplyCoreDNSManifest(t, source, k8sManifests, cluster0DnsEntries)
+	generateAndApplyCoreDNSManifest(t, target, k8sManifests, cluster1DnsEntries)
+
+}
+
+func generateAndApplyCoreDNSManifest(t *testing.T, target helpers.Cluster, k8sManifests, dnsEntries string) {
 	// Replace the placeholder text in the existing CoreDNS ConfigMap
 	t.Logf("[DNS CHAINING] Replacing PLACEHOLDER in CoreDNS ConfigMap with generated replacement text")
 	filePath := fmt.Sprintf("%s/%s", k8sManifests, "coredns.yml")
@@ -220,7 +237,7 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	fileContent := string(content)
 
 	// Replace the placeholder with the accumulated replacement string
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", allReplacements, -1)
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", dnsEntries, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
