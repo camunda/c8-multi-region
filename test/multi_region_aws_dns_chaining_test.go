@@ -87,8 +87,12 @@ func testCrossClusterCommunication(t *testing.T) {
 
 func applyDnsChaining(t *testing.T) {
 	t.Log("[DNS CHAINING] Applying DNS chaining 📡")
-	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
+	awsHelpers.CreateLoadBalancers(t, primary, k8sManifests)
+	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
+	// awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, primaryNamespaceFailoverArr)
+	// awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
+	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, secondaryNamespaceArr, primaryNamespaceArr)
+	awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, primaryNamespaceArr, secondaryNamespaceArr)
 }
 
 func testCoreDNSReload(t *testing.T) {

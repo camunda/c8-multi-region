@@ -23,7 +23,6 @@ import (
 	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/gruntwork-io/terratest/modules/logger"
-	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/stretchr/testify/require"
 )
 
@@ -52,60 +51,59 @@ type ClusterInfo struct {
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster) {
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "nginx.yml")
 
-	// defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)
-	// defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath)
+	defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)
+	defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath)
+
+	k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)
+	k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath)
+
+	k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
+	k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
+
+	k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
+	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
+
+	podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")
+	podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx")
+
+	// if withDNS {
+	// 	primaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", ""), ",")
+	// 	secondaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", ""), ",")
+	// 	os.Setenv("CLUSTER_0", primary.ClusterName)
+	// 	os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[0])
+	// 	os.Setenv("CLUSTER_1", secondary.ClusterName)
+	// 	os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[0])
+
+	// 	shell.RunCommand(t, shell.Command{
+	// 		Command: "sh",
+	// 		Args: []string{
+	// 			"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/test_dns_chaining.sh",
+	// 		},
+	// 	})
 
 	if withDNS {
-		primaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", ""), ",")
-		secondaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", ""), ",")
-		os.Setenv("CLUSTER_0", primary.ClusterName)
-		os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[0])
-		os.Setenv("CLUSTER_1", secondary.ClusterName)
-		os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[0])
-
-		shell.RunCommand(t, shell.Command{
-			Command: "sh",
-			Args: []string{
-				"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/test_dns_chaining.sh",
-			},
-		})
-
-		// if withDNS {
 		// Check if the pods can reach each other via the service
 
 		// wrapped in a for loop since the reload of CoreDNS needs a bit of time to be propagated
-		// 	for i := 0; i < 6; i++ {
-		// 		outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", secondary.KubectlNamespace.Namespace))
-		// 		outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", primary.KubectlNamespace.Namespace))
-		// 		if errPrimary != nil || errSecondary != nil {
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errPrimary)
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errSecondary)
-		// 			t.Log("[CROSS CLUSTER COMMUNICATION] CoreDNS not resolving yet, waiting ...")
-		// 			time.Sleep(15 * time.Second)
-		// 		}
+		for i := 0; i < 6; i++ {
+			outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", secondary.KubectlNamespace.Namespace))
+			outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", primary.KubectlNamespace.Namespace))
+			if errPrimary != nil || errSecondary != nil {
+				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errPrimary)
+				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errSecondary)
+				t.Log("[CROSS CLUSTER COMMUNICATION] CoreDNS not resolving yet, waiting ...")
+				time.Sleep(15 * time.Second)
+			}
 
-		// 		if outputPrimary != "" && outputSecondary != "" {
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputPrimary)
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputSecondary)
-		// 			t.Log("[CROSS CLUSTER COMMUNICATION] Communication established")
-		// 			break
-		// 		}
-		// 	}
-		// } else {
+			if outputPrimary != "" && outputSecondary != "" {
+				t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputPrimary)
+				t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputSecondary)
+				t.Log("[CROSS CLUSTER COMMUNICATION] Communication established")
+				break
+			}
+		}
 	} else {
 		// Check if the pods can reach each other via the IPs directly
-
-		k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)
-		k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath)
-
-		k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
-		k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
-
-		k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
-		k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
-
-		podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")
-		podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx")
 
 		podPrimaryIP := podPrimary.Status.PodIP
 		require.NotEmpty(t, podPrimaryIP)

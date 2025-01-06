@@ -143,8 +143,8 @@ func GetPrivateIPsForInternalLB(region, description string) []string {
 	return privateIPs
 }
 
-func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
-	t.Logf("[DNS CHAINING] applying from source %s to configure target %s", source.ClusterName, target.ClusterName)
+func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests string) {
+	t.Logf("[LOAD BALANCER] Creating load balancer for source cluster %s", source.ClusterName)
 
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "internal-dns-lb.yml")
 
@@ -164,47 +164,68 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	require.NotEmpty(t, privateIPs)
 	require.Greater(t, len(privateIPs), 1)
 
-	// Just a check that the ConfigMap exists
-	k8s.GetConfigMap(t, &target.KubectlSystem, "coredns")
+	t.Logf("[LOAD BALANCER] Private IPs: %v", privateIPs)
+}
+func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
+	// Split the namespace arrays
+	namespaceArr := strings.Split(namespaces, ",")
+	namespaceFailoverArr := strings.Split(namespacesFailover, ",")
 
-	// Set environment variables for the script
-	os.Setenv("CLUSTER_0", source.ClusterName)
-	os.Setenv("CLUSTER_1", target.ClusterName)
-	os.Setenv("CAMUNDA_NAMESPACE_0", namespaces)
-	os.Setenv("CAMUNDA_NAMESPACE_1", namespacesFailover)
-	os.Setenv("REGION_0", source.Region)
-	os.Setenv("REGION_1", target.Region)
+	// Ensure both arrays have the same length
+	if len(namespaceArr) != len(namespaceFailoverArr) {
+		t.Fatalf("Namespace arrays must have the same length")
+		return
+	}
 
-	// Run the script and capture its output
-	output := shell.RunCommandAndGetOutput(t, shell.Command{
-		Command: "sh",
-		Args: []string{
-			"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/generate_core_dns_entry.sh",
-		},
-	})
+	var allReplacements string
 
-	// Extract the replacement text for the target cluster
-	replacement := extractReplacementText(output, target.ClusterName)
+	for i := 0; i < len(namespaceArr); i++ {
+		ns := namespaceArr[i]
+		nsFailover := namespaceFailoverArr[i]
 
-	// Replace template placeholder for IPs
-	t.Logf("[DNS CHAINING] Replacing CoreDNS ConfigMap with generated replacement text")
+		// Set environment variables for the script
+		os.Setenv("CLUSTER_0", target.ClusterName)
+		os.Setenv("CLUSTER_1", target.ClusterName)
+		os.Setenv("CAMUNDA_NAMESPACE_0", ns)
+		os.Setenv("CAMUNDA_NAMESPACE_1", nsFailover)
+		os.Setenv("REGION_0", target.Region)
+		os.Setenv("REGION_1", target.Region)
+
+		// Run the script and capture its output
+		output := shell.RunCommandAndGetOutput(t, shell.Command{
+			Command: "sh",
+			Args: []string{
+				"/Users/balazs.kenez/camunda/c8-multi-region/aws/dual-region/scripts/generate_core_dns_entry.sh",
+			},
+		})
+
+		// Extract the replacement text for "Cluster 0"
+		replacement := extractReplacementText(output, "Cluster 0")
+		t.Logf("[DNS CHAINING] Replacement text for Cluster 0: %s", replacement)
+
+		// Accumulate the replacement texts with proper indentation
+		allReplacements += formatReplacementText(replacement)
+	}
+
+	// Replace the placeholder text in the existing CoreDNS ConfigMap
+	t.Logf("[DNS CHAINING] Replacing PLACEHOLDER in CoreDNS ConfigMap with generated replacement text")
 	filePath := fmt.Sprintf("%s/%s", k8sManifests, "coredns.yml")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
+		t.Fatalf("Error reading file: %v\n", err)
 		return
 	}
 
 	// Convert byte slice to string
 	fileContent := string(content)
 
-	// Replace the template with the replacement string
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", replacement, -1)
+	// Replace the placeholder with the accumulated replacement string
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", allReplacements, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
 	if err != nil {
-		fmt.Printf("Error writing file: %v\n", err)
+		t.Fatalf("Error writing file: %v\n", err)
 		return
 	}
 
@@ -215,20 +236,32 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	// Write the old file back to the file - required for bidirectional communication
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
 	if err != nil {
-		fmt.Printf("Error writing file: %v\n", err)
+		t.Fatalf("Error writing file: %v\n", err)
 		return
 	}
 }
 
-func extractReplacementText(output, clusterName string) string {
-	startMarker := fmt.Sprintf("### %s - Start ###", clusterName)
-	endMarker := fmt.Sprintf("### %s - End ###", clusterName)
+func extractReplacementText(output, clusterMarker string) string {
+	startMarker := fmt.Sprintf("### %s - Start ###\n", clusterMarker)
+	endMarker := fmt.Sprintf("\n### %s - End ###", clusterMarker)
 	startIndex := strings.Index(output, startMarker)
-	endIndex := strings.Index(output, endMarker)
-	if startIndex == -1 || endIndex == -1 {
+	if startIndex == -1 {
 		return ""
 	}
-	return output[startIndex+len(startMarker) : endIndex]
+	startIndex += len(startMarker)
+	endIndex := strings.Index(output[startIndex:], endMarker)
+	if endIndex == -1 {
+		return ""
+	}
+	return strings.TrimSpace(output[startIndex : startIndex+endIndex])
+}
+
+func formatReplacementText(replacement string) string {
+	lines := strings.Split(replacement, "\n")
+	for i := range lines {
+		lines[i] = "    " + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func ClusterReadyCheck(t *testing.T, cluster helpers.Cluster) {
