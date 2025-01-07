@@ -147,8 +147,3 @@ elasticsearch:
         - name: empty-dir
           mountPath: /bitnami/elasticsearch
           subPath: app-volume-dir
-# yamllint disable-line rule:comments-indentation
-  # Fix addition for Helm Chart < 10
-  # extraVolumes:
-  # - name: empty-dir
-  #   emptyDir: {}

@@ -1,0 +1,262 @@
+---
+name: Nightly AWS EKS Operational Procedure Test Snapshot
+
+on:
+    schedule:
+        - cron: 0 2 * * 1 # 02:00 UTC on Monday
+    workflow_dispatch:
+        inputs:
+            helm-versions:
+                description: The Helm versions to use as comma separated list
+                type: string
+    pull_request:
+        branches-ignore:
+            - stable/**
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
+            - .github/workflows/reuseable_aws_operational_procedure.yml
+            - aws/dual-region/kubernetes/**
+            - aws/dual-region/terraform/**
+            - test/**
+
+# limit to a single execution per ref (branch) of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infex
+    TESTS_TF_BINARY_NAME: terraform
+
+jobs:
+    cluster-creation:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        outputs:
+            cluster_name: ${{ steps.random.outputs.CLUSTER_NAME }}
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ################ Env Helper ###################
+            - name: Generate random cluster_name
+              id: random
+              run: |
+                  echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
+            ############# Terraform Apply ################
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Terratest Terraform Init And Apply
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestSetupTerraform
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
+
+    cluster-configuration:
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        needs:
+            - cluster-creation
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+            ########### Parse GHA for versions ###########
+            - name: Parse GHA for namespace setup
+              run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure_snapshot.yml
+            ############ Export S3 credentials ############
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Get S3 credentials
+              id: s3-credentials
+              working-directory: ./aws/dual-region/terraform
+              run: |
+                  terraform init
+                  # adding mask to treat the value as secret
+                  echo "::add-mask::$(terraform output -raw s3_aws_access_key)"
+                  echo "::add-mask::$(terraform output -raw s3_aws_secret_access_key)"
+                  echo "S3_AWS_ACCESS_KEY=$(terraform output -raw s3_aws_access_key)" >> "$GITHUB_OUTPUT"
+                  echo "S3_AWS_SECRET_KEY=$(terraform output -raw s3_aws_secret_access_key)" >> "$GITHUB_OUTPUT"
+            - name: Create all required namespaces and secrets
+              timeout-minutes: 10
+              working-directory: ./test
+              env:
+                  S3_AWS_ACCESS_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_ACCESS_KEY }}
+                  S3_AWS_SECRET_KEY: ${{ steps.s3-credentials.outputs.S3_AWS_SECRET_KEY }}
+              run: |
+                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
+            ########### Namespace and DNS setup #########
+            - name: Do the DNS chaining for all required namespaces
+              working-directory: ./test
+              timeout-minutes: 15
+              env:
+                  # Pick a known namespace for cross cluster testing
+                  CLUSTER_0_NAMESPACE: snapshot-cluster-0
+                  CLUSTER_0_NAMESPACE_FAILOVER: snapshot-cluster-0-failover
+                  CLUSTER_1_NAMESPACE: snapshot-cluster-1
+                  CLUSTER_1_NAMESPACE_FAILOVER: snapshot-cluster-1-failover
+              run: |
+                  go test --count=1 -v -timeout 44m -run TestAWSDNSChaining
+            - name: KubeConfig Removal
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
+
+    dynamic-matrix:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        outputs:
+            matrix: ${{ steps.generate-matrix.outputs.matrix }}
+        steps:
+            - name: Generate matrix
+              id: generate-matrix
+              run: |
+                  c87=SNAPSHOT
+
+                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                    versions='{"helm-version":["'${c87}'"]}'
+                  else
+                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                      for(i=1;i<=NF;i++) {
+                        if ($i ~ /^".*"$/) {
+                          printf("%s%s", $i, (i==NF)?"":",")
+                        } else {
+                          printf("\"%s\"%s", $i, (i==NF)?"":",")
+                        }
+                      }
+                    }')
+                    versions='{"helm-version":['${output}']}'
+                  fi
+
+                  echo "${versions}"
+                  echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
+
+    operational-procedure:
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        needs:
+            - cluster-creation
+            - cluster-configuration
+            - dynamic-matrix
+        strategy:
+            fail-fast: false
+            matrix:
+                helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
+                # we don't include SNAPSHOT in PR due to the instability of its nature except if it's explicitly mentioned
+                isPR:
+                    - ${{ github.event_name == 'pull_request' && !contains(github.head_ref, 'SNAPSHOT') }}
+                exclude:
+                    - helm-version: SNAPSHOT
+                      isPR: true
+        uses: ./.github/workflows/reuseable_aws_operational_procedure.yml
+        with:
+            helm-version: ${{ matrix.helm-version }}
+            cluster-name: ${{ needs.cluster-creation.outputs.cluster_name }}
+        secrets: inherit
+
+    tf-teardown:
+        runs-on: ubuntu-latest
+        timeout-minutes: 60
+        needs:
+            - operational-procedure
+            - cluster-creation
+        if: (github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')) && always()
+        steps:
+            ################## Checkout ##################
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+            ########### KubeConfig Generation ############
+            - name: Export Cluster Name
+              run: |
+                  echo "CLUSTER_NAME=${{ needs.cluster-creation.outputs.cluster_name }}" >> "$GITHUB_ENV"
+            - name: KubeConfig generation
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
+    ########### Load Balancer Removal ############
+            - name: Delete LBs to unblock teardown
+              working-directory: ./test
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestClusterCleanup
+    ############# Terratest Teardown #############
+            - name: Configure Terraform Backend
+              run: |
+                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+            - name: Terraform Destroy
+              id: terraform-destroy
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 46
+              run: |
+                  go test --count=1 -v -timeout 45m -run TestTeardownTerraform
+            - name: KubeConfig Removal
+              working-directory: ./test
+              if: always()
+              timeout-minutes: 5
+              run: |
+                  go test --count=1 -v -timeout 4m -run TestAWSKubeConfigRemoval
+            - name: Cleanup S3 state bucket
+              if: always() && steps.terraform-destroy.outcome == 'success'
+              run: |
+                  aws s3 rm "s3://tf-state-multi-reg/state/$CLUSTER_NAME/terraform.tfstate"
+            - name: Remove profile credentials from ~/.aws/credentials
+              if: always()
+              run: |
+                  rm -rf ~/.aws/credentials
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: (github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')) && failure()
+        needs:
+            - cluster-creation
+            - cluster-configuration
+            - operational-procedure
+            - tf-teardown
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@2723815da46088717a7b73c199aa005d8d5b27a1 # 1.2.8
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

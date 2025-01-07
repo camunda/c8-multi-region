@@ -24,5 +24,5 @@ export CAMUNDA_NAMESPACE_1=camunda-paris
 
 # The Helm release name used for installing Camunda 8 in both Kubernetes clusters
 export HELM_RELEASE_NAME=camunda
-# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-export HELM_CHART_VERSION=11.0.4
+# renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
+export HELM_CHART_VERSION=11.1.0

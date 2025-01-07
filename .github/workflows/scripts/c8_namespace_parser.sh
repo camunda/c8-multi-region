@@ -14,7 +14,7 @@ fi
 
 # For new versions bump -A argument by 1
 # It greps the c8-version and the next x lines
-versions=$(grep 'id: generate-matrix' -A 10 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
+versions=$(grep 'id: generate-matrix' -A 12 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
 
 variables=("CLUSTER_0_NAMESPACE" "CLUSTER_1_NAMESPACE" "CLUSTER_0_NAMESPACE_FAILOVER" "CLUSTER_1_NAMESPACE_FAILOVER")
 
