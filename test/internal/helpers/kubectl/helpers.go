@@ -76,27 +76,6 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 			}
 		}
 
-		// if withDNS {
-		// 	// Check if the pods can reach each other via the service
-
-		// 	// wrapped in a for loop since the reload of CoreDNS needs a bit of time to be propagated
-		// 	for i := 0; i < 6; i++ {
-		// 		outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", secondary.KubectlNamespace.Namespace))
-		// 		outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", primary.KubectlNamespace.Namespace))
-		// 		if errPrimary != nil || errSecondary != nil {
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errPrimary)
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errSecondary)
-		// 			t.Log("[CROSS CLUSTER COMMUNICATION] CoreDNS not resolving yet, waiting ...")
-		// 			time.Sleep(15 * time.Second)
-		// 		}
-
-		// 		if errPrimary == nil && errSecondary == nil {
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputPrimary)
-		// 			t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputSecondary)
-		// 			t.Log("[CROSS CLUSTER COMMUNICATION] Communication established")
-		// 			break
-		// 		}
-		// 	}
 	} else {
 		// Check if the pods can reach each other via the IPs directly
 
