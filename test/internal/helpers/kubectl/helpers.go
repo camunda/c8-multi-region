@@ -400,7 +400,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	fileContent := string(content)
 
 	// Replace the placeholders with the replacement strings
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER_INITIAL_CONTACT", initialContact, -1)
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
 	modifiedContent = strings.Replace(modifiedContent, "PLACEHOLDER_ELASTIC0", elastic0, -1)
 	modifiedContent = strings.Replace(modifiedContent, "PLACEHOLDER_ELASTIC1", elastic1, -1)
 
