@@ -55,23 +55,25 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 	if withDNS {
 		primaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", ""), ",")
 		secondaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", ""), ",")
-		os.Setenv("CLUSTER_0", primary.ClusterName)
-		os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[0])
-		os.Setenv("CLUSTER_1", secondary.ClusterName)
-		os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[0])
+		for i := 0; i < len(primaryNamespaceArr); i++ {
+			os.Setenv("CLUSTER_0", primary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[i])
+			os.Setenv("CLUSTER_1", secondary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[i])
 
-		output := shell.RunCommandAndGetOutput(t, shell.Command{
-			Command: "sh",
-			Args: []string{
-				"../aws/dual-region/scripts/test_dns_chaining.sh",
-			},
-		})
+			output := shell.RunCommandAndGetOutput(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"../aws/dual-region/scripts/test_dns_chaining.sh",
+				},
+			})
 
-		// Check the output for success or failure messages
-		if strings.Contains(output, "Failed to reach the target instance") {
-			t.Fatalf("Script failed: %s", output)
-		} else {
-			t.Logf("Script output: %s", output)
+			// Check the output for success or failure messages
+			if strings.Contains(output, "Failed to reach the target instance") {
+				t.Fatalf("Script failed: %s", output)
+			} else {
+				t.Logf("Script output: %s", output)
+			}
 		}
 
 		// if withDNS {
