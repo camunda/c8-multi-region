@@ -361,6 +361,10 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL")
 	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL")
 
+	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
+	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
+	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
+
 	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
 
 	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
@@ -377,12 +381,8 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 
 	// Replace the placeholders with the replacement strings
 	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, "PLACEHOLDER_ELASTIC0", elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, "PLACEHOLDER_ELASTIC1", elastic1, -1)
-
-	// Replace Elasticsearch endpoints with namespace-specific ones
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0), -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
