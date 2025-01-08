@@ -49,7 +49,7 @@ type ClusterInfo struct {
 	GatewayVersion    string   `json:"gatewayVersion"`
 }
 
-func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster) {
+func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "nginx.yml")
 
 	if withDNS {

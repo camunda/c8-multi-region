@@ -83,7 +83,9 @@ func clusterReadyCheck(t *testing.T) {
 
 func testCrossClusterCommunication(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with IPs 📡")
-	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary)
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+
+	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary, kubeConfigPrimary, kubeConfigSecondary)
 }
 
 func applyDnsChaining(t *testing.T) {
@@ -101,5 +103,6 @@ func testCoreDNSReload(t *testing.T) {
 
 func testCrossClusterCommunicationWithDNS(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with DNS 📡")
-	kubectlHelpers.CrossClusterCommunication(t, true, k8sManifests, primary, secondary)
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary, kubeConfigPrimary, kubeConfigSecondary)
 }
