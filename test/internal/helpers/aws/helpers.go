@@ -319,7 +319,7 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 func GenerateAWSKubeConfig(t *testing.T, clusterName, awsProfile, awsRegion, regionName string) {
 	t.Log("[TF SETUP] Generating kubeconfig files 📜")
 
-	cmd := exec.Command("aws", "eks", "--region", awsRegion, "update-kubeconfig", "--name", fmt.Sprintf("%s-%s", clusterName, regionName), "--profile", awsProfile, "--kubeconfig", fmt.Sprintf("kubeconfig-%s", regionName))
+	cmd := exec.Command("aws", "eks", "--region", awsRegion, "update-kubeconfig", "--name", fmt.Sprintf("%s-%s", clusterName, regionName), "--alias", fmt.Sprintf("%s-%s", clusterName, regionName), "--profile", awsProfile, "--kubeconfig", fmt.Sprintf("kubeconfig-%s", regionName))
 
 	_, err := cmd.Output()
 	if err != nil {
