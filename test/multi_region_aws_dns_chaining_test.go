@@ -102,15 +102,3 @@ func testCrossClusterCommunicationWithDNS(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with DNS 📡")
 	kubectlHelpers.CrossClusterCommunication(t, true, k8sManifests, primary, secondary)
 }
-
-func testCreateAllNamespaces(t *testing.T) {
-	t.Log("[K8S] Creating all namespaces 🚀")
-	kubectlHelpers.CreateAllNamespaces(t, primary, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	kubectlHelpers.CreateAllNamespaces(t, secondary, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
-}
-
-func testCreateAllRequiredSecrets(t *testing.T) {
-	t.Log("[K8S] Creating all required secrets 🚀")
-	kubectlHelpers.CreateAllRequiredSecrets(t, primary, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	kubectlHelpers.CreateAllRequiredSecrets(t, secondary, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
-}
