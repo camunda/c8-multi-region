@@ -60,6 +60,7 @@ func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, 
 			os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[i])
 			os.Setenv("CLUSTER_1", secondary.ClusterName)
 			os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[i])
+			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 
 			output := shell.RunCommandAndGetOutput(t, shell.Command{
 				Command: "sh",
