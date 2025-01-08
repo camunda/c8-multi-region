@@ -63,6 +63,7 @@ func TestClusterPrerequisites(t *testing.T) {
 			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
 			os.Setenv("CLUSTER_1", secondary.ClusterName)
 			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 
 			shell.RunCommand(t, shell.Command{
 				Command: "sh",
