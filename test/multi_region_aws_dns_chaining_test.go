@@ -61,7 +61,7 @@ func TestClusterPrerequisites(t *testing.T) {
 		for i := range allPrimaryNamespaces {
 			os.Setenv("CLUSTER_0", "arn:aws:eks:"+primary.Region+":444804106854:cluster/"+primary.ClusterName)
 			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
-			os.Setenv("CLUSTER_1", "arn:aws:eks:"+secondary.Region+":444804106854:cluster/"+primary.ClusterName)
+			os.Setenv("CLUSTER_1", "arn:aws:eks:"+secondary.Region+":444804106854:cluster/"+secondary.ClusterName)
 			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
 			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 
