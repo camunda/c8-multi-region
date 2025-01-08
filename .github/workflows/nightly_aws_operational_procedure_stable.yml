@@ -101,14 +101,14 @@ jobs:
                   # adding mask to treat the value as secret
                   echo "::add-mask::$(terraform output -raw s3_aws_access_key)"
                   echo "::add-mask::$(terraform output -raw s3_aws_secret_access_key)"
-                  echo "S3_AWS_ACCESS_KEY_ES=$(terraform output -raw s3_aws_access_key)" >> "$GITHUB_OUTPUT"
-                  echo "S3_AWS_SECRET_KEY_ES=$(terraform output -raw s3_aws_secret_access_key)" >> "$GITHUB_OUTPUT"
+                  echo "AWS_ACCESS_KEY_ES=$(terraform output -raw s3_aws_access_key)" >> "$GITHUB_OUTPUT"
+                  echo "AWS_SECRET_KEY_ES=$(terraform output -raw s3_aws_secret_access_key)" >> "$GITHUB_OUTPUT"
             - name: Create all required namespaces and secrets
               timeout-minutes: 10
               working-directory: ./test
               env:
-                  S3_AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.S3_AWS_ACCESS_KEY_ES }}
-                  S3_AWS_SECRET_KEY_ES: ${{ steps.s3-credentials.outputs.S3_AWS_SECRET_KEY_ES }}
+                  AWS_ACCESS_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_ACCESS_KEY_ES }}
+                  AWS_SECRET_KEY_ES: ${{ steps.s3-credentials.outputs.AWS_SECRET_KEY_ES }}
               run: |
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
             ########### Namespace and DNS setup #########
