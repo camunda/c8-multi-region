@@ -343,7 +343,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
 	os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
 	os.Setenv("HELM_RELEASE_NAME", "camunda")
-	os.Setenv("ZEEBE_CLUSTER_SIZE", "4")
+	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
 
 	// Run the script and capture its output
 	cmd := exec.Command("sh", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
@@ -596,28 +596,6 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	// check that was exported to ElasticSearch and available via Operate
 	CheckOperateForProcesses(t, primary)
 	CheckOperateForProcesses(t, secondary)
-}
-
-func CreateAllNamespaces(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
-	// Get all namespaces
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	for _, ns := range arr {
-		k8s.CreateNamespace(t, &source.KubectlNamespace, ns)
-	}
-}
-
-func CreateAllRequiredSecrets(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
-	t.Log("[ELASTICSEARCH] Creating AWS Secret for Elasticsearch 🚀")
-
-	S3AWSAccessKey := helpers.GetEnv("S3_AWS_ACCESS_KEY", "")
-	S3AWSSecretAccessKey := helpers.GetEnv("S3_AWS_SECRET_KEY", "")
-
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	for _, ns := range arr {
-		RunSensitiveKubectlCommand(t, &source.KubectlNamespace, "create", "--namespace", ns, "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
-	}
 }
 
 func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
