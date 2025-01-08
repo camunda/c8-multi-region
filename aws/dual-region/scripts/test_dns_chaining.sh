@@ -17,7 +17,7 @@ ping_instance() {
     local context=$1
     local source_namespace=$2
     local target_namespace=$3
-    for ((i=1; i<=5; i++))
+    for i in {1..5}
     do
         echo "Iteration $i - $source_namespace -> $target_namespace"
         output=$(kubectl --context "$context" exec -n "$source_namespace" -it sample-nginx -- curl "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local")
