@@ -1,11 +1,15 @@
 package test
 
 import (
+	"os"
+	"strings"
 	"testing"
 
 	"multiregiontests/internal/helpers"
 	awsHelpers "multiregiontests/internal/helpers/aws"
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
+
+	"github.com/gruntwork-io/terratest/modules/shell"
 )
 
 // Used for creating the global core dns configmap for all versions
@@ -39,16 +43,36 @@ func TestAWSDNSChaining(t *testing.T) {
 func TestClusterPrerequisites(t *testing.T) {
 	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
 
-	for _, testFuncs := range []struct {
-		name  string
-		tfunc func(*testing.T)
-	}{
-		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestCreateAllNamespaces", testCreateAllNamespaces},
-		{"TestCreateAllRequiredSecrets", testCreateAllRequiredSecrets},
-	} {
-		t.Run(testFuncs.name, testFuncs.tfunc)
-	}
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+
+	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
+		t.Log("[K8S] Creating all namespaces and secrets 🚀")
+
+		// Combine primary and failover namespaces
+		allPrimaryNamespaces := append(strings.Split(primaryNamespaceArr, ","), strings.Split(primaryNamespaceFailoverArr, ",")...)
+		allSecondaryNamespaces := append(strings.Split(secondaryNamespaceArr, ","), strings.Split(secondaryNamespaceFailoverArr, ",")...)
+
+		// Ensure both arrays have the same length
+		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
+			t.Fatal("Primary and secondary namespace arrays must have the same length")
+		}
+
+		// Iterate over namespaces
+		for i := range allPrimaryNamespaces {
+			os.Setenv("CLUSTER_0", primary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+			os.Setenv("CLUSTER_1", secondary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+
+			shell.RunCommand(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+				},
+			})
+		}
+	})
 }
 
 func clusterReadyCheck(t *testing.T) {
@@ -59,13 +83,18 @@ func clusterReadyCheck(t *testing.T) {
 
 func testCrossClusterCommunication(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with IPs 📡")
-	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary)
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+
+	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary, kubeConfigPrimary, kubeConfigSecondary)
 }
 
 func applyDnsChaining(t *testing.T) {
 	t.Log("[DNS CHAINING] Applying DNS chaining 📡")
-	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	awsHelpers.DNSChaining(t, secondary, primary, k8sManifests, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
+	awsHelpers.CreateLoadBalancers(t, primary, k8sManifests)
+	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
+	allPrimaryNamespaces := primaryNamespaceArr + "," + primaryNamespaceFailoverArr
+	allSecondaryNamespaces := secondaryNamespaceArr + "," + secondaryNamespaceFailoverArr
+	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, allPrimaryNamespaces, allSecondaryNamespaces)
 }
 
 func testCoreDNSReload(t *testing.T) {
@@ -76,17 +105,6 @@ func testCoreDNSReload(t *testing.T) {
 
 func testCrossClusterCommunicationWithDNS(t *testing.T) {
 	t.Log("[CROSS CLUSTER] Testing cross-cluster communication with DNS 📡")
-	kubectlHelpers.CrossClusterCommunication(t, true, k8sManifests, primary, secondary)
-}
-
-func testCreateAllNamespaces(t *testing.T) {
-	t.Log("[K8S] Creating all namespaces 🚀")
-	kubectlHelpers.CreateAllNamespaces(t, primary, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	kubectlHelpers.CreateAllNamespaces(t, secondary, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
-}
-
-func testCreateAllRequiredSecrets(t *testing.T) {
-	t.Log("[K8S] Creating all required secrets 🚀")
-	kubectlHelpers.CreateAllRequiredSecrets(t, primary, primaryNamespaceArr, primaryNamespaceFailoverArr)
-	kubectlHelpers.CreateAllRequiredSecrets(t, secondary, secondaryNamespaceArr, secondaryNamespaceFailoverArr)
+	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
+	kubectlHelpers.CrossClusterCommunication(t, false, k8sManifests, primary, secondary, kubeConfigPrimary, kubeConfigSecondary)
 }

@@ -5,19 +5,14 @@ set -e
 create_namespace() {
     local context=$1
     local namespace=$2
-    if kubectl --context "$context" get namespace "$namespace" &> /dev/null; then
-        echo "Namespace $namespace already exists."
-    else
-        # Create the namespace
-        kubectl --context "$context" create namespace "$namespace"
-    fi
+    kubectl --context "$context" create namespace "$namespace" --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
 ping_instance() {
     local context=$1
     local source_namespace=$2
     local target_namespace=$3
-    for ((i=1; i<=5; i++))
+    for i in {1..5}
     do
         echo "Iteration $i - $source_namespace -> $target_namespace"
         output=$(kubectl --context "$context" exec -n "$source_namespace" -it sample-nginx -- curl "http://sample-nginx.sample-nginx-peer.$target_namespace.svc.cluster.local")

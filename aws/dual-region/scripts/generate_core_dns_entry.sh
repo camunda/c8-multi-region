@@ -14,7 +14,7 @@ generate_string() {
     ns=$1
     ips=$2
 
-    echo -e "\
+    echo "\
     ${ns}.svc.cluster.local:53 {
         errors
         cache 30

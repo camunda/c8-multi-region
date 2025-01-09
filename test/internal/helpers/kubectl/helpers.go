@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ import (
 	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/gruntwork-io/terratest/modules/logger"
+	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,47 +49,52 @@ type ClusterInfo struct {
 	GatewayVersion    string   `json:"gatewayVersion"`
 }
 
-func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster) {
+func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "nginx.yml")
 
-	defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)
-	defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath)
-
-	k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)
-	k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath)
-
-	k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
-	k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
-
-	k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
-	k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
-
-	podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")
-	podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx")
-
 	if withDNS {
-		// Check if the pods can reach each other via the service
+		primaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_0_NAMESPACE_ARR", ""), ",")
+		secondaryNamespaceArr := strings.Split(helpers.GetEnv("CLUSTER_1_NAMESPACE_ARR", ""), ",")
+		for i := 0; i < len(primaryNamespaceArr); i++ {
+			os.Setenv("CLUSTER_0", primary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespaceArr[i])
+			os.Setenv("CLUSTER_1", secondary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespaceArr[i])
+			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 
-		// wrapped in a for loop since the reload of CoreDNS needs a bit of time to be propagated
-		for i := 0; i < 6; i++ {
-			outputPrimary, errPrimary := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", podPrimary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", secondary.KubectlNamespace.Namespace))
-			outputSecondary, errSecondary := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "exec", podSecondary.Name, "--", "curl", "--max-time", "15", fmt.Sprintf("sample-nginx.sample-nginx-peer.%s.svc.cluster.local", primary.KubectlNamespace.Namespace))
-			if errPrimary != nil || errSecondary != nil {
-				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errPrimary)
-				t.Logf("[CROSS CLUSTER COMMUNICATION] Error: %s", errSecondary)
-				t.Log("[CROSS CLUSTER COMMUNICATION] CoreDNS not resolving yet, waiting ...")
-				time.Sleep(15 * time.Second)
-			}
+			output := shell.RunCommandAndGetOutput(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"../aws/dual-region/scripts/test_dns_chaining.sh",
+				},
+			})
 
-			if outputPrimary != "" && outputSecondary != "" {
-				t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputPrimary)
-				t.Logf("[CROSS CLUSTER COMMUNICATION] Success: %s", outputSecondary)
-				t.Log("[CROSS CLUSTER COMMUNICATION] Communication established")
-				break
+			// Check the output for success or failure messages
+			if strings.Contains(output, "Failed to reach the target instance") {
+				t.Fatalf("Script failed: %s", output)
+			} else {
+				t.Logf("Script output: %s", output)
 			}
 		}
+
 	} else {
 		// Check if the pods can reach each other via the IPs directly
+
+		defer k8s.KubectlDelete(t, &primary.KubectlNamespace, kubeResourcePath)
+		defer k8s.KubectlDelete(t, &secondary.KubectlNamespace, kubeResourcePath)
+
+		k8s.KubectlApply(t, &primary.KubectlNamespace, kubeResourcePath)
+		k8s.KubectlApply(t, &secondary.KubectlNamespace, kubeResourcePath)
+
+		k8s.WaitUntilServiceAvailable(t, &primary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
+		k8s.WaitUntilServiceAvailable(t, &secondary.KubectlNamespace, "sample-nginx-peer", 10, 5*time.Second)
+
+		k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
+		k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, "sample-nginx", 10, 5*time.Second)
+
+		podPrimary := k8s.GetPod(t, &primary.KubectlNamespace, "sample-nginx")
+		podSecondary := k8s.GetPod(t, &secondary.KubectlNamespace, "sample-nginx")
+
 		podPrimaryIP := podPrimary.Status.PodIP
 		require.NotEmpty(t, podPrimaryIP)
 
@@ -333,7 +340,31 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-	zeebeContactPoints := createZeebeContactPoints(t, 4, namespace0, namespace1)
+	// Set environment variables for the script
+	os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
+	os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
+	os.Setenv("HELM_RELEASE_NAME", "camunda")
+	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+
+	// Run the script and capture its output
+	cmd := exec.Command("sh", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
+	output, err := cmd.Output()
+	if err != nil {
+		t.Fatalf("[C8 HELM] Error running script: %v\n", err)
+		return
+	}
+
+	// Convert byte slice to string
+	scriptOutput := string(output)
+
+	// Extract the replacement text for the initial contact points and Elasticsearch URLs
+	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
+	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL")
+	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL")
+
+	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
+	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
+	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
 
 	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
 
@@ -349,15 +380,10 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Convert byte slice to string
 	fileContent := string(content)
 
-	// Define the template and replacement string
-	template := "PLACEHOLDER"
-
-	// Replace the template with the replacement string
-	modifiedContent := strings.Replace(fileContent, template, zeebeContactPoints, -1)
-
-	// Replace Elasticsearch endpoints with namespace specific ones
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0), -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
+	// Replace the placeholders with the replacement strings
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -391,6 +417,20 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
 		return
 	}
+}
+
+func extractReplacementText(output, variableName string) string {
+	startMarker := fmt.Sprintf("- name: %s\n  value: ", variableName)
+	startIndex := strings.Index(output, startMarker)
+	if startIndex == -1 {
+		return ""
+	}
+	startIndex += len(startMarker)
+	endIndex := strings.Index(output[startIndex:], "\n")
+	if endIndex == -1 {
+		return output[startIndex:]
+	}
+	return output[startIndex : startIndex+endIndex]
 }
 
 func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulset, searchValue string) bool {
@@ -557,28 +597,6 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	// check that was exported to ElasticSearch and available via Operate
 	CheckOperateForProcesses(t, primary)
 	CheckOperateForProcesses(t, secondary)
-}
-
-func CreateAllNamespaces(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
-	// Get all namespaces
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	for _, ns := range arr {
-		k8s.CreateNamespace(t, &source.KubectlNamespace, ns)
-	}
-}
-
-func CreateAllRequiredSecrets(t *testing.T, source helpers.Cluster, namespaces, namespacesFailover string) {
-	t.Log("[ELASTICSEARCH] Creating AWS Secret for Elasticsearch 🚀")
-
-	S3AWSAccessKey := helpers.GetEnv("S3_AWS_ACCESS_KEY", "")
-	S3AWSSecretAccessKey := helpers.GetEnv("S3_AWS_SECRET_KEY", "")
-
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	for _, ns := range arr {
-		RunSensitiveKubectlCommand(t, &source.KubectlNamespace, "create", "--namespace", ns, "secret", "generic", "elasticsearch-env-secret", fmt.Sprintf("--from-literal=S3_SECRET_KEY=%s", S3AWSSecretAccessKey), fmt.Sprintf("--from-literal=S3_ACCESS_KEY=%s", S3AWSAccessKey))
-	}
 }
 
 func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
