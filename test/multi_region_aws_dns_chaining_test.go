@@ -92,8 +92,9 @@ func applyDnsChaining(t *testing.T) {
 	t.Log("[DNS CHAINING] Applying DNS chaining 📡")
 	awsHelpers.CreateLoadBalancers(t, primary, k8sManifests)
 	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
-	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceArr, secondaryNamespaceArr)
-	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, primaryNamespaceFailoverArr, secondaryNamespaceFailoverArr)
+	allPrimaryNamespaces := primaryNamespaceArr + "," + primaryNamespaceFailoverArr
+	allSecondaryNamespaces := secondaryNamespaceArr + "," + secondaryNamespaceFailoverArr
+	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, allPrimaryNamespaces, allSecondaryNamespaces)
 }
 
 func testCoreDNSReload(t *testing.T) {
