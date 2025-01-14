@@ -45,3 +45,12 @@ repos:
       rev: 1.2.11 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
+
+    - repo: local
+      hooks:
+          - id: trivy-scan
+            name: Trivy Scan
+            entry: .lint/trivy/trivy-scan.sh
+            language: script
+            types: [terraform]
+            pass_filenames: false

@@ -1,0 +1,9 @@
+---
+quiet: false
+debug: false
+format: table
+exit-code: 1
+
+misconfiguration:
+    scanners:
+        - terraform
