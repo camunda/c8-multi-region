@@ -1,0 +1,21 @@
+AVD-AWS-0040 #(CRITICAL): Public cluster access is enabled.
+AVD-AWS-0041 #(CRITICAL): Cluster allows access from a public CIDR: 0.0.0.0/0
+AVD-AWS-0104 #(CRITICAL): Security group rule allows egress to multiple public internet addresses.
+
+AVD-AWS-0086 #(HIGH): No public access block so not blocking public acls
+AVD-AWS-0087 #(HIGH): No public access block so not blocking public policies
+AVD-AWS-0088 #(HIGH): Bucket does not have encryption enabled
+AVD-AWS-0091 #(HIGH): No public access block so not blocking public acls
+AVD-AWS-0093 #(HIGH): No public access block so not restricting public buckets
+AVD-AWS-0132 #(HIGH): Bucket does not encrypt data with a customer managed key.
+
+AVD-AWS-0343 #(MEDIUM): Cluster does not have Deletion Protection enabled
+AVD-AWS-0178 #(MEDIUM): VPC does not have VPC Flow Logs enabled.
+AVD-AWS-0038 #(MEDIUM): Control plane scheduler logging is not enabled.
+AVD-AWS-0077 #(MEDIUM): Cluster instance has very low backup retention period.
+AVD-AWS-0090 #(MEDIUM): Bucket does not have versioning enabled
+
+AVD-AWS-0133 #(LOW): Instance does not have performance insights enabled.
+AVD-AWS-0089 #(LOW): Bucket has logging disabled
+AVD-AWS-0094 #(LOW): Bucket does not have a corresponding public access block.
+AVD-AWS-0143 #(LOW): One or more policies are attached directly to a user
