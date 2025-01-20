@@ -135,46 +135,14 @@ jobs:
               run: |
                   rm -rf ~/.aws/credentials
 
-    dynamic-matrix:
-        runs-on: ubuntu-latest
-        outputs:
-            matrix: ${{ steps.generate-matrix.outputs.matrix }}
-        steps:
-            - name: Generate matrix
-              id: generate-matrix
-              run: |
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.1.0
-                  # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
-                  # shellcheck disable=SC2034
-
-                  versions='{"helm-version":["'${c86}'"]}'
-                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
-                      for(i=1;i<=NF;i++) {
-                        if ($i ~ /^".*"$/) {
-                          printf("%s%s", $i, (i==NF)?"":",")
-                        } else {
-                          printf("\"%s\"%s", $i, (i==NF)?"":",")
-                        }
-                      }
-                    }')
-                    versions='{"helm-version":['${output}']}'
-
-                  echo "${versions}"
-                  echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
-
     operational-procedure:
         needs:
             - cluster-creation
             - cluster-configuration
-            - dynamic-matrix
-        strategy:
-            fail-fast: false
-            matrix:
-                helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
         uses: ./.github/workflows/reuseable_aws_operational_procedure.yml
         with:
-            helm-version: ${{ matrix.helm-version }}
+            # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+            helm-version: 11.1.0
             cluster-name: ${{ needs.cluster-creation.outputs.cluster_name }}
         secrets: inherit
 
