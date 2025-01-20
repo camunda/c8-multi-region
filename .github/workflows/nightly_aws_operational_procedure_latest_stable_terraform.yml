@@ -158,7 +158,6 @@ jobs:
                       }
                     }')
                     versions='{"helm-version":['${output}']}'
-                  fi
 
                   echo "${versions}"
                   echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
