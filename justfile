@@ -17,4 +17,3 @@ asdf-plugins:
 # Install tools using asdf
 asdf-install: asdf-plugins
     asdf install
-

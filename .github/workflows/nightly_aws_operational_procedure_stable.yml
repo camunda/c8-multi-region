@@ -148,7 +148,7 @@ jobs:
                   c85=10.4.7
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86=11.1.1
-                  
+
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86_old=11.1.1
                   # for not messing up with renovate, we add the prefix "OLD" in the next step
