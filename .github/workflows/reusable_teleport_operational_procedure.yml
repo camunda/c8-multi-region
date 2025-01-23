@@ -37,19 +37,10 @@ jobs:
                   kubernetes-cluster: camunda-ci-eks
 
             - name: Write kubeconfig file
-              run: kubectl config view --raw > ./test/kubeconfig
-
-    create-namespaces:
-        runs-on: ubuntu-latest
-        needs: teleport-setup
-
-        outputs:
-            namespace0: ${{ steps.create-namespaces.outputs.namespace0 }}
-            namespace1: ${{ steps.create-namespaces.outputs.namespace1 }}
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+              id: write-kubeconfig
+              run: |
+                  KUBECONFIG_PATH=./test/kubeconfig
+                  kubectl config view --raw > $KUBECONFIG_PATH
 
             - name: Create namespaces
               id: create-namespaces
@@ -62,28 +53,12 @@ jobs:
                   echo "::set-output name=namespace0::$NAMESPACE0"
                   echo "::set-output name=namespace1::$NAMESPACE1"
 
-    hello-world:
-        runs-on: ubuntu-latest
-        needs: create-namespaces
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
-
             - name: Hello World in namespaces
               run: |
-                  kubectl run hello-world --image=busybox --namespace=${{ needs.create-namespaces.outputs.namespace0 }} -- /bin/sh -c "echo Hello, World!"
-                  kubectl run hello-world --image=busybox --namespace=${{ needs.create-namespaces.outputs.namespace1 }} -- /bin/sh -c "echo Hello, World!"
-
-    delete-namespaces:
-        runs-on: ubuntu-latest
-        needs: [teleport-setup, create-namespaces]
-
-        steps:
-            - name: Checkout repository
-              uses: actions/checkout@v4
+                  kubectl run hello-world --image=busybox --namespace=${{ steps.create-namespaces.outputs.namespace0 }} -- /bin/sh -c "echo Hello, World!"
+                  kubectl run hello-world --image=busybox --namespace=${{ steps.create-namespaces.outputs.namespace1 }} -- /bin/sh -c "echo Hello, World!"
 
             - name: Delete namespaces
               run: |
-                  kubectl delete namespace ${{ needs.create-namespaces.outputs.namespace0 }}
-                  kubectl delete namespace ${{ needs.create-namespaces.outputs.namespace1 }}
+                  kubectl delete namespace ${{ steps.create-namespaces.outputs.namespace0 }}
+                  kubectl delete namespace ${{ steps.create-namespaces.outputs.namespace1 }}
