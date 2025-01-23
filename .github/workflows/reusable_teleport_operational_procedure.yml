@@ -1,0 +1,89 @@
+---
+name: reusable_teleport_operational_procedure
+
+on:
+    push:
+        branches:
+            - reusable-gh-workflow
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    AWS_PROFILE: infex
+    TESTS_TF_BINARY_NAME: terraform
+    NAMESPACE_PREFIX: infraex-
+    CLUSTER_NAME: camunda-ci-eks
+
+jobs:
+    teleport-setup:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Set up Teleport
+              uses: teleport-actions/setup@v1
+              with:
+                  version: 16.4.11
+
+            - name: Authenticate with Teleport
+              uses: teleport-actions/auth-k8s@v2
+              with:
+                  proxy: camunda.teleport.sh:443
+                  token: ${{ secrets.TELEPORT_JOIN_TOKEN }}
+                  kubernetes-cluster: camunda-ci-eks
+
+            - name: Write kubeconfig file
+              run: kubectl config view --raw > ./test/kubeconfig
+
+    create-namespaces:
+        runs-on: ubuntu-latest
+        needs: teleport-setup
+
+        outputs:
+            namespace0: ${{ steps.create-namespaces.outputs.namespace0 }}
+            namespace1: ${{ steps.create-namespaces.outputs.namespace1 }}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Create namespaces
+              id: create-namespaces
+              run: |
+                  RANDOM_ID=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 5)
+                  NAMESPACE0="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster0"
+                  NAMESPACE1="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster1"
+                  kubectl create namespace $NAMESPACE0
+                  kubectl create namespace $NAMESPACE1
+                  echo "::set-output name=namespace0::$NAMESPACE0"
+                  echo "::set-output name=namespace1::$NAMESPACE1"
+
+    hello-world:
+        runs-on: ubuntu-latest
+        needs: create-namespaces
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Hello World in namespaces
+              run: |
+                  kubectl run hello-world --image=busybox --namespace=${{ needs.create-namespaces.outputs.namespace0 }} -- /bin/sh -c "echo Hello, World!"
+                  kubectl run hello-world --image=busybox --namespace=${{ needs.create-namespaces.outputs.namespace1 }} -- /bin/sh -c "echo Hello, World!"
+
+    delete-namespaces:
+        runs-on: ubuntu-latest
+        needs: [teleport-setup, create-namespaces]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Delete namespaces
+              run: |
+                  kubectl delete namespace ${{ needs.create-namespaces.outputs.namespace0 }}
+                  kubectl delete namespace ${{ needs.create-namespaces.outputs.namespace1 }}
