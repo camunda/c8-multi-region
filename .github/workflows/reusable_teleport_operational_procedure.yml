@@ -54,7 +54,7 @@ jobs:
             - name: Create namespaces
               id: create-namespaces
               run: |
-                  RANDOM_ID=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 5)
+                  RANDOM_ID=$(openssl rand -hex 3)
                   NAMESPACE0="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster0"
                   NAMESPACE1="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster1"
                   kubectl create namespace $NAMESPACE0
