@@ -33,7 +33,7 @@ jobs:
               uses: teleport-actions/auth-k8s@v2
               with:
                   proxy: camunda.teleport.sh:443
-                  token: ${{ secrets.TELEPORT_JOIN_TOKEN }}
+                  token: infra-ci-prod-github-action-infraex
                   kubernetes-cluster: camunda-ci-eks
 
             - name: Write kubeconfig file
