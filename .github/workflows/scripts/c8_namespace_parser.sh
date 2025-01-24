@@ -14,7 +14,7 @@ fi
 
 # For new versions bump -A argument by 1
 # It greps the c8-version and the next x lines
-versions=$(grep 'id: generate-matrix' -A 12 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
+versions=$(grep 'id: generate-matrix' -A 16 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
 
 # add OLD. prefix to the old version to allow new and old procedure texting for the same version
 versions="${versions//_old=/_old=OLD.}"
