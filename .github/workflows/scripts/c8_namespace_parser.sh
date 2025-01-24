@@ -16,6 +16,9 @@ fi
 # It greps the c8-version and the next x lines
 versions=$(grep 'id: generate-matrix' -A 12 "$1" | awk '/generate-matrix/ {flag=1; next} flag {print $1}')
 
+# add OLD. prefix to the old version to allow new and old procedure texting for the same version
+versions="${versions//_old=/_old=OLD.}"
+
 variables=("CLUSTER_0_NAMESPACE" "CLUSTER_1_NAMESPACE" "CLUSTER_0_NAMESPACE_FAILOVER" "CLUSTER_1_NAMESPACE_FAILOVER")
 
 # Loop through each variable and print its name and all values found
