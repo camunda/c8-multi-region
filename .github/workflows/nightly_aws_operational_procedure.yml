@@ -129,7 +129,7 @@ jobs:
             matrix:
                 c8-version:
                     # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                    - 10.4.7
+                    - 10.4.8
                     # workaround to let the c8_namespace_parser script still create the snapshot namespaces for DNS chaining
                     # yamllint disable-line
                     #- SNAPSHOT
@@ -339,7 +339,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@38694bd38e0c17e01a98392bbc2c8dbfc8db1fdd # main
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@9d9bb31cc10aa9963368f81fa4f74b6266673e57 # main
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
