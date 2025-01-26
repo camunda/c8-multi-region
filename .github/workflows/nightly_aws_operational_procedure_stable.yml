@@ -145,7 +145,7 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c84=9.4.6
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c85=10.4.7
+                  c85=10.4.8
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86=11.1.1
 
@@ -258,7 +258,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@41bed71d5715d2e2e83a83997a44be59fcddf615 # 1.2.12
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@506a1e6eedf7d806d42bf5fdad8b0bd110841406 # 1.2.13
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
