@@ -15,7 +15,7 @@ env:
     TESTS_TF_BINARY_NAME: terraform
     NAMESPACE_PREFIX: infraex-
     CLUSTER_NAME: camunda-ci-eks
-    LABELS: janitor/ttl=1h,camunda.cloud/ephemeral=true
+    LABELS: janitor/ttl=1h camunda.cloud/ephemeral=true
 
 jobs:
     teleport-setup:
@@ -50,9 +50,9 @@ jobs:
                   NAMESPACE0="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster0"
                   NAMESPACE1="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster1"
                   kubectl create namespace $NAMESPACE0
-                  kubectl label namespace $NAMESPACE0 ${{ env.LABELS }}
+                  kubectl label namespace $NAMESPACE0 ${{ env.LABELS }} --overwrite=true
                   kubectl create namespace $NAMESPACE1
-                  kubectl label namespace $NAMESPACE1 ${{ env.LABELS }}
+                  kubectl label namespace $NAMESPACE1 ${{ env.LABELS }} --overwrite=true
                   echo "::set-output name=namespace0::$NAMESPACE0"
                   echo "::set-output name=namespace1::$NAMESPACE1"
 
