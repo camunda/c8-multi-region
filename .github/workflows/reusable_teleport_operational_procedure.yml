@@ -49,8 +49,10 @@ jobs:
                   RANDOM_ID=$(openssl rand -hex 3)
                   NAMESPACE0="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster0"
                   NAMESPACE1="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster1"
-                  kubectl create namespace $NAMESPACE0 --labels=${{ env.LABELS }}
-                  kubectl create namespace $NAMESPACE1 --labels=${{ env.LABELS }}
+                  kubectl create namespace $NAMESPACE0
+                  kubectl label namespace $NAMESPACE0 ${{ env.LABELS }}
+                  kubectl create namespace $NAMESPACE1
+                  kubectl label namespace $NAMESPACE1 ${{ env.LABELS }}
                   echo "::set-output name=namespace0::$NAMESPACE0"
                   echo "::set-output name=namespace1::$NAMESPACE1"
 
