@@ -27,8 +27,20 @@ runs:
               key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
               restore-keys: |
                   ${{ runner.os }}-tooling-
-        - name: Install tooling using asdf
-          uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
+
+        - name: Setup go
+          uses: actions/setup-go@v5
+
+        - name: Setup asdf and install
+          shell: bash
+          env:
+              # renovate: datasource=github-tags depName=asdf-vm/asdf
+              ASDF_VERSION: v0.16.0
+          run: |
+              go install github.com/asdf-vm/asdf@${ASDF_VERSION}
+              ~/go/bin/asdf install
+              echo 'export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"' >> ~/.bashrc
+
 
         - name: Print used versions
           shell: bash
