@@ -29,9 +29,9 @@ runs:
                   ${{ runner.os }}-tooling-
 
         - name: Setup go
-          uses: actions/setup-go@v5
+          uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
 
-        - name: Setup asdf and install
+        - name: Setup asdf and install tooling
           shell: bash
           env:
               # renovate: datasource=github-tags depName=asdf-vm/asdf
@@ -40,7 +40,8 @@ runs:
               go install github.com/asdf-vm/asdf@${ASDF_VERSION}
               ~/go/bin/asdf install
               echo 'export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"' >> ~/.bashrc
-
+              source ~/.bashrc
+              just install-tooling
 
         - name: Print used versions
           shell: bash
