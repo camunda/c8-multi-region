@@ -17,36 +17,12 @@ runs:
     using: composite
     steps:
 
-        ############# Tool Installations #############
-        - name: Cache asdf installation
-          id: cache
-          uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
-          with:
-              path: |
-                  /home/runner/.asdf
-              key: ${{ runner.os }}-tooling-${{ hashFiles('**/.tool-versions') }}
-              restore-keys: |
-                  ${{ runner.os }}-tooling-
-
-        - name: Setup go
-          uses: actions/setup-go@f111f3307d8850f501ac008e886eec1fd1932a34 # v5
-
-        - name: Setup asdf and install tooling
-          shell: bash
-          env:
-              # renovate: datasource=github-tags depName=asdf-vm/asdf
-              ASDF_VERSION: v0.16.0
-          run: |
-              go install github.com/asdf-vm/asdf@${ASDF_VERSION}
-              ~/go/bin/asdf install
-              echo 'export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"' >> ~/.bashrc
-              source ~/.bashrc
-              just install-tooling
+        - name: Install tools using asdf
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@asdf-action # TODO : use stable
 
         - name: Print used versions
           shell: bash
           run: |
-              asdf current
               go version
               helm version
               terraform version
