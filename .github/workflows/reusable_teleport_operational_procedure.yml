@@ -16,6 +16,12 @@ env:
     NAMESPACE_PREFIX: infraex-
     CLUSTER_NAME: camunda-ci-eks
     LABELS: janitor/ttl=1h camunda.cloud/ephemeral=true
+    CLUSTER_1_NAMESPACE_ARR: c8-snap-cluster-1
+    CLUSTER_1_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-1-failover
+    CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
+    CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
+    CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
+    CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
 
 jobs:
     teleport-setup:
@@ -40,33 +46,61 @@ jobs:
             - name: Write kubeconfig file
               id: write-kubeconfig
               run: |
-                  KUBECONFIG_PATH=./test/kubeconfig
-                  kubectl config view --raw > $KUBECONFIG_PATH
+                  KUBECONFIG=./test/kubeconfig
+                  kubectl config view --raw > $KUBECONFIG
 
-            - name: Create namespaces
-              id: create-namespaces
+            - name: Update namespace arrays with prefix and random suffix
+              id: update-namespace-arrays
               run: |
                   RANDOM_ID=$(openssl rand -hex 3)
-                  NAMESPACE0="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster0"
-                  NAMESPACE1="${{ env.NAMESPACE_PREFIX }}${RANDOM_ID}-cluster1"
-                  kubectl create namespace $NAMESPACE0
-                  kubectl label namespace $NAMESPACE0 ${{ env.LABELS }} --overwrite=true
-                  kubectl create namespace $NAMESPACE1
-                  kubectl label namespace $NAMESPACE1 ${{ env.LABELS }} --overwrite=true
-                  echo "::set-output name=namespace0::$NAMESPACE0"
-                  echo "::set-output name=namespace1::$NAMESPACE1"
+                  update_namespace_array() {
+                    local arr=$1
+                    local new_arr=""
+                    IFS=',' read -ra ADDR <<< "$arr"
+                    for i in "${ADDR[@]}"; do
+                      new_arr+="${{ env.NAMESPACE_PREFIX }}$i-${RANDOM_ID},"
+                    done
+                    echo "${new_arr%,}"
+                  }
+                  export CLUSTER_1_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_ARR }}")
+                  export CLUSTER_1_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}")
+                  export CLUSTER_0_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_ARR }}")
+                  export CLUSTER_0_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}")
+                  echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR" >> $GITHUB_ENV
+                  echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR" >> $GITHUB_ENV
+                  echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR" >> $GITHUB_ENV
+                  echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR" >> $GITHUB_ENV
 
-            - name: Hello World in namespaces
+            - name: Create namespaces and secrets
+              id: create-namespaces
               run: |
-                  kubectl run hello-world --image=busybox --namespace=${{ steps.create-namespaces.outputs.namespace0 }} \
-                    --labels=${{ env.LABELS }} -- /bin/sh -c "echo Hello, World!"
-                  kubectl run hello-world --image=busybox --namespace=${{ steps.create-namespaces.outputs.namespace1 }} \
-                    --labels=${{ env.LABELS }} -- /bin/sh -c "echo Hello, World!"
+                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
+
+            - name: Label namespaces and secrets
+              run: |
+                  label_resources() {
+                  local namespace=$1
+                  kubectl label namespace $namespace ${{ env.LABELS }}
+                  secrets=$(kubectl get secrets -n $namespace -o jsonpath='{.items[*].metadata.name}')
+                  for secret in $secrets; do
+                    kubectl label secret $secret -n $namespace ${{ env.LABELS }}
+                  done
+                  }
+                  IFS=',' read -ra NAMESPACES <<< "${{ env.CLUSTER_0_NAMESPACE_ARR }},${{ env.CLUSTER_1_NAMESPACE_ARR }}"
+                  for namespace in "${NAMESPACES[@]}"; do
+                  label_resources $namespace
+                  done
 
             - name: Delete namespaces
               run: |
-                  kubectl delete namespace ${{ steps.create-namespaces.outputs.namespace0 }}
-                  kubectl delete namespace ${{ steps.create-namespaces.outputs.namespace1 }}
-
-            - name: Start tmate session
-              uses: mxschmitt/action-tmate@v3
+                  delete_namespaces() {
+                    local namespace_arr=$1
+                    IFS=',' read -ra NAMESPACES <<< "$namespace_arr"
+                    for namespace in "${NAMESPACES[@]}"; do
+                    kubectl delete namespace $namespace
+                    done
+                  }
+                  delete_namespaces "${{ env.CLUSTER_0_NAMESPACE_ARR }}"
+                  delete_namespaces "${{ env.CLUSTER_1_NAMESPACE_ARR }}"
+                  delete_namespaces "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}"
+                  delete_namespaces "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}"
