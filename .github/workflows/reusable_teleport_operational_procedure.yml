@@ -21,6 +21,12 @@ env:
     CLUSTER_1_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-1-failover
     CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
     CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
+
+    CLUSTER_1_NAMESPACE: c8-snap-cluster-1
+    CLUSTER_1_NAMESPACE_FAILOVER: c8-snap-cluster-1-failover
+    CLUSTER_0_NAMESPACE: c8-snap-cluster-0
+    CLUSTER_0_NAMESPACE_FAILOVER: c8-snap-cluster-0-failover
+
     CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
 
