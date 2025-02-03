@@ -18,7 +18,7 @@ runs:
     steps:
 
         - name: Install tools using asdf
-          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@asdf-action # TODO : use stable
+          uses: camunda/infraex-common-config/.github/actions/asdf-install-tooling@ca5f4c53e82d4787cec72d6f3a177abaa59423b0 # 1.2.15
 
         - name: Print used versions
           shell: bash
