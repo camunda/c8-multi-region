@@ -25,13 +25,11 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
 
-defaults:
-    run:
-        shell: bash
-
 env:
     AWS_PROFILE: infex
     TESTS_TF_BINARY_NAME: terraform
+    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BUCKET_REGION: eu-central-1
 
 jobs:
     cluster-creation:
@@ -55,9 +53,12 @@ jobs:
               run: |
                   echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
             ############# Terraform Apply ################
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Terratest Terraform Init And Apply
               working-directory: ./test
               timeout-minutes: 46
@@ -96,9 +97,12 @@ jobs:
             - name: Parse GHA for namespace setup
               run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure_snapshot.yml
             ############ Export S3 credentials ############
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Get S3 credentials
               id: s3-credentials
               working-directory: ./aws/dual-region/terraform
@@ -223,9 +227,12 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 4m -run TestClusterCleanup
     ############# Terratest Teardown #############
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Terraform Destroy
               id: terraform-destroy
               working-directory: ./test
