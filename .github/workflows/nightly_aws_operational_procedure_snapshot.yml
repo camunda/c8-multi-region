@@ -25,6 +25,10 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
 
+defaults:
+    run:
+        shell: bash
+
 env:
     AWS_PROFILE: infex
     TESTS_TF_BINARY_NAME: terraform
@@ -59,8 +63,6 @@ jobs:
               timeout-minutes: 46
               run: |
                   go test --count=1 -v -timeout 45m -run TestSetupTerraform
-              env:
-                  TF_LOG: DEBUG
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
               run: |
