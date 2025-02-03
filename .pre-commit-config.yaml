@@ -9,12 +9,12 @@ repos:
           - id: end-of-file-fixer
           - id: check-added-large-files
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.96.3
+      rev: v1.97.1
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
     - repo: https://github.com/rhysd/actionlint
-      rev: v1.7.6
+      rev: v1.7.7
       hooks:
           - id: actionlint
     - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -23,7 +23,7 @@ repos:
           - id: shellcheck
             args: [--external-sources, --source-path, .github/workflows/scripts]
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 39.100.1
+      rev: 39.157.0
       hooks:
           - id: renovate-config-validator
             args: [--strict]
@@ -42,7 +42,7 @@ repos:
           - id: yamlfmt
 
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 1.2.11 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 1.2.16 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
 
