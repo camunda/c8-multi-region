@@ -24,13 +24,4 @@ sed -i '/path/d' "$1"
 # Replace local with s3 backend
 sed -i 's/\"local\"/\"s3\"/g' "$1"
 
-cat <<EOF > ~/.terraformrc
-cli {
-  args = [
-    "-backend-config=bucket=tf-state-multi-reg",
-    "-backend-config=key=state/\${CLUSTER_NAME}/terraform.tfstate",
-    "-backend-config=region=eu-central-1",
-    "-backend-config=encrypt=true"
-  ]
-}
-EOF
+echo "TF_CLI_ARGS_init=-backend-config=bucket=tf-state-multi-reg -backend-config=key=state/$CLUSTER_NAME/terraform.tfstate -backend-config=region=eu-central-1 -backend-config=encrypt=true" >> "$GITHUB_ENV"

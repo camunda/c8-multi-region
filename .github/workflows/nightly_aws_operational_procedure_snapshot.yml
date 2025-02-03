@@ -58,7 +58,6 @@ jobs:
               working-directory: ./test
               timeout-minutes: 46
               run: |
-                  cat ~/.terraformrc
                   go test --count=1 -v -timeout 45m -run TestSetupTerraform
               env:
                   TF_LOG: DEBUG
