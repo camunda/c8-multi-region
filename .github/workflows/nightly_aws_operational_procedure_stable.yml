@@ -28,6 +28,8 @@ concurrency:
 env:
     AWS_PROFILE: infex
     TESTS_TF_BINARY_NAME: terraform
+    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BUCKET_REGION: eu-central-1
 
 jobs:
     cluster-creation:
