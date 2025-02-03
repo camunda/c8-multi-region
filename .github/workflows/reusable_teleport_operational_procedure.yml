@@ -110,7 +110,7 @@ jobs:
             - name: Label namespaces and secrets
               run: |
                   label_resources() {
-                    local namespace="$1"
+                    local namespace=$1
                     kubectl label namespace "$namespace" "${{ env.LABELS }}"
                     secrets=$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')
                     for secret in $secrets; do
