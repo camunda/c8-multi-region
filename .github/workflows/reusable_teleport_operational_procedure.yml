@@ -71,6 +71,12 @@ jobs:
                   echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR" >> $GITHUB_ENV
                   echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR" >> $GITHUB_ENV
 
+            ############# Tool Installation ##############
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+
             - name: Create namespaces and secrets
               id: create-namespaces
               working-directory: ./test
