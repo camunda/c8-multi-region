@@ -24,6 +24,7 @@ env:
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
     AWS_SECRET_ACCESS_KEY_ES: dummy
     AWS_ACCESS_KEY_ES: dummy
+    KUBECONFIG: ./kubeconfig
 
 jobs:
     teleport-setup:
@@ -48,8 +49,7 @@ jobs:
             - name: Write kubeconfig file
               id: write-kubeconfig
               run: |
-                  KUBECONFIG=./test/kubeconfig
-                  kubectl config view --raw > $KUBECONFIG
+                  kubectl config view --raw > ./test/kubeconfig
 
             - name: Update namespace arrays with prefix and random suffix
               id: update-namespace-arrays
