@@ -111,10 +111,10 @@ jobs:
               run: |
                   label_resources() {
                     local namespace=$1
-                    kubectl label namespace "$namespace" "${{ env.LABELS }}"
+                    kubectl label namespace "$namespace" ${{ env.LABELS }}
                     secrets=$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')
                     for secret in $secrets; do
-                      kubectl label secret "$secret" -n "$namespace" "${{ env.LABELS }}"
+                      kubectl label secret "$secret" -n "$namespace" ${{ env.LABELS }}
                     done
                   }
                   IFS=',' read -ra NAMESPACES <<< "${{ env.CLUSTER_0_NAMESPACE_ARR }},${{ env.CLUSTER_1_NAMESPACE_ARR }}"
