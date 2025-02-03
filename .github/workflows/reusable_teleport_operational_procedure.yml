@@ -16,12 +16,14 @@ env:
     NAMESPACE_PREFIX: infraex-
     CLUSTER_NAME: camunda-ci-eks
     LABELS: janitor/ttl=1h camunda.cloud/ephemeral=true
+
     CLUSTER_1_NAMESPACE_ARR: c8-snap-cluster-1
     CLUSTER_1_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-1-failover
     CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
     CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
     CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
+
     AWS_SECRET_ACCESS_KEY_ES: dummy
     AWS_ACCESS_KEY_ES: dummy
     KUBECONFIG: ./kubeconfig
@@ -99,6 +101,12 @@ jobs:
                   for namespace in "${NAMESPACES[@]}"; do
                   label_resources $namespace
                   done
+
+            - name: Deploy dual region camunda through teleport access
+              id: deploy-camunda
+              working-directory: ./test
+              run: |
+                  go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
 
             - name: Delete namespaces
               run: |

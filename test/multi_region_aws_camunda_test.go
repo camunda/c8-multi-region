@@ -74,6 +74,31 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	}
 }
 
+func TestAWSDeployDualRegCamundaTeleport(t *testing.T) {
+	t.Log("[2 REGION TEST] Deploy Camunda 8 in simulated multi region mode 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Camunda 8 Deployment
+		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
+		{"TestDeployC8Helm", deployC8Helm},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestCheckTheMath", checkTheMath},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
 // Simplified failover procedure for 8.6+
 func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 	t.Log("[2 REGION TEST] Checking Failover procedure for 8.6+ 🚀")
