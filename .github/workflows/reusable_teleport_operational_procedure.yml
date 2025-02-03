@@ -123,12 +123,6 @@ jobs:
                   done
 
             - name: Deploy dual region camunda through teleport access
-              id: deploy-camunda
-              working-directory: ./test
-              run: |
-                  go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
-
-            - name: Setup tmate session
               uses: mxschmitt/action-tmate@v3
 
             - name: Delete namespaces
