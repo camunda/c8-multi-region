@@ -34,6 +34,9 @@ env:
     AWS_ACCESS_KEY_ES: dummy
     KUBECONFIG: ./kubeconfig
 
+    HELM_RELEASE_NAME: camunda
+    ZEEBE_CLUSTER_SIZE: 8
+
 jobs:
     teleport-setup:
         runs-on: ubuntu-latest
@@ -94,6 +97,9 @@ jobs:
                     echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR")"
                     echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
                     echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR")"
+                    echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
+
                   } >> "$GITHUB_ENV"
 
             - name: Setup AWS and Tools
@@ -123,7 +129,10 @@ jobs:
                   done
 
             - name: Deploy dual region camunda through teleport access
-              uses: mxschmitt/action-tmate@v3
+              id: deploy-camunda
+              working-directory: ./test
+              run: |
+                  go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
 
             - name: Delete namespaces
               run: |
