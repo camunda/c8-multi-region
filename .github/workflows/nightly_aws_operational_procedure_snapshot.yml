@@ -56,13 +56,14 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Terratest Terraform Init And Apply
               working-directory: ./test
               timeout-minutes: 46
               run: |
+                  set -o
                   go test --count=1 -v -timeout 45m -run TestSetupTerraform
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
@@ -100,7 +101,7 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Get S3 credentials
@@ -230,7 +231,7 @@ jobs:
             # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
                   echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
             # yamllint enable rule:line-length
             - name: Terraform Destroy
