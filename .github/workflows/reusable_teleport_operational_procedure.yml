@@ -22,6 +22,8 @@ env:
     CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
     CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
+    AWS_SECRET_ACCESS_KEY_ES: dummy
+    AWS_ACCESS_KEY_ES: dummy
 
 jobs:
     teleport-setup:
