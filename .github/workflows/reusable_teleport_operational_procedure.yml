@@ -64,7 +64,7 @@ jobs:
               run: |
                   RANDOM_ID=$(openssl rand -hex 3)
                   update_namespace_array() {
-                    local arr=$1
+                    local arr="$1"
                     local new_arr=""
                     IFS=',' read -ra ADDR <<< "$arr"
                     for i in "${ADDR[@]}"; do
@@ -72,16 +72,30 @@ jobs:
                     done
                     echo "${new_arr%,}"
                   }
-                  export CLUSTER_1_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_ARR }}")
-                  export CLUSTER_1_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}")
-                  export CLUSTER_0_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_ARR }}")
-                  export CLUSTER_0_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}")
-                  echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR" >> $GITHUB_ENV
-                  echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR" >> $GITHUB_ENV
-                  echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR" >> $GITHUB_ENV
-                  echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR" >> $GITHUB_ENV
+                  CLUSTER_1_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_ARR }}")
+                  CLUSTER_1_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}")
+                  CLUSTER_0_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_ARR }}")
+                  CLUSTER_0_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}")
+                  {
+                    echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR"
+                    echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR"
+                  } >> "$GITHUB_ENV"
 
-            ############# Tool Installation ##############
+                  get_first_item() {
+                    local arr="$1"
+                    IFS=',' read -ra ADDR <<< "$arr"
+                    echo "${ADDR[0]}"
+                  }
+
+                  {
+                    echo "CLUSTER_1_NAMESPACE=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR")"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR")"
+                    echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR")"
+                  } >> "$GITHUB_ENV"
+
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
               with:
@@ -96,16 +110,16 @@ jobs:
             - name: Label namespaces and secrets
               run: |
                   label_resources() {
-                  local namespace=$1
-                  kubectl label namespace $namespace ${{ env.LABELS }}
-                  secrets=$(kubectl get secrets -n $namespace -o jsonpath='{.items[*].metadata.name}')
-                  for secret in $secrets; do
-                    kubectl label secret $secret -n $namespace ${{ env.LABELS }}
-                  done
+                    local namespace="$1"
+                    kubectl label namespace "$namespace" "${{ env.LABELS }}"
+                    secrets=$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')
+                    for secret in $secrets; do
+                      kubectl label secret "$secret" -n "$namespace" "${{ env.LABELS }}"
+                    done
                   }
                   IFS=',' read -ra NAMESPACES <<< "${{ env.CLUSTER_0_NAMESPACE_ARR }},${{ env.CLUSTER_1_NAMESPACE_ARR }}"
                   for namespace in "${NAMESPACES[@]}"; do
-                  label_resources $namespace
+                    label_resources "$namespace"
                   done
 
             - name: Deploy dual region camunda through teleport access
@@ -117,10 +131,10 @@ jobs:
             - name: Delete namespaces
               run: |
                   delete_namespaces() {
-                    local namespace_arr=$1
+                    local namespace_arr="$1"
                     IFS=',' read -ra NAMESPACES <<< "$namespace_arr"
                     for namespace in "${NAMESPACES[@]}"; do
-                    kubectl delete namespace $namespace
+                      kubectl delete namespace "$namespace"
                     done
                   }
                   delete_namespaces "${{ env.CLUSTER_0_NAMESPACE_ARR }}"
