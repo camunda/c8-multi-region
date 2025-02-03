@@ -128,6 +128,9 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
 
+            - name: Setup tmate session
+              uses: mxschmitt/action-tmate@v3
+
             - name: Delete namespaces
               run: |
                   delete_namespaces() {
