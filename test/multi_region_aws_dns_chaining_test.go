@@ -75,6 +75,44 @@ func TestClusterPrerequisites(t *testing.T) {
 	})
 }
 
+func TestClusterPrerequisitesTeleport(t *testing.T) {
+	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region through Teleport access 🚀")
+
+	t.Run("TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport)
+
+	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
+		t.Log("[K8S] Creating all namespaces and secrets 🚀")
+
+		// Combine primary and failover namespaces
+		allPrimaryNamespaces := append(strings.Split(primaryNamespaceArr, ","), strings.Split(primaryNamespaceFailoverArr, ",")...)
+		allSecondaryNamespaces := append(strings.Split(secondaryNamespaceArr, ","), strings.Split(secondaryNamespaceFailoverArr, ",")...)
+
+		// Ensure both arrays have the same length
+		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
+			t.Fatal("Primary and secondary namespace arrays must have the same length")
+		}
+
+		// Iterate over namespaces
+		for i := range allPrimaryNamespaces {
+			os.Setenv("CLUSTER_0", primary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+			os.Setenv("CLUSTER_1", secondary.ClusterName)
+			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+			os.Setenv("KUBECONFIG", "./kubeconfig")
+
+			// add debug to print namespaces above
+			t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
+
+			shell.RunCommand(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+				},
+			})
+		}
+	})
+}
+
 func clusterReadyCheck(t *testing.T) {
 	t.Log("[CLUSTER CHECK] Checking if clusters are ready 🚦")
 	awsHelpers.ClusterReadyCheck(t, primary)

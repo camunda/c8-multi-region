@@ -22,6 +22,8 @@ const (
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
 	k8sManifests        = "../aws/dual-region/kubernetes"
+
+	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
 
 var (
@@ -187,6 +189,22 @@ func initKubernetesHelpers(t *testing.T) {
 		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
 		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
 		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
+	}
+}
+
+func initKubernetesHelpersTeleport(t *testing.T) {
+	t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
+	primary = helpers.Cluster{
+		Region:           "eu-west-2",
+		ClusterName:      teleportCluster,
+		KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
+		KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespaceFailover),
+	}
+	secondary = helpers.Cluster{
+		Region:           "eu-west-3",
+		ClusterName:      teleportCluster,
+		KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
+		KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
 	}
 }
 
