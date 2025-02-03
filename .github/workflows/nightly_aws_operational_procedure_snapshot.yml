@@ -58,6 +58,7 @@ jobs:
               working-directory: ./test
               timeout-minutes: 46
               run: |
+                  echo "$TF_CLI_ARGS_init"
                   go test --count=1 -v -timeout 45m -run TestSetupTerraform
             - name: Remove profile credentials from ~/.aws/credentials
               if: always()
