@@ -73,6 +73,7 @@ jobs:
 
             - name: Create namespaces and secrets
               id: create-namespaces
+              working-directory: ./test
               run: |
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
 
