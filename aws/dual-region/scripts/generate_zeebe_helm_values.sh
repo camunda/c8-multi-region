@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -ex
 
 generate_initial_contact() {
     # Function to generate the initial contact string for Zeebe clusters
