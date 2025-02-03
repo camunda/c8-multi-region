@@ -29,6 +29,11 @@ namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 helm_release_name=${HELM_RELEASE_NAME:-""}
 cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
 
+echo "namespace_0: $namespace_0"
+echo "namespace_1: $namespace_1"
+echo "helm_release_name: $helm_release_name"
+echo "cluster_size: $cluster_size"
+
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
 
 # Taking inputs from the user
