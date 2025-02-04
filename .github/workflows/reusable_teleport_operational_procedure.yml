@@ -105,11 +105,24 @@ jobs:
 
                   } >> "$GITHUB_ENV"
 
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  exportEnv: true
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+
             - name: Create namespaces and secrets
               id: create-namespaces
               env:
-                  AWS_SECRET_ACCESS_KEY_ES: ${{ secrets.AWS_SECRET_KEY }}
-                  AWS_ACCESS_KEY_ES: ${{ secrets.AWS_ACCESS_KEY }}
+                  AWS_SECRET_ACCESS_KEY_ES: ${{ steps.secrets.outputs.AWS_SECRET_KEY }}
+                  AWS_ACCESS_KEY_ES: ${{ steps.secrets.outputs.AWS_ACCESS_KEY }}
               working-directory: ./test
               run: |
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
