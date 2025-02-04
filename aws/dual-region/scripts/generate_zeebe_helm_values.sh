@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -ex
+set -e
 
 generate_initial_contact() {
     # Function to generate the initial contact string for Zeebe clusters
@@ -10,27 +10,9 @@ generate_initial_contact() {
     local count=$4
     local port_number=26502
     local result=""
-
-    # Trim spaces and validate
-    count=$(echo "$count" | tr -d '[:space:]')
-
-    if ! [[ "$count" =~ ^[0-9]+$ ]]; then
-        echo "Error: count must be a valid integer" >&2
-        exit 1
-    fi
-
-    count=$((count))  # Force integer conversion
-    local half_count=$((count / 2))
-
-    echo "DEBUG: count='$count'"
-    echo "DEBUG: half_count='$half_count'"
-
-    # Alternative loop to avoid "Bad for loop variable" issues
-    i=0
-    while [[ $i -lt $half_count ]]; do
+    for ((i=0; i<count/2; i++)); do
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
-        ((i++))
     done
     echo "${result%,}"  # Remove the trailing comma
 }
@@ -46,11 +28,6 @@ namespace_0=${CAMUNDA_NAMESPACE_0:-""}
 namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 helm_release_name=${HELM_RELEASE_NAME:-""}
 cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
-
-echo "namespace_0: $namespace_0"
-echo "namespace_1: $namespace_1"
-echo "helm_release_name: $helm_release_name"
-echo "cluster_size: $cluster_size"
 
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
 

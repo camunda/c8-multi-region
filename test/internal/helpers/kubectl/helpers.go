@@ -423,7 +423,7 @@ func InstallUpgradeC8HelmTeleport(t *testing.T, kubectlOptions *k8s.KubectlOptio
 
 	// Run the script and capture its output
 	output := shell.RunCommandAndGetOutput(t, shell.Command{
-		Command: "sh",
+		Command: "bash",
 		Args: []string{
 			"../aws/dual-region/scripts/generate_zeebe_helm_values.sh",
 		},
