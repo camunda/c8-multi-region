@@ -10,6 +10,12 @@ generate_initial_contact() {
     local count=$4
     local port_number=26502
     local result=""
+
+    if ! [[ "$count" =~ ^[0-9]+$ ]]; then
+        echo "Error: count must be a valid integer" >&2
+        exit 1
+    fi
+
     local half_count=$((count / 2))  # Perform division safely
 
     for ((i=0; i<half_count; i++)); do
