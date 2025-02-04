@@ -142,6 +142,9 @@ jobs:
                     label_resources "$namespace"
                   done
 
+            - name: Setup tmate session
+              uses: mxschmitt/action-tmate@v3
+
             - name: Deploy dual region camunda through teleport access
               id: deploy-camunda
               working-directory: ./test
