@@ -22,11 +22,6 @@ env:
     CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
     CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
 
-    CLUSTER_1_NAMESPACE: c8-snap-cluster-1
-    CLUSTER_1_NAMESPACE_FAILOVER: c8-snap-cluster-1-failover
-    CLUSTER_0_NAMESPACE: c8-snap-cluster-0
-    CLUSTER_0_NAMESPACE_FAILOVER: c8-snap-cluster-0-failover
-
     CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
 
@@ -68,41 +63,46 @@ jobs:
             - name: Update namespace arrays with prefix and random suffix
               id: update-namespace-arrays
               run: |
-                  RANDOM_ID=$(openssl rand -hex 3)
+                  set -euxo pipefail
+
+                  RANDOM_ID="$(openssl rand -hex 3)"
+
                   update_namespace_array() {
                     local arr="$1"
                     local new_arr=""
-                    IFS=',' read -ra ADDR <<< "$arr"
+                    IFS=',' read -r -a ADDR <<< "$arr"
                     for i in "${ADDR[@]}"; do
-                      new_arr+="${{ env.NAMESPACE_PREFIX }}$i-${RANDOM_ID},"
+                      new_arr+="${NAMESPACE_PREFIX}${i}-${RANDOM_ID},"
                     done
+                    # Remove trailing comma
                     echo "${new_arr%,}"
                   }
-                  CLUSTER_1_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_ARR }}")
-                  CLUSTER_1_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}")
-                  CLUSTER_0_NAMESPACE_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_ARR }}")
-                  CLUSTER_0_NAMESPACE_FAILOVER_ARR=$(update_namespace_array "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}")
+
+                  CLUSTER_1_NAMESPACE_ARR_UPDATED="$(update_namespace_array "${CLUSTER_1_NAMESPACE_ARR}")"
+                  CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED="$(update_namespace_array "${CLUSTER_1_NAMESPACE_FAILOVER_ARR}")"
+                  CLUSTER_0_NAMESPACE_ARR_UPDATED="$(update_namespace_array "${CLUSTER_0_NAMESPACE_ARR}")"
+                  CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED="$(update_namespace_array "${CLUSTER_0_NAMESPACE_FAILOVER_ARR}")"
+
                   {
-                    echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR"
-                    echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR"
-                    echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR"
-                    echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR"
+                    echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR_UPDATED"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED"
+                    echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR_UPDATED"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED"
                   } >> "$GITHUB_ENV"
 
                   get_first_item() {
                     local arr="$1"
-                    IFS=',' read -ra ADDR <<< "$arr"
+                    IFS=',' read -r -a ADDR <<< "$arr"
                     echo "${ADDR[0]}"
                   }
 
                   {
-                    echo "CLUSTER_1_NAMESPACE=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR")"
-                    echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR")"
-                    echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
-                    echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR")"
-                    echo "CAMUNDA_NAMESPACE_0=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
-                    echo "CAMUNDA_NAMESPACE_1=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR")"
-
+                    echo "CLUSTER_1_NAMESPACE=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR_UPDATED")"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED")"
+                    echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR_UPDATED")"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED")"
+                    echo "CAMUNDA_NAMESPACE_0=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR_UPDATED")"
+                    echo "CAMUNDA_NAMESPACE_1=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR_UPDATED")"
                   } >> "$GITHUB_ENV"
 
             - name: Import Secrets
@@ -125,40 +125,50 @@ jobs:
                   AWS_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_ACCESS_KEY }}
               working-directory: ./test
               run: |
+                  set -euxo pipefail
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
 
             - name: Label namespaces and secrets
               run: |
+                  set -euxo pipefail
+
                   label_resources() {
-                    local namespace=$1
-                    kubectl label namespace "$namespace" ${{ env.LABELS }}
-                    secrets=$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')
+                    local namespace="$1"
+                    kubectl label namespace "$namespace" ${{ env.LABELS }} --overwrite
+                    local secrets
+                    secrets="$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')"
                     for secret in $secrets; do
-                      kubectl label secret "$secret" -n "$namespace" ${{ env.LABELS }}
+                      kubectl label secret "$secret" -n "$namespace" ${{ env.LABELS }} --overwrite
                     done
                   }
-                  IFS=',' read -ra NAMESPACES <<< "${{ env.CLUSTER_0_NAMESPACE_ARR }},${{ env.CLUSTER_1_NAMESPACE_ARR }}"
-                  for namespace in "${NAMESPACES[@]}"; do
+
+                  # Combine cluster-0 and cluster-1 arrays into one comma-separated list
+                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE_ARR},${CLUSTER_1_NAMESPACE_ARR}"
+                  for namespace in "${ALL_NAMESPACES[@]}"; do
                     label_resources "$namespace"
                   done
 
-
-            - name: Deploy dual region camunda through teleport access
+            - name: Deploy dual region Camunda
               id: deploy-camunda
               working-directory: ./test
               run: |
+                  set -euxo pipefail
                   go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
 
             - name: Delete namespaces
+              if: ${{ always() }}
               run: |
+                  set -euxo pipefail
+
                   delete_namespaces() {
                     local namespace_arr="$1"
-                    IFS=',' read -ra NAMESPACES <<< "$namespace_arr"
-                    for namespace in "${NAMESPACES[@]}"; do
-                      kubectl delete namespace "$namespace"
+                    IFS=',' read -r -a arr <<< "$namespace_arr"
+                    for ns in "${arr[@]}"; do
+                      kubectl delete namespace "$ns" || true
                     done
                   }
-                  delete_namespaces "${{ env.CLUSTER_0_NAMESPACE_ARR }}"
-                  delete_namespaces "${{ env.CLUSTER_1_NAMESPACE_ARR }}"
-                  delete_namespaces "${{ env.CLUSTER_0_NAMESPACE_FAILOVER_ARR }}"
-                  delete_namespaces "${{ env.CLUSTER_1_NAMESPACE_FAILOVER_ARR }}"
+
+                  delete_namespaces "${CLUSTER_0_NAMESPACE_ARR}"
+                  delete_namespaces "${CLUSTER_1_NAMESPACE_ARR}"
+                  delete_namespaces "${CLUSTER_0_NAMESPACE_FAILOVER_ARR}"
+                  delete_namespaces "${CLUSTER_1_NAMESPACE_FAILOVER_ARR}"
