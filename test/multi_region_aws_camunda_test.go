@@ -291,7 +291,7 @@ func deployC8Helm(t *testing.T) {
 }
 
 func deployC8HelmTeleport(t *testing.T) {
-	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
+	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart to infra cluster through Teleport 🚀")
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
 	kubectlHelpers.InstallUpgradeC8HelmTeleport(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, baseHelmVars)

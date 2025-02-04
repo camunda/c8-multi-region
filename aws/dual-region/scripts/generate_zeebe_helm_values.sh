@@ -18,9 +18,11 @@ generate_initial_contact() {
 
     local half_count=$((count / 2))  # Perform division safely
 
-    for ((i=0; i<half_count; i++)); do
+    i=0
+    while [[ $i -lt $half_count ]]; do
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
+        ((i++))
     done
     echo "${result%,}"  # Remove the trailing comma
 }
