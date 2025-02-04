@@ -90,7 +90,7 @@ func TestAWSDeployDualRegCamundaTeleport(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
-		{"TestDeployC8HelmTeleport", deployC8Helm},
+		{"TestDeployC8HelmTeleport", deployC8HelmTeleport},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
