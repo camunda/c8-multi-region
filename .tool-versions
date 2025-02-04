@@ -16,7 +16,7 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.23.6
+awscli 2.23.11
 
 golang 1.23.5
 
@@ -32,6 +32,6 @@ shellcheck 0.10.0
 
 terraform 1.10.5
 
-tflint 0.55.0
+tflint 0.55.1
 
-trivy 0.58.2
+trivy 0.59.0
