@@ -11,19 +11,26 @@ generate_initial_contact() {
     local port_number=26502
     local result=""
 
-    count=$((count))  # Force integer conversion
-
+    # Trim spaces and validate
+    count=$(echo "$count" | tr -d '[:space:]')
 
     if ! [[ "$count" =~ ^[0-9]+$ ]]; then
         echo "Error: count must be a valid integer" >&2
         exit 1
     fi
 
-    local half_count=$((count / 2))  # Perform division safely
+    count=$((count))  # Force integer conversion
+    local half_count=$((count / 2))
 
-    for ((i=0; i<half_count; i++)); do
+    echo "DEBUG: count='$count'"
+    echo "DEBUG: half_count='$half_count'"
+
+    # Alternative loop to avoid "Bad for loop variable" issues
+    i=0
+    while [[ $i -lt $half_count ]]; do
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
+        ((i++))
     done
     echo "${result%,}"  # Remove the trailing comma
 }
