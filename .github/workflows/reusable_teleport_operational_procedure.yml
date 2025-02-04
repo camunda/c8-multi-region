@@ -45,6 +45,11 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@v4
 
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+
             - name: Set up Teleport
               uses: teleport-actions/setup@v1
               with:
@@ -101,11 +106,6 @@ jobs:
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
 
                   } >> "$GITHUB_ENV"
-
-            - name: Setup AWS and Tools
-              uses: ./.github/actions/setup-aws
-              with:
-                  secrets: ${{ toJSON(secrets) }}
 
             - name: Create namespaces and secrets
               id: create-namespaces
