@@ -115,14 +115,14 @@ jobs:
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
                   exportEnv: true
                   secrets: |
-                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY;
-                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
             - name: Create namespaces and secrets
               id: create-namespaces
               env:
-                  AWS_SECRET_ACCESS_KEY_ES: ${{ steps.secrets.outputs.AWS_SECRET_KEY }}
-                  AWS_ACCESS_KEY_ES: ${{ steps.secrets.outputs.AWS_ACCESS_KEY }}
+                  AWS_SECRET_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_SECRET_KEY }}
+                  AWS_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_ACCESS_KEY }}
               working-directory: ./test
               run: |
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
