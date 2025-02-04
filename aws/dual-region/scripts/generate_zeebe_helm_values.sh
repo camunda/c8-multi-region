@@ -11,6 +11,9 @@ generate_initial_contact() {
     local port_number=26502
     local result=""
 
+    count=$((count))  # Force integer conversion
+
+
     if ! [[ "$count" =~ ^[0-9]+$ ]]; then
         echo "Error: count must be a valid integer" >&2
         exit 1
@@ -18,11 +21,9 @@ generate_initial_contact() {
 
     local half_count=$((count / 2))  # Perform division safely
 
-    i=0
-    while [[ $i -lt $half_count ]]; do
+    for ((i=0; i<half_count; i++)); do
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
-        ((i++))
     done
     echo "${result%,}"  # Remove the trailing comma
 }
