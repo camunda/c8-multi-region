@@ -10,7 +10,9 @@ generate_initial_contact() {
     local count=$4
     local port_number=26502
     local result=""
-    for ((i=0; i<count/2; i++)); do
+    local half_count=$((count / 2))  # Perform division safely
+
+    for ((i=0; i<half_count; i++)); do
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
         result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
     done
