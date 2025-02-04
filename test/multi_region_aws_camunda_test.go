@@ -90,7 +90,7 @@ func TestAWSDeployDualRegCamundaTeleport(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
-		{"TestDeployC8Helm", deployC8Helm},
+		{"TestDeployC8HelmTeleport", deployC8Helm},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
@@ -117,6 +117,32 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 		// Multi-Region Operational Procedure
 		// Failover
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDeleteSecondaryRegion", deleteSecondaryRegion},
+		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
+		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
+		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestAWSDualRegFailover_8_6_plusTeleport(t *testing.T) {
+	t.Log("[2 REGION TEST] Checking Failover procedure for 8.6+ 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Multi-Region Operational Procedure
+		// Failover
+		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
 		{"TestDeleteSecondaryRegion", deleteSecondaryRegion},
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
@@ -240,6 +266,37 @@ func deployC8Helm(t *testing.T) {
 	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, baseHelmVars)
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, baseHelmVars)
+
+	// Check that all deployments and Statefulsets are available
+	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
+
+	// Elastic itself takes already ~2+ minutes to start
+	// 30 times with 15 seconds sleep = 7,5 minutes
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-operate", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-tasklist", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
+
+	// no functions for Statefulsets yet
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+
+	// 30 times with 15 seconds sleep = 7,5 minutes
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
+
+	// no functions for Statefulsets yet
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+}
+
+func deployC8HelmTeleport(t *testing.T) {
+	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
+
+	// We have to install both at the same time as otherwise zeebe will not become ready
+	kubectlHelpers.InstallUpgradeC8HelmTeleport(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, baseHelmVars)
+
+	kubectlHelpers.InstallUpgradeC8HelmTeleport(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, baseHelmVars)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
