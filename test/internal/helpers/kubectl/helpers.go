@@ -422,12 +422,12 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 func InstallUpgradeC8HelmTeleport(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
 
 	// Run the script and capture its output
-	cmd := exec.Command("sh", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
-	output, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("[C8 HELM] Error running script: %v\n", err)
-		return
-	}
+	output := shell.RunCommandAndGetOutput(t, shell.Command{
+		Command: "sh",
+		Args: []string{
+			"../aws/dual-region/scripts/generate_zeebe_helm_values.sh",
+		},
+	})
 
 	// Convert byte slice to string
 	scriptOutput := string(output)
