@@ -100,8 +100,8 @@ jobs:
                     echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR")"
                     echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
                     echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR")"
-                    echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
-                    echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_0=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR")"
+                    echo "CAMUNDA_NAMESPACE_1=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR")"
 
                   } >> "$GITHUB_ENV"
 
