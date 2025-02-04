@@ -30,8 +30,6 @@ env:
     CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
     CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
 
-    AWS_SECRET_ACCESS_KEY_ES: dummy
-    AWS_ACCESS_KEY_ES: dummy
     KUBECONFIG: ./kubeconfig
 
     HELM_RELEASE_NAME: camunda
@@ -109,6 +107,9 @@ jobs:
 
             - name: Create namespaces and secrets
               id: create-namespaces
+              env:
+                  AWS_SECRET_ACCESS_KEY_ES: ${{ secrets.AWS_SECRET_KEY }}
+                  AWS_ACCESS_KEY_ES: ${{ secrets.AWS_ACCESS_KEY }}
               working-directory: ./test
               run: |
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
