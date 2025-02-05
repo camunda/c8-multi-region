@@ -1,0 +1,19 @@
+---
+name: Test Reusable Workflow on Push
+
+on:
+    push:
+        branches:
+            - reusable-gh-workflow
+
+jobs:
+    test-reusable:
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: 11.0.4
+#      helmChartName: "oci://ghcr.io/camunda/helm/camunda-platform"
+#      globalImageTag: "SNAPSHOT"
+#    secrets:
+#      VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+#      VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+#      VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}

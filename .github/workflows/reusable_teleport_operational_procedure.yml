@@ -10,10 +10,6 @@ on:
                 required: false
                 default: 11.0.4
 
-    push:
-        branches:
-            - reusable-gh-workflow
-
 permissions:
     contents: read
     id-token: write
