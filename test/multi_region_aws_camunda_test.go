@@ -143,7 +143,7 @@ func TestAWSDualRegFailover_8_6_plusTeleport(t *testing.T) {
 		// Multi-Region Operational Procedure
 		// Failover
 		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
-		{"TestDeleteSecondaryRegion", deleteSecondaryRegion},
+		{"TestDeleteSecondaryRegionTeleport", deleteSecondaryRegionTeleport},
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
 		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
@@ -403,6 +403,12 @@ func deleteSecondaryRegion(t *testing.T) {
 	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
 
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
+}
+
+func deleteSecondaryRegionTeleport(t *testing.T) {
+	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
+
+	kubectlHelpers.TeardownC8HelmTeleport(t, &secondary.KubectlNamespace)
 }
 
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {

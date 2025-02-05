@@ -152,6 +152,22 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 
 }
 
+func TeardownC8HelmTeleport(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
+	helmOptions := &helm.Options{
+		KubectlOptions: kubectlOptions,
+	}
+
+	helm.Delete(t, helmOptions, "camunda", true)
+
+	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
+
+	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
+
+	for _, pvc := range pvcs {
+		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
+	}
+}
+
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
