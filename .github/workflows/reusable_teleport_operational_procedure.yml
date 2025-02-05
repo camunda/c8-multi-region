@@ -2,6 +2,14 @@
 name: reusable_teleport_operational_procedure
 
 on:
+    workflow_call:
+        inputs:
+            helmChartVersion:
+                type: string
+                description: Version of the Helm chart to deploy.
+                required: false
+                default: 11.0.4
+
     push:
         branches:
             - reusable-gh-workflow
