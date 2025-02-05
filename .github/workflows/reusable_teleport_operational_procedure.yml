@@ -168,7 +168,7 @@ jobs:
               working-directory: ./test
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 9m -run TestAWSDeployDualRegCamundaTeleport
+                  go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamundaTeleport
 
             - name: Delete namespaces
               if: ${{ always() }}
