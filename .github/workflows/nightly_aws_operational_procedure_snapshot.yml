@@ -14,6 +14,7 @@ on:
             - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
+            - .github/actions/setup-aws/action.yml
             - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/kubernetes/**
