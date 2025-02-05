@@ -9,6 +9,13 @@ on:
                 description: Version of the Helm chart to deploy.
                 required: false
                 default: 11.0.4
+        secrets:
+            VAULT_ADDR:
+                required: true
+            VAULT_ROLE_ID:
+                required: true
+            VAULT_SECRET_ID:
+                required: true
 
 permissions:
     contents: read
