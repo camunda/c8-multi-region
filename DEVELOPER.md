@@ -56,12 +56,12 @@ export CLUSTER_0_NAMESPACE_FAILOVER_ARR=c8-3-cluster-0-failover,c8-4-cluster-0-f
 go test --count=1 -v -timeout 120m -run TestAWSKubeConfigCreation
 ```
 
-10. Export `S3_AWS_ACCESS_KEY` and `S3_AWS_SECRET_KEY` based on the terraform output.
+10. Export `AWS_ACCESS_KEY_ES` and `AWS_SECRET_ACCESS_KEY_ES` based on the terraform output.
    E.g. from within the `aws/dual-region/terraform` folder:
 
    ```bash
-   export S3_AWS_ACCESS_KEY=$(terraform output -raw s3_aws_access_key)
-   export S3_AWS_SECRET_KEY=$(terraform output -raw s3_aws_secret_access_key)
+   export AWS_ACCESS_KEY_ES=$(terraform output -raw s3_aws_access_key)
+   export AWS_SECRET_ACCESS_KEY_ES=$(terraform output -raw s3_aws_secret_access_key)
    ```
 
 11. The following command will setup all namespaces and adds the elastic secret for backups. Run in `test` the command:
