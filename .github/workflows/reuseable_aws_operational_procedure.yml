@@ -44,17 +44,21 @@ jobs:
                   version=${{ inputs.helm-version }}
 
                   if [[ $version =~ "OLD" ]]; then
-                  version="$(echo $version | cut -d'.' -f2-)"
+                    version="$(echo $version | cut -d'.' -f2-)"
                   fi
 
                   if [[ $version == "SNAPSHOT" ]]; then
-                  echo "branch=main" >> "$GITHUB_ENV"
+                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                      echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
+                    else
+                      echo "branch=main" >> "$GITHUB_ENV"
+                    fi
                   else
-                  c8_version=$(curl -X 'GET' -s \
-                  "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
-                  -H "accept: application/json" | jq -r .app_version)
-                  minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
-                  echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
+                    c8_version=$(curl -X 'GET' -s \
+                    "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
+                    -H "accept: application/json" | jq -r .app_version)
+                    minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
+                    echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
                   fi
 
                   echo "AWS_PROFILE=${{ inputs.aws-profile }}" >> "$GITHUB_ENV"

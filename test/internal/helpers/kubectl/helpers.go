@@ -347,7 +347,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
 
 	// Run the script and capture its output
-	cmd := exec.Command("sh", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
+	cmd := exec.Command("bash", "-c", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
 	output, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("[C8 HELM] Error running script: %v\n", err)
