@@ -131,10 +131,6 @@ elasticsearch:
                 memory: 2Gi
         persistence:
             size: 15Gi
-        networkPolicy:
-            enabled: false
-        pdb:
-            create: false
     initScripts:
         init-keystore.sh: |
             #!/bin/bash
