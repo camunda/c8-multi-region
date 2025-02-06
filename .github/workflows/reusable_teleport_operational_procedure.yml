@@ -9,6 +9,14 @@ on:
                 description: Version of the Helm chart to deploy.
                 required: false
                 default: 11.1.0
+            helmChartName:
+                description: Optional Helm chart name
+                required: false
+                type: string
+            globalImageTag:
+                description: Optional global image tag
+                required: false
+                type: string
         secrets:
             VAULT_ADDR:
                 required: true
@@ -51,6 +59,15 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
+            - name: Set optional environment variables conditionally
+              run: |
+                  if [ -n "${{ inputs.helmChartName }}" ]; then
+                    echo "HELM_CHART_NAME=${{ inputs.helmChartName }}" >> "$GITHUB_ENV"
+                  fi
+                  if [ -n "${{ inputs.globalImageTag }}" ]; then
+                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
+                  fi
+
             - name: Checkout repository
               uses: actions/checkout@v4
 
