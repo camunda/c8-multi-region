@@ -194,7 +194,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 }
 
 func TestAWSDualRegFailback_8_6_plusTeleport(t *testing.T) {
-	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
+	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region through Teleport 🚀")
 
 	if globalImageTag != "" {
 		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
@@ -214,10 +214,10 @@ func TestAWSDualRegFailback_8_6_plusTeleport(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestStopZeebeExporters", stopZeebeExporters},
 		{"TestScaleDownWebApps", scaleDownWebApps},
-		{"TestCreateElasticBackupRepoPrimary", createElasticBackupRepoPrimary},
+		{"TestCreateElasticBackupRepoPrimaryTeleport", createElasticBackupRepoPrimaryTeleport},
 		{"TestCreateElasticBackupPrimary", createElasticBackupPrimary},
 		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
-		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
+		{"TestCreateElasticBackupRepoSecondaryTeleport", createElasticBackupRepoSecondaryTeleport},
 		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
 		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
 		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
@@ -409,6 +409,12 @@ func createElasticBackupRepoPrimary(t *testing.T) {
 	kubectlHelpers.ConfigureElasticBackup(t, primary, clusterName, remoteChartVersion)
 }
 
+func createElasticBackupRepoPrimaryTeleport(t *testing.T) {
+	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
+
+	kubectlHelpers.ConfigureElasticBackupTeleport(t, primary, clusterName, remoteChartVersion)
+}
+
 func createElasticBackupPrimary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Creating Elasticsearch Backup 🚀")
 
@@ -425,6 +431,12 @@ func createElasticBackupRepoSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
 
 	kubectlHelpers.ConfigureElasticBackup(t, secondary, clusterName, remoteChartVersion)
+}
+
+func createElasticBackupRepoSecondaryTeleport(t *testing.T) {
+	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
+
+	kubectlHelpers.ConfigureElasticBackupTeleport(t, secondary, clusterName, remoteChartVersion)
 }
 
 func checkThatElasticBackupIsPresentSecondary(t *testing.T) {

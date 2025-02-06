@@ -277,6 +277,29 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 	t.Logf("[ELASTICSEARCH] Success: %s", output)
 }
 
+func ConfigureElasticBackupTeleport(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
+	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
+
+	version := strings.ReplaceAll(inputVersion, ".", "-")
+
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+		"-H", "Content-Type: application/json",
+		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"tests-c8-multi-region-es-eu-central-1\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}", os.Getenv("BACKUP_NAME"), version))
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
+		return
+	}
+
+	if !strings.Contains(output, "acknowledged") {
+		t.Fatalf("[ELASTICSEARCH] Error: %s", output)
+		return
+	}
+
+	require.Contains(t, output, "acknowledged")
+	t.Logf("[ELASTICSEARCH] Success: %s", output)
+}
+
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
