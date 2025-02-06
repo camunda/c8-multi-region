@@ -224,7 +224,7 @@ func TestAWSDualRegFailback_8_6_plusTeleport(t *testing.T) {
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestScaleUpWebApps", scaleUpWebApps},
-		{"TestInstallWebAppsSecondary", installWebAppsSecondary_8_6_plus},
+		{"TestInstallWebAppsSecondaryTeleport", installWebAppsSecondary_8_6_plusTeleport},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
