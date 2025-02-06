@@ -193,6 +193,46 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 	}
 }
 
+func TestAWSDualRegFailback_8_6_plusTeleport(t *testing.T) {
+	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Multi-Region Operational Procedure
+		// Failback
+		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
+		{"TestRecreateCamundaInSecondaryTeleport", recreateCamundaInSecondary_8_6_plusTeleport},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestStopZeebeExporters", stopZeebeExporters},
+		{"TestScaleDownWebApps", scaleDownWebApps},
+		{"TestCreateElasticBackupRepoPrimary", createElasticBackupRepoPrimary},
+		{"TestCreateElasticBackupPrimary", createElasticBackupPrimary},
+		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
+		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
+		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
+		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
+		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
+		{"TestAddSecondaryBrokers", addSecondaryBrokers},
+		{"TestStartZeebeExporters", startZeebeExporters},
+		{"TestScaleUpWebApps", scaleUpWebApps},
+		{"TestInstallWebAppsSecondary", installWebAppsSecondary_8_6_plus},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestCheckTheMath", checkTheMath},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
 func TestDebugStep(t *testing.T) {
 	t.Log("[DEBUG] Debugging step 🚀")
 
@@ -420,6 +460,21 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
+	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
+}
+
+func recreateCamundaInSecondary_8_6_plusTeleport(t *testing.T) {
+	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
+
+	setValues := map[string]string{
+		"operate.enabled":  "false",
+		"tasklist.enabled": "false",
+	}
+
+	kubectlHelpers.InstallUpgradeC8HelmTeleport(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
