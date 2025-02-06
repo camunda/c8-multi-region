@@ -9,14 +9,71 @@ on:
                 description: Version of the Helm chart to deploy.
                 required: false
                 default: 11.1.0
+
             helmChartName:
                 description: Optional Helm chart name
                 required: false
                 type: string
+
             globalImageTag:
                 description: Optional global image tag
                 required: false
                 type: string
+
+            awsProfile:
+                description: AWS profile to use
+                required: false
+                type: string
+                default: infex
+
+            testsTfBinaryName:
+                description: Terraform binary name for tests
+                required: false
+                type: string
+                default: terraform
+
+            namespacePrefix:
+                description: Prefix for namespaces
+                required: false
+                type: string
+                default: infraex-
+
+            clusterName:
+                description: EKS cluster name
+                required: false
+                type: string
+                default: camunda-ci-eks
+
+            labels:
+                description: Labels to apply
+                required: false
+                type: string
+                default: janitor/ttl=1h camunda.cloud/ephemeral=true
+
+            cluster:
+                description: Cluster identifier (same for Cluster 0 & 1)
+                required: false
+                type: string
+                default: camunda.teleport.sh-camunda-ci-eks
+
+            backupBucket:
+                description: Backup bucket name
+                required: false
+                type: string
+                default: tests-c8-multi-region-es-eu-central-1
+
+            helmReleaseName:
+                description: Helm release name
+                required: false
+                type: string
+                default: camunda
+
+            zeebeClusterSize:
+                description: Zeebe cluster size
+                required: false
+                type: number
+                default: 8
+
         secrets:
             VAULT_ADDR:
                 required: true
@@ -30,27 +87,21 @@ permissions:
     id-token: write
 
 env:
-    AWS_PROFILE: infex
-    TESTS_TF_BINARY_NAME: terraform
-    NAMESPACE_PREFIX: infraex-
-    CLUSTER_NAME: camunda-ci-eks
-    LABELS: janitor/ttl=1h camunda.cloud/ephemeral=true
+    AWS_PROFILE: ${{ inputs.awsProfile }}
+    TESTS_TF_BINARY_NAME: ${{ inputs.testsTfBinaryName }}
+    NAMESPACE_PREFIX: ${{ inputs.namespacePrefix }}
+    CLUSTER_NAME: ${{ inputs.clusterName }}
+    LABELS: ${{ inputs.labels }}
 
-    CLUSTER_1_NAMESPACE_ARR: c8-snap-cluster-1
-    CLUSTER_1_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-1-failover
-    CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
-    CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
-
-    CLUSTER_0: camunda.teleport.sh-camunda-ci-eks
-    CLUSTER_1: camunda.teleport.sh-camunda-ci-eks
+    # Single input used for both cluster variables (to be able to reuse dual cluster tests)
+    CLUSTER_0: ${{ inputs.cluster }}
+    CLUSTER_1: ${{ inputs.cluster }}
 
     KUBECONFIG: ./kubeconfig
 
-    BACKUP_BUCKET: tests-c8-multi-region-es-eu-central-1
-    HELM_RELEASE_NAME: camunda
-    ZEEBE_CLUSTER_SIZE: 8
-
-    # Inputs (provided or default) assigned to environment variables used in steps:
+    BACKUP_BUCKET: ${{ inputs.backupBucket }}
+    HELM_RELEASE_NAME: ${{ inputs.helmReleaseName }}
+    ZEEBE_CLUSTER_SIZE: ${{ inputs.zeebeClusterSize }}
     HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
 
 
