@@ -285,7 +285,8 @@ func ConfigureElasticBackupTeleport(t *testing.T, cluster helpers.Cluster, clust
 	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
 		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 		"-H", "Content-Type: application/json",
-		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"tests-c8-multi-region-es-eu-central-1\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}", os.Getenv("BACKUP_NAME"), version))
+		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
+			os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return

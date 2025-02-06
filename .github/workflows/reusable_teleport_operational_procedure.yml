@@ -38,6 +38,7 @@ env:
 
     KUBECONFIG: ./kubeconfig
 
+    BACKUP_BUCKET: tests-c8-multi-region-es-eu-central-1
     HELM_RELEASE_NAME: camunda
     ZEEBE_CLUSTER_SIZE: 8
 
