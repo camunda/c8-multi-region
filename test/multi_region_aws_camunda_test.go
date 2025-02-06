@@ -574,6 +574,13 @@ func installWebAppsSecondary_8_6_plus(t *testing.T) {
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
 }
 
+func installWebAppsSecondary_8_6_plusTeleport(t *testing.T) {
+	kubectlHelpers.InstallUpgradeC8HelmTeleport(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
+
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 20, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 20, 15*time.Second)
+}
+
 func checkTheMath(t *testing.T) {
 	t.Log("[MATH] Checking the math 🚀")
 
