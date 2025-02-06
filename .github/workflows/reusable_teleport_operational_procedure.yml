@@ -82,6 +82,8 @@ jobs:
 
                   RANDOM_ID="$(openssl rand -hex 3)"
 
+                  echo "BACKUP_NAME=$RANDOM_ID" >> "$GITHUB_ENV"
+
                   update_namespace_array() {
                     local arr="$1"
                     local new_arr=""
@@ -169,6 +171,20 @@ jobs:
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamundaTeleport
+
+            - name: Camunda failover test procedure
+              id: failover-camunda
+              working-directory: ./test
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailover_8_6_plusTeleport
+
+            - name: Camunda failback test procedure
+              id: failback-camunda
+              working-directory: ./test
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailback_8_6_plusTeleport
 
             - name: Delete namespaces
               if: ${{ always() }}
