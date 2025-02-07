@@ -49,7 +49,7 @@ connectors:
 
 zeebe:
     affinity:
-        podAntiAffinity: ''
+        podAntiAffinity: false
     clusterSize: 8
     partitionCount: 8
     replicationFactor: 4
