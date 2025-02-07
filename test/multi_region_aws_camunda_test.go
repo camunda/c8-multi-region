@@ -128,32 +128,6 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 	}
 }
 
-func TestAWSDualRegFailover_8_6_plusTeleport(t *testing.T) {
-	t.Log("[2 REGION TEST] Checking Failover procedure for 8.6+ 🚀")
-
-	if globalImageTag != "" {
-		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
-		// global.image.tag does not overwrite the image tag for all images
-		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
-	}
-
-	// Runs the tests sequentially
-	for _, testFuncs := range []struct {
-		name  string
-		tfunc func(*testing.T)
-	}{
-		// Multi-Region Operational Procedure
-		// Failover
-		{"TestinitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeleteSecondaryRegionTeleport", deleteSecondaryRegionTeleport},
-		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
-		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
-		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
-	} {
-		t.Run(testFuncs.name, testFuncs.tfunc)
-	}
-}
-
 // Simplified failback procedure for 8.6+
 func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 	t.Log("[2 REGION TEST] Running tests for AWS EKS Multi-Region 🚀")
@@ -442,12 +416,6 @@ func deleteSecondaryRegion(t *testing.T) {
 	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
 
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
-}
-
-func deleteSecondaryRegionTeleport(t *testing.T) {
-	t.Log("[REGION REMOVAL] Deleting secondary region 🚀")
-
-	kubectlHelpers.TeardownC8HelmTeleport(t, &secondary.KubectlNamespace)
 }
 
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
