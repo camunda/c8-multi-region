@@ -380,11 +380,14 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-	// Set environment variables for the script
-	os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
-	os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
-	os.Setenv("HELM_RELEASE_NAME", "camunda")
-	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+
+	if os.Getenv("TELEPORT") != "true" {
+		// Set environment variables for the script
+		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
+		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
+		os.Setenv("HELM_RELEASE_NAME", "camunda")
+		os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+	}
 
 	// Run the script and capture its output
 	cmd := exec.Command("sh", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
@@ -458,82 +461,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		return
 	}
 }
-
-func InstallUpgradeC8HelmTeleport(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-
-	// Run the script and capture its output
-	output := shell.RunCommandAndGetOutput(t, shell.Command{
-		Command: "bash",
-		Args: []string{
-			"../aws/dual-region/scripts/generate_zeebe_helm_values.sh",
-		},
-	})
-
-	// Convert byte slice to string
-	scriptOutput := string(output)
-
-	// Extract the replacement text for the initial contact points and Elasticsearch URLs
-	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
-	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL")
-	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL")
-
-	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
-	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
-	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
-
-	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
-
-	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
-	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
-
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		t.Fatalf("[C8 HELM] Error reading file: %v\n", err)
-		return
-	}
-
-	// Convert byte slice to string
-	fileContent := string(content)
-
-	// Replace the placeholders with the replacement strings
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
-
-	// Write the modified content back to the file
-	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
-	if err != nil {
-		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
-		return
-	}
-
-	helmOptions := &helm.Options{
-		KubectlOptions: kubectlOptions,
-		Version:        remoteChartVersion,
-		ValuesFiles:    valuesFiles,
-		SetValues:      setValues,
-	}
-
-	if !strings.Contains(remoteChartVersion, "snapshot") {
-		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
-	}
-
-	if upgrade {
-		// Terratest is actively ignoring the version in an upgrade
-		helmOptions.ExtraArgs = map[string][]string{"upgrade": []string{"--version", remoteChartVersion}}
-		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
-	} else {
-		helm.Install(t, helmOptions, remoteChartName, "camunda")
-	}
-
-	// Write the old file back to the file - mostly for local development
-	err = os.WriteFile(filePath, []byte(fileContent), 0644)
-	if err != nil {
-		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
-		return
-	}
-}
-
 func extractReplacementText(output, variableName string) string {
 	startMarker := fmt.Sprintf("- name: %s\n  value: ", variableName)
 	startIndex := strings.Index(output, startMarker)
