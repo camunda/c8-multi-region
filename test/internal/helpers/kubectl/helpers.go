@@ -381,13 +381,13 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
 
-	if os.Getenv("TELEPORT") != "true" {
-		// Set environment variables for the script
-		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
-		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
-		os.Setenv("HELM_RELEASE_NAME", "camunda")
-		os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
-	}
+	// if os.Getenv("TELEPORT") != "true" {
+	// 	// Set environment variables for the script
+	// 	os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
+	// 	os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
+	// 	os.Setenv("HELM_RELEASE_NAME", "camunda")
+	// 	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+	// }
 
 	// Run the script and capture its output
 	cmd := exec.Command("bash", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
