@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -90,7 +91,7 @@ func TestAWSDeployDualRegCamundaTeleport(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		// Camunda 8 Deployment
-		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
+		{"TestinitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", deployC8Helm},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
@@ -143,7 +144,7 @@ func TestAWSDualRegFailover_8_6_plusTeleport(t *testing.T) {
 	}{
 		// Multi-Region Operational Procedure
 		// Failover
-		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
+		{"TestinitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeleteSecondaryRegionTeleport", deleteSecondaryRegionTeleport},
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
@@ -210,7 +211,7 @@ func TestAWSDualRegFailback_8_6_plusTeleport(t *testing.T) {
 	}{
 		// Multi-Region Operational Procedure
 		// Failback
-		{"TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport},
+		{"TestinitKubernetesHelpers", initKubernetesHelpers},
 		{"TestRecreateCamundaInSecondaryTeleport", recreateCamundaInSecondary_8_6_plusTeleport},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestStopZeebeExporters", stopZeebeExporters},
@@ -267,36 +268,46 @@ func TestAWSDualRegCleanup(t *testing.T) {
 // Single Test functions
 
 func initKubernetesHelpers(t *testing.T) {
-	t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
-	primary = helpers.Cluster{
-		Region:           "eu-west-2",
-		ClusterName:      fmt.Sprintf("%s-london", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespaceFailover),
+	// Determine if Teleport mode is enabled.
+	teleportEnabled := false
+	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
+		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
+			teleportEnabled = parsed
+		} else {
+			t.Fatalf("failed to parse TELEPORT env var: %v", err)
+		}
 	}
-	secondary = helpers.Cluster{
-		Region:           "eu-west-3",
-		ClusterName:      fmt.Sprintf("%s-paris", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
-	}
-}
 
-func initKubernetesHelpersTeleport(t *testing.T) {
-	t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
-	primary = helpers.Cluster{
-		Region:           "eu-west-2",
-		ClusterName:      teleportCluster,
-		KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
-		KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespaceFailover),
-	}
-	secondary = helpers.Cluster{
-		Region:           "eu-west-3",
-		ClusterName:      teleportCluster,
-		KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
-		KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
+	if teleportEnabled {
+		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
+		primary = helpers.Cluster{
+			Region:           "eu-west-2",
+			ClusterName:      teleportCluster,
+			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
+			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespaceFailover),
+		}
+		secondary = helpers.Cluster{
+			Region:           "eu-west-3",
+			ClusterName:      teleportCluster,
+			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
+			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
+		}
+	} else {
+		t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
+		primary = helpers.Cluster{
+			Region:           "eu-west-2",
+			ClusterName:      fmt.Sprintf("%s-london", clusterName),
+			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
+			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
+			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespaceFailover),
+		}
+		secondary = helpers.Cluster{
+			Region:           "eu-west-3",
+			ClusterName:      fmt.Sprintf("%s-paris", clusterName),
+			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
+			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
+			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
+		}
 	}
 }
 
