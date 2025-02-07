@@ -251,7 +251,7 @@ jobs:
                     done
                   }
 
-                  delete_namespaces "${CLUSTER_0_NAMESPACE_ARR}"
-                  delete_namespaces "${CLUSTER_1_NAMESPACE_ARR}"
-                  delete_namespaces "${CLUSTER_0_NAMESPACE_FAILOVER_ARR}"
-                  delete_namespaces "${CLUSTER_1_NAMESPACE_FAILOVER_ARR}"
+                  delete_namespaces "${CLUSTER_0_NAMESPACE}"
+                  delete_namespaces "${CLUSTER_1_NAMESPACE}"
+                  delete_namespaces "${CLUSTER_0_NAMESPACE_FAILOVER}"
+                  delete_namespaces "${CLUSTER_1_NAMESPACE_FAILOVER}"
