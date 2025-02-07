@@ -78,7 +78,7 @@ func TestClusterPrerequisites(t *testing.T) {
 func TestClusterPrerequisitesTeleport(t *testing.T) {
 	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region through Teleport access 🚀")
 
-	t.Run("TestInitKubernetesHelpersTeleport", initKubernetesHelpersTeleport)
+	t.Run("TestinitKubernetesHelpers", initKubernetesHelpers)
 
 	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
 		t.Log("[K8S] Creating all namespaces and secrets 🚀")
