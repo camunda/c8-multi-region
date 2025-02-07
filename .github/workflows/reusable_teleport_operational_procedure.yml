@@ -104,10 +104,10 @@ env:
     ZEEBE_CLUSTER_SIZE: ${{ inputs.zeebeClusterSize }}
     HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
 
-    CLUSTER_1_NAMESPACE_ARR: c8-snap-cluster-1
-    CLUSTER_1_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-1-failover
-    CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
-    CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
+    CLUSTER_1_NAMESPACE: c8-snap-cluster-1
+    CLUSTER_1_NAMESPACE_FAILOVER: c8-snap-cluster-1-failover
+    CLUSTER_0_NAMESPACE: c8-snap-cluster-0
+    CLUSTER_0_NAMESPACE_FAILOVER: c8-snap-cluster-0-failover
 
     TELEPORT: true
 
@@ -150,52 +150,29 @@ jobs:
               run: |
                   kubectl config view --raw > ./test/kubeconfig
 
-            - name: Update namespace arrays with prefix and random suffix
-              id: update-namespace-arrays
+            - name: Update namespaces with prefix and random suffix
+              id: update-namespaces
               run: |
                   set -euxo pipefail
 
                   RANDOM_ID="$(openssl rand -hex 3)"
+                  echo "BACKUP_NAME=${RANDOM_ID}" >> "$GITHUB_ENV"
 
-                  echo "BACKUP_NAME=$RANDOM_ID" >> "$GITHUB_ENV"
+                  CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
+                  CLUSTER_1_NAMESPACE_FAILOVER="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE_FAILOVER}-${RANDOM_ID}"
+                  CLUSTER_0_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE}-${RANDOM_ID}"
+                  CLUSTER_0_NAMESPACE_FAILOVER="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE_FAILOVER}-${RANDOM_ID}"
 
-                  update_namespace_array() {
-                    local arr="$1"
-                    local new_arr=""
-                    IFS=',' read -r -a ADDR <<< "$arr"
-                    for i in "${ADDR[@]}"; do
-                      new_arr+="${NAMESPACE_PREFIX}${i}-${RANDOM_ID},"
-                    done
-                    # Remove trailing comma
-                    echo "${new_arr%,}"
-                  }
-
-                  CLUSTER_1_NAMESPACE_ARR_UPDATED="$(update_namespace_array "${CLUSTER_1_NAMESPACE_ARR}")"
-                  CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED="$(update_namespace_array "${CLUSTER_1_NAMESPACE_FAILOVER_ARR}")"
-                  CLUSTER_0_NAMESPACE_ARR_UPDATED="$(update_namespace_array "${CLUSTER_0_NAMESPACE_ARR}")"
-                  CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED="$(update_namespace_array "${CLUSTER_0_NAMESPACE_FAILOVER_ARR}")"
-
+                  # Write the updated values to the GitHub Actions environment for subsequent steps.
                   {
-                    echo "CLUSTER_1_NAMESPACE_ARR=$CLUSTER_1_NAMESPACE_ARR_UPDATED"
-                    echo "CLUSTER_1_NAMESPACE_FAILOVER_ARR=$CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED"
-                    echo "CLUSTER_0_NAMESPACE_ARR=$CLUSTER_0_NAMESPACE_ARR_UPDATED"
-                    echo "CLUSTER_0_NAMESPACE_FAILOVER_ARR=$CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED"
+                    echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
+                    echo "CLUSTER_1_NAMESPACE_FAILOVER=${CLUSTER_1_NAMESPACE_FAILOVER}"
+                    echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
+                    echo "CLUSTER_0_NAMESPACE_FAILOVER=${CLUSTER_0_NAMESPACE_FAILOVER}"
+                    echo "CAMUNDA_NAMESPACE_0=${CAMUNDA_NAMESPACE_0}"
+                    echo "CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1}"
                   } >> "$GITHUB_ENV"
 
-                  get_first_item() {
-                    local arr="$1"
-                    IFS=',' read -r -a ADDR <<< "$arr"
-                    echo "${ADDR[0]}"
-                  }
-
-                  {
-                    echo "CLUSTER_1_NAMESPACE=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR_UPDATED")"
-                    echo "CLUSTER_1_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_1_NAMESPACE_FAILOVER_ARR_UPDATED")"
-                    echo "CLUSTER_0_NAMESPACE=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR_UPDATED")"
-                    echo "CLUSTER_0_NAMESPACE_FAILOVER=$(get_first_item "$CLUSTER_0_NAMESPACE_FAILOVER_ARR_UPDATED")"
-                    echo "CAMUNDA_NAMESPACE_0=$(get_first_item "$CLUSTER_0_NAMESPACE_ARR_UPDATED")"
-                    echo "CAMUNDA_NAMESPACE_1=$(get_first_item "$CLUSTER_1_NAMESPACE_ARR_UPDATED")"
-                  } >> "$GITHUB_ENV"
 
             - name: Import Secrets
               id: secrets
