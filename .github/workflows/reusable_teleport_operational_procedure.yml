@@ -109,6 +109,7 @@ env:
     CLUSTER_0_NAMESPACE_ARR: c8-snap-cluster-0
     CLUSTER_0_NAMESPACE_FAILOVER_ARR: c8-snap-cluster-0-failover
 
+    TELEPORT: true
 
 jobs:
     teleport-setup:
