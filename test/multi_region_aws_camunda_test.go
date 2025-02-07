@@ -223,16 +223,30 @@ func initKubernetesHelpers(t *testing.T) {
 func deployC8Helm(t *testing.T) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
-	// Set default timeout
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
 	timeout := "600s"
-	if teleport, exists := os.LookupEnv("TELEPORT"); exists && teleport == "true" {
+	var setValues map[string]string
+
+	if teleportEnabled {
 		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity": "null",
+		}
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly

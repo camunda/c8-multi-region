@@ -48,7 +48,6 @@ connectors:
     enabled: false
 
 zeebe:
-    affinity:
     clusterSize: 8
     partitionCount: 8
     replicationFactor: 4
