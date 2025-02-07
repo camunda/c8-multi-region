@@ -337,6 +337,11 @@ func deployC8Helm(t *testing.T) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 }
 
+func checkC8RunningProperly(t *testing.T) {
+	t.Log("[C8 CHECK] Checking if Camunda Platform is running properly 🚦")
+	kubectlHelpers.CheckC8RunningProperly(t, primary, primaryNamespace, secondaryNamespace)
+}
+
 func deployC8processAndCheck(t *testing.T) {
 	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
 	kubectlHelpers.DeployC8processAndCheck(t, primary, secondary, resourceDir)
