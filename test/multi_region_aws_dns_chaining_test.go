@@ -83,15 +83,15 @@ func TestClusterPrerequisites(t *testing.T) {
 
 		// Iterate over namespaces and set environment variables appropriately.
 		for i := range allPrimaryNamespaces {
-			os.Setenv("CLUSTER_0", primary.ClusterName)
-			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
-			os.Setenv("CLUSTER_1", secondary.ClusterName)
-			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
 			if teleportEnabled {
 				os.Setenv("KUBECONFIG", "./kubeconfig")
 				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
 			} else {
 				os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+				os.Setenv("CLUSTER_0", primary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+				os.Setenv("CLUSTER_1", secondary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
 			}
 
 			shell.RunCommand(t, shell.Command{
