@@ -141,31 +141,6 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	for _, pvc := range pvcs {
 		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
 	}
-
-	pvs := k8s.ListPersistentVolumes(t, kubectlOptions, metav1.ListOptions{})
-
-	for _, pv := range pvs {
-		if pv.Spec.ClaimRef.Namespace == kubectlOptions.Namespace {
-			k8s.RunKubectl(t, kubectlOptions, "delete", "pv", pv.Name)
-		}
-	}
-
-}
-
-func TeardownC8HelmTeleport(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
-	helmOptions := &helm.Options{
-		KubectlOptions: kubectlOptions,
-	}
-
-	helm.Delete(t, helmOptions, "camunda", true)
-
-	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
-
-	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
-
-	for _, pvc := range pvcs {
-		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
-	}
 }
 
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
@@ -262,7 +237,21 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
+	if os.Getenv("TELEPORT") != "true" {
+		// Execute this when TELEPORT is not "true" (default case)
+		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+			"-H", "Content-Type: application/json",
+			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
+	} else {
+		// Execute this when TELEPORT is "true"
+		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+			"-H", "Content-Type: application/json",
+			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
+				os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
+	}
+
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return
