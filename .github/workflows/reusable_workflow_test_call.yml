@@ -10,7 +10,9 @@ jobs:
     test-reusable:
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: 11.1.0
+            helmChartVersion: 0.0.0-snapshot-alpha
+            helmChartName: oci://ghcr.io/camunda/helm/camunda-platform
+            globalImageTag: SNAPSHOT
             awsProfile: infex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
