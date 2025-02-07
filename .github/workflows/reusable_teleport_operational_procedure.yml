@@ -195,7 +195,7 @@ jobs:
               working-directory: ./test
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisitesTeleport
+                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
 
             - name: Label namespaces and secrets
               run: |
@@ -229,7 +229,7 @@ jobs:
               working-directory: ./test
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailover_8_6_plusTeleport
+                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailover_8_6_plus
 
             - name: Camunda failback test procedure
               id: failback-camunda
