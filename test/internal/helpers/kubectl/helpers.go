@@ -237,6 +237,9 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
+	var output string
+	var err error
+
 	if os.Getenv("TELEPORT") != "true" {
 		// Execute this when TELEPORT is not "true" (default case)
 		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
