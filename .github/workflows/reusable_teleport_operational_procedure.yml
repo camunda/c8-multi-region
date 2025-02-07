@@ -169,8 +169,8 @@ jobs:
                     echo "CLUSTER_1_NAMESPACE_FAILOVER=${CLUSTER_1_NAMESPACE_FAILOVER}"
                     echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
                     echo "CLUSTER_0_NAMESPACE_FAILOVER=${CLUSTER_0_NAMESPACE_FAILOVER}"
-                    echo "CAMUNDA_NAMESPACE_0=${CAMUNDA_NAMESPACE_0}"
-                    echo "CAMUNDA_NAMESPACE_1=${CAMUNDA_NAMESPACE_1}"
+                    echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
                   } >> "$GITHUB_ENV"
 
 
