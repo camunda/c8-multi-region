@@ -10,7 +10,7 @@ jobs:
     test-reusable:
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: 11.0.4
+            helmChartVersion: 11.1.0
             awsProfile: infex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-

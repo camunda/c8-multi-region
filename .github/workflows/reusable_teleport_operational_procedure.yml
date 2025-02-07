@@ -236,7 +236,7 @@ jobs:
               working-directory: ./test
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailback_8_6_plusTeleport
+                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailback_8_6_plus
 
             - name: Delete namespaces
               if: ${{ always() }}

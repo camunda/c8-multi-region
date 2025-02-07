@@ -235,50 +235,38 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
+	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
+
+	// Determine if Teleport mode is enabled.
+	teleportEnabled := false
+	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
+		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
+			teleportEnabled = parsed
+		} else {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
 
 	var output string
 	var err error
 
-	if os.Getenv("TELEPORT") != "true" {
-		// Execute this when TELEPORT is not "true" (default case)
-		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
-			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
-			"-H", "Content-Type: application/json",
-			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
-	} else {
-		// Execute this when TELEPORT is "true"
+	if teleportEnabled {
+		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
 		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
 			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
 			"-H", "Content-Type: application/json",
 			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
 				os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
+	} else {
+		// Default mode: use the provided clusterName and version.
+		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+			"-H", "Content-Type: application/json",
+			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}",
+				clusterName, version))
 	}
 
-	if err != nil {
-		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
-		return
-	}
-
-	if !strings.Contains(output, "acknowledged") {
-		t.Fatalf("[ELASTICSEARCH] Error: %s", output)
-		return
-	}
-
-	require.Contains(t, output, "acknowledged")
-	t.Logf("[ELASTICSEARCH] Success: %s", output)
-}
-
-func ConfigureElasticBackupTeleport(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
-	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
-
-	version := strings.ReplaceAll(inputVersion, ".", "-")
-
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
-		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
-		"-H", "Content-Type: application/json",
-		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
-			os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return
