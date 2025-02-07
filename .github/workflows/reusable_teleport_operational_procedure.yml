@@ -104,10 +104,10 @@ env:
     ZEEBE_CLUSTER_SIZE: ${{ inputs.zeebeClusterSize }}
     HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
 
-    CLUSTER_1_NAMESPACE: c8-snap-cluster-1
-    CLUSTER_1_NAMESPACE_FAILOVER: c8-snap-cluster-1-failover
-    CLUSTER_0_NAMESPACE: c8-snap-cluster-0
-    CLUSTER_0_NAMESPACE_FAILOVER: c8-snap-cluster-0-failover
+    CLUSTER_1_NAMESPACE: c8-multiregion-test-cluster-1
+    CLUSTER_1_NAMESPACE_FAILOVER: c8-multiregion-test-cluster-1-failover
+    CLUSTER_0_NAMESPACE: c8-multiregion-test-cluster-0
+    CLUSTER_0_NAMESPACE_FAILOVER: c8-multiregion-test-cluster-0-failover
 
     TELEPORT: true
 
