@@ -212,7 +212,7 @@ jobs:
                   }
 
                   # Combine cluster-0 and cluster-1 arrays into one comma-separated list
-                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE_ARR},${CLUSTER_1_NAMESPACE_ARR}"
+                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE},${CLUSTER_1_NAMESPACE}"
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     label_resources "$namespace"
                   done
