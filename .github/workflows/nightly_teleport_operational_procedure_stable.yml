@@ -52,9 +52,9 @@ jobs:
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c84}'","'${c85}'","'${c86}'","'OLD.${c86_old}'"]}'
+                    versions='{"helmChartVersion":["'${c84}'","'${c85}'","'${c86}'","'OLD.${c86_old}'"]}'
                   else
-                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                    output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
                         if ($i ~ /^".*"$/) {
                           printf("%s%s", $i, (i==NF)?"":",")
