@@ -18,7 +18,7 @@ actionlint 1.7.7
 
 awscli 2.23.11
 
-golang 1.23.5
+golang 1.23.6
 
 helm 3.17.0
 
@@ -34,4 +34,4 @@ terraform 1.10.5
 
 tflint 0.55.1
 
-trivy 0.59.0
+trivy 0.59.1
