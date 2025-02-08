@@ -63,7 +63,7 @@ jobs:
                         }
                       }
                     }')
-                    versions='{"helm-version":['${output}']}'
+                    versions='{"helmChartVersion":['${output}']}'
                   fi
 
                   echo "${versions}"
@@ -92,18 +92,3 @@ jobs:
             VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
             VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
             VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
-
-
-    notify-on-failure:
-        runs-on: ubuntu-latest
-        if: github.event_name == 'schedule' && failure()
-        needs:
-            - operational-procedure
-        steps:
-            - name: Notify in Slack in case of failure
-              id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@3b329de512b6e0d86345426754f63abc6c258066 # 1.2.16
-              with:
-                  vault_addr: ${{ secrets.VAULT_ADDR }}
-                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
-                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
