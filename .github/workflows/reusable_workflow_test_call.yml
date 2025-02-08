@@ -4,15 +4,13 @@ name: Test Reusable Workflow on Push
 on:
     push:
         branches:
-            - reusable-gh-workflowX
+            - reusable-gh-workflow
 
 jobs:
     test-reusable:
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: 0.0.0-snapshot-alpha
-            helmChartName: oci://ghcr.io/camunda/helm/camunda-platform
-            globalImageTag: SNAPSHOT
+            helmChartVersion: 11.1.0
             awsProfile: infex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
