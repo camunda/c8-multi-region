@@ -9,7 +9,7 @@ repos:
           - id: end-of-file-fixer
           - id: check-added-large-files
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.97.1
+      rev: v1.97.3
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
@@ -37,6 +37,6 @@ repos:
       hooks:
           - id: yamlfmt
     - repo: https://github.com/camunda/infraex-common-config
-      rev: 1.2.14 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
+      rev: 1.2.19 # use tags until renovate supports sha: https://github.com/renovatebot/renovate/issues/22567
       hooks:
           - id: update-action-readmes-docker
