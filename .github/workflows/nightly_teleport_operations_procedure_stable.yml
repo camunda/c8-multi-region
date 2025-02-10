@@ -1,0 +1,95 @@
+---
+name: Nightly Teleport EKS Operational Procedure Test Stable
+
+on:
+    schedule:
+        - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
+    push:
+        branches:
+            - reusable-gh-workflow
+    workflow_dispatch:
+        inputs:
+            helm-versions:
+                description: The Helm versions to use as comma separated list
+                type: string
+    pull_request:
+        branches-ignore:
+            - stable/**
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/workflows/nightly_aws_operational_procedure_stable.yml
+            - .github/workflows/reuseable_aws_operational_procedure.yml
+            - aws/dual-region/kubernetes/**
+            - aws/dual-region/terraform/**
+            - test/**
+
+# limit to a single execution per ref (branch) of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+env:
+    AWS_PROFILE: infex
+    TESTS_TF_BINARY_NAME: terraform
+
+jobs:
+    dynamic-matrix:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.generate-matrix.outputs.matrix }}
+        steps:
+            - name: Generate matrix
+              id: generate-matrix
+              run: |
+                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+                  c86=11.1.1
+
+                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+                  c86_old=11.1.1
+                  # for not messing up with renovate, we add the prefix "OLD" in the next step
+
+                  # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
+                  # shellcheck disable=SC2034
+                  c87=SNAPSHOT
+
+                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                    versions='{"helmChartVersion":["'${c84}'","'${c85}'","'${c86}'","'OLD.${c86_old}'"]}'
+                  else
+                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                      for(i=1;i<=NF;i++) {
+                        if ($i ~ /^".*"$/) {
+                          printf("%s%s", $i, (i==NF)?"":",")
+                        } else {
+                          printf("\"%s\"%s", $i, (i==NF)?"":",")
+                        }
+                      }
+                    }')
+                    versions='{"helmChartVersion":['${output}']}'
+                  fi
+
+                  echo "${versions}"
+                  echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
+
+    operational-procedure:
+        needs:
+            - dynamic-matrix
+        strategy:
+            fail-fast: false
+            matrix:
+                helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: 0.0.0-snapshot-alpha
+            awsProfile: infex
+            testsTfBinaryName: terraform
+            namespacePrefix: infraex-
+            clusterName: camunda-ci-eks
+            labels: janitor/ttl=1h camunda.cloud/ephemeral=true
+            cluster: camunda.teleport.sh-camunda-ci-eks
+            backupBucket: tests-c8-multi-region-es-eu-central-1
+            helmReleaseName: camunda
+            zeebeClusterSize: 8
+        secrets:
+            VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
+            VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
+            VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}

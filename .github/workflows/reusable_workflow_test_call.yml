@@ -4,7 +4,7 @@ name: Test Reusable Workflow on Push
 on:
     push:
         branches:
-            - reusable-gh-workflow
+            - reusable-gh-workflowX
 
 jobs:
     test-reusable:
