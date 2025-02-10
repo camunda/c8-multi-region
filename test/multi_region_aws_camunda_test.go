@@ -531,8 +531,8 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 		}
 	}
 
-	timeout := "600s"
 	var setValues map[string]string
+	var timeout string = "600s"
 
 	if teleportEnabled {
 		timeout = "1800s"
@@ -542,6 +542,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 			"tasklist.enabled": "false",
 		}
 	} else {
+		timeout = "600s"
 		setValues = map[string]string{
 		"operate.enabled":  "false",
 		"tasklist.enabled": "false",
@@ -550,7 +551,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
 }
