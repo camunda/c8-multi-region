@@ -74,6 +74,7 @@ jobs:
         needs:
             - dynamic-matrix
         strategy:
+            max-parallel: 1
             fail-fast: false
             matrix:
                 helmChartVersion: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helmChartVersion}}
