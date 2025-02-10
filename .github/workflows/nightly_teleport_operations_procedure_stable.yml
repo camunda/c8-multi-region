@@ -79,7 +79,7 @@ jobs:
                 helmChartVersion: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helmChartVersion}}
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: 0.0.0-snapshot-alpha
+            helmChartVersion: ${{ matrix.helmChartVersion }}
             awsProfile: infex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
