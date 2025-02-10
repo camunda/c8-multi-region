@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -23,6 +24,8 @@ const (
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
 	k8sManifests        = "../aws/dual-region/kubernetes"
+
+	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
 
 var (
@@ -288,6 +291,31 @@ func TestAWSDualRegCleanup(t *testing.T) {
 // Single Test functions
 
 func initKubernetesHelpers(t *testing.T) {
+	// Determine if Teleport mode is enabled.
+	teleportEnabled := false
+	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
+		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
+			teleportEnabled = parsed
+		} else {
+			t.Fatalf("failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	if teleportEnabled {
+		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
+		primary = helpers.Cluster{
+			Region:           "eu-west-2",
+			ClusterName:      teleportCluster,
+			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespace),
+			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", primaryNamespaceFailover),
+		}
+		secondary = helpers.Cluster{
+			Region:           "eu-west-3",
+			ClusterName:      teleportCluster,
+			KubectlNamespace: *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespace),
+			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
+		}
+	} else {
 	t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
 	primary = helpers.Cluster{
 		Region:           "eu-west-2",
@@ -302,16 +330,37 @@ func initKubernetesHelpers(t *testing.T) {
 		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
 		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
 		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
+		}
 	}
 }
 
 func deployC8Helm(t *testing.T) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
-	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, baseHelmVars)
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, baseHelmVars)
+	timeout := "600s"
+	var setValues map[string]string
+
+	if teleportEnabled {
+		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity": "null",
+		}
+	}
+
+	// We have to install both at the same time as otherwise zeebe will not become ready
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -323,8 +372,8 @@ func deployC8Helm(t *testing.T) {
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
 
 	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
 	// 30 times with 15 seconds sleep = 7,5 minutes
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 30, 15*time.Second)
@@ -332,8 +381,8 @@ func deployC8Helm(t *testing.T) {
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
 
 	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 }
 
 func checkC8RunningProperly(t *testing.T) {
