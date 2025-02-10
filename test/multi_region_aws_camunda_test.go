@@ -480,25 +480,65 @@ func deleteSecondaryRegion(t *testing.T) {
 func createFailoverDeploymentPrimary(t *testing.T) {
 	t.Log("[FAILOVER] Creating failover deployment 🚀")
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, true, false, baseHelmVars)
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	timeout := "600s"
+	var setValues map[string]string
+
+	if teleportEnabled {
+		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity": "null",
+		}
+	}
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, true, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlFailover, "camunda-zeebe-gateway", 20, 15*time.Second)
 
 	// no functions for Statefulsets yet
-	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
-	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &primary.KubectlFailover, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 }
 
 func pointPrimaryZeebeToFailver(t *testing.T) {
 	t.Log("[FAILOVER] Pointing primary Zeebe to failover Elastic 🚀")
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, true, baseHelmVars)
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	timeout := "600s"
+	var setValues map[string]string
+
+	if teleportEnabled {
+		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity": "null",
+		}
+	}
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	// Give it a short time start doing the rollout, otherwise it will send data to the recreated elasticsearch
 	time.Sleep(15 * time.Second)
 
 	// waiting explicitly for the rollout as the waitUntil can be flaky
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-zeebe")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 }
 
 func recreateCamundaInSecondary(t *testing.T) {
