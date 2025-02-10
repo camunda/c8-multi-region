@@ -521,9 +521,31 @@ func recreateCamundaInSecondary(t *testing.T) {
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
 
-	setValues := map[string]string{
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	timeout := "600s"
+	var setValues map[string]string
+
+	if teleportEnabled {
+		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity":   "null",
+			"operate.enabled":  "false",
+			"tasklist.enabled": "false",
+		}
+	} else {
+		setValues = map[string]string{
 		"operate.enabled":  "false",
 		"tasklist.enabled": "false",
+		}
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
