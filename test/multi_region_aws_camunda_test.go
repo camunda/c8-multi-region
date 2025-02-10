@@ -358,14 +358,36 @@ func deleteSecondaryRegion(t *testing.T) {
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
 
-	setValues := map[string]string{
-		"operate.enabled":  "false",
-		"tasklist.enabled": "false",
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	timeout := "600s"
+	var setValues map[string]string
+
+	if teleportEnabled {
+		timeout = "1800s"
+		setValues = map[string]string{
+			"zeebe.affinity":   "null",
+			"operate.enabled":  "false",
+			"tasklist.enabled": "false",
+		}
+	} else {
+		setValues = map[string]string{
+			"operate.enabled":  "false",
+			"tasklist.enabled": "false",
+		}
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=600s", "statefulset/camunda-elasticsearch-master")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
 }
