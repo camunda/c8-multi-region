@@ -151,9 +151,8 @@ jobs:
 
             - name: Check out tests and aws/dual-region/scripts directories from reusable-gh-workflow branch
               run: |
-                  git sparse-checkout init --cone
-                  git sparse-checkout set aws/dual-region/scripts test
-                  git checkout reusable-gh-workflow
+                  git fetch origin reusable-gh-workflow
+                  git checkout origin/reusable-gh-workflow -- aws/dual-region/scripts test
 
 
             - name: Setup AWS and Tools
