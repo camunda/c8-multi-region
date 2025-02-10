@@ -299,19 +299,20 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
-            - name: Camunda failover test procedure
-              id: failover-camunda
+            - name: Failover Old - ${{ inputs.helmChartVersion }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
               working-directory: ./test
+              timeout-minutes: 21
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailover_8_6_plus
-
-            - name: Camunda failback test procedure
-              id: failback-camunda
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
+            - name: Failover New - ${{ inputs.helmChartVersion }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
               working-directory: ./test
+              timeout-minutes: 21
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 30m -run TestAWSDualRegFailback_8_6_plus
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
 
             - name: Delete namespaces
               if: ${{ always() }}
