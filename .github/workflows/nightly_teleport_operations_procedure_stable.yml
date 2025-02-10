@@ -76,7 +76,7 @@ jobs:
         strategy:
             fail-fast: false
             matrix:
-                helm-version: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helm-version}}
+                helmChartVersion: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helmChartVersion}}
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
             helmChartVersion: 0.0.0-snapshot-alpha
