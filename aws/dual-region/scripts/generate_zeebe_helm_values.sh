@@ -27,6 +27,7 @@ generate_exporter_elasticsearch_url() {
 namespace_0=${CAMUNDA_NAMESPACE_0:-""}
 namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 helm_release_name=${HELM_RELEASE_NAME:-""}
+cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
 
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
 
@@ -40,8 +41,9 @@ fi
 if [ -z "$helm_release_name" ]; then
     read -r -p "Enter Helm release name used for installing Camunda 8 in both Kubernetes clusters: " helm_release_name
 fi
-
-read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters): " cluster_size
+if [ -z "$cluster_size" ]; then
+    read -r -p "Enter Zeebe cluster size (total number of Zeebe brokers in both Kubernetes clusters): " cluster_size
+fi
 
 if ((cluster_size % 2 != 0)); then
     echo "Cluster size $cluster_size is an odd number and not supported in a multi-region setup (must be an even number)"
