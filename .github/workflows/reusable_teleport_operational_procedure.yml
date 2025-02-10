@@ -141,19 +141,13 @@ jobs:
                   "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
                   -H "accept: application/json" | jq -r .app_version)
                   minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
-                  echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
+                  echo "branch=stable/8.$(( minor_version ))-teleport-test-backport" >> "$GITHUB_ENV"
                   fi
 
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
                   ref: ${{ env.branch }}
-
-            - name: Check out tests and aws/dual-region/scripts directories from reusable-gh-workflow branch
-              run: |
-                  git fetch origin reusable-gh-workflow
-                  git checkout origin/reusable-gh-workflow -- aws/dual-region/scripts test
-
 
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
@@ -313,6 +307,36 @@ jobs:
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+
+            - name: Set start timestamp for Failback
+              id: failback-start
+              run: |
+                  set -euxo pipefail
+                  printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+            - name: Failback Old - ${{ inputs.helmChartVersion }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
+            - name: Failback New - ${{ inputs.helmChartVersion }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+            - name: Calculate Failback duration
+              run: |
+                  set -euxo pipefail
+                  printf -v now '%(%s)T'
+                  duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+                  echo $duration
+                  if [ "$duration" -gt "1500" ]; then
+                  echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
+                  fi
+
 
             - name: Delete namespaces
               if: ${{ always() }}
