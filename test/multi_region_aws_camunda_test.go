@@ -234,10 +234,12 @@ func deployC8Helm(t *testing.T) {
 	}
 
 	timeout := "600s"
+	retries := 30
 	var setValues map[string]string
 
 	if teleportEnabled {
 		timeout = "1800s"
+		retries = 100
 		setValues = map[string]string{
 			"zeebe.affinity": "null",
 		}
@@ -253,18 +255,18 @@ func deployC8Helm(t *testing.T) {
 
 	// Elastic itself takes already ~2+ minutes to start
 	// 30 times with 15 seconds sleep = 7,5 minutes
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-operate", 30, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-tasklist", 30, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-operate", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-tasklist", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", retries, 15*time.Second)
 
 	// no functions for Statefulsets yet
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
 
 	// 30 times with 15 seconds sleep = 7,5 minutes
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", 30, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", 30, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-gateway", 30, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-operate", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-tasklist", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-gateway", retries, 15*time.Second)
 
 	// no functions for Statefulsets yet
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
