@@ -34,7 +34,7 @@ env:
 jobs:
     dynamic-matrix:
         runs-on: ubuntu-latest
-        # if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
         outputs:
             matrix: ${{ steps.generate-matrix.outputs.matrix }}
         steps:
