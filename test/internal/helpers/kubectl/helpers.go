@@ -361,7 +361,17 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
 
-	if os.Getenv("TELEPORT") != "true" {
+	// Check if TELEPORT is enabled.
+	teleportEnabled := false
+	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
+		var err error
+		teleportEnabled, err = strconv.ParseBool(teleportStr)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
+		}
+	}
+
+	if !teleportEnabled {
 		// Set environment variables for the script
 		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
 		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
