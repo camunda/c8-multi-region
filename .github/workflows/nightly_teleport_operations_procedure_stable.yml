@@ -48,7 +48,7 @@ jobs:
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helmChartVersion":["'${c86}'"}'
+                    versions='{"helmChartVersion":["'${c86}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
