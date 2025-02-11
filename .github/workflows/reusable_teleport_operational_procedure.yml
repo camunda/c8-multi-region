@@ -240,7 +240,6 @@ jobs:
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
             - name: Failover New - ${{ inputs.helmChartVersion }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
               working-directory: ./test
               timeout-minutes: 21
               run: |
@@ -253,7 +252,6 @@ jobs:
                   set -euxo pipefail
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
             - name: Failback New - ${{ inputs.helmChartVersion }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
               working-directory: ./test
               timeout-minutes: 46
               run: |
