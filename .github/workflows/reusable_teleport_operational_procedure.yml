@@ -105,9 +105,7 @@ env:
     HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
 
     CLUSTER_1_NAMESPACE: c8-multiregion-test-cluster-1
-    CLUSTER_1_NAMESPACE_FAILOVER: c8-multiregion-test-cluster-1-failover
     CLUSTER_0_NAMESPACE: c8-multiregion-test-cluster-0
-    CLUSTER_0_NAMESPACE_FAILOVER: c8-multiregion-test-cluster-0-failover
 
     TELEPORT: true
 
@@ -171,54 +169,6 @@ jobs:
               run: |
                   kubectl config view --raw > ./test/kubeconfig
 
-            #### Export required environment variables ####
-            - name: Export C8 namespaces and versions
-              run: |
-                  version=${{ inputs.helmChartVersion }}
-                  version=$(echo "$version" | tr '[:upper:]' '[:lower:]') # lowercasing the version
-
-                  # Cutting old out to get the helm chat version
-                  if [[ "$version" =~ "old" ]]; then
-                  version=$(echo "$version" | cut -d'.' -f2-)
-                  fi
-
-                  # SNAPSHOT image = future minor version
-                  # SNAPSHOT chart = current minor version
-                  # ALPHA chart = future minor version
-                  if [ "$version" == "snapshot" ]; then
-                  {
-                  # With 8.7 and 8.8 being developed concurrently, the helm chart is 8.7 while the images are 8.8
-                  # Therefore fallback atm on the helm chart defined image tags
-                  # echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-                  echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-                  echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                  } >> "$GITHUB_ENV"
-                  else
-                  echo "HELM_CHART_VERSION=${version}" >> "$GITHUB_ENV"
-                  fi
-            - name: Determine old or new operational procedure
-              run: |
-                  version=${{ inputs.helmChartVersion }}
-
-                  major_version=$(echo "$version" | cut -d '.' -f 1)
-
-                  # > 10 - new procedure
-                  # < 11 - old procedure
-                  # OLD - old procedure
-                  # SNAPSHOT - new procedure
-
-                  if (( major_version > 10 )); then
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  elif [[ $version == "OLD" ]]; then
-                  echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-                  elif [[ $version == "SNAPSHOT" ]]; then
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  elif (( major_version < 11 )); then
-                  echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
-                  else
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
-                  fi
-
             - name: Update namespaces with prefix and random suffix
               id: update-namespaces
               run: |
@@ -228,16 +178,12 @@ jobs:
                   echo "BACKUP_NAME=${RANDOM_ID}" >> "$GITHUB_ENV"
 
                   CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
-                  CLUSTER_1_NAMESPACE_FAILOVER="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE_FAILOVER}-${RANDOM_ID}"
                   CLUSTER_0_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE}-${RANDOM_ID}"
-                  CLUSTER_0_NAMESPACE_FAILOVER="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE_FAILOVER}-${RANDOM_ID}"
 
                   # Write the updated values to the GitHub Actions environment for subsequent steps.
                   {
                     echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
-                    echo "CLUSTER_1_NAMESPACE_FAILOVER=${CLUSTER_1_NAMESPACE_FAILOVER}"
                     echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
-                    echo "CLUSTER_0_NAMESPACE_FAILOVER=${CLUSTER_0_NAMESPACE_FAILOVER}"
                     echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
                   } >> "$GITHUB_ENV"
@@ -293,13 +239,6 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
-            - name: Failover Old - ${{ inputs.helmChartVersion }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-              working-directory: ./test
-              timeout-minutes: 21
-              run: |
-                  set -euxo pipefail
-                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_below
             - name: Failover New - ${{ inputs.helmChartVersion }}
               if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
               working-directory: ./test
@@ -313,13 +252,6 @@ jobs:
               run: |
                   set -euxo pipefail
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
-            - name: Failback Old - ${{ inputs.helmChartVersion }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'old' }}
-              working-directory: ./test
-              timeout-minutes: 46
-              run: |
-                  set -euxo pipefail
-                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_below
             - name: Failback New - ${{ inputs.helmChartVersion }}
               if: ${{ env.OPERATIONAL_PROCEDURE == 'new' }}
               working-directory: ./test
@@ -337,21 +269,10 @@ jobs:
                   echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
                   fi
 
-
             - name: Delete namespaces
               if: ${{ always() }}
               run: |
                   set -euxo pipefail
 
-                  delete_namespaces() {
-                    local namespace_arr="$1"
-                    IFS=',' read -r -a arr <<< "$namespace_arr"
-                    for ns in "${arr[@]}"; do
-                      kubectl delete namespace "$ns" || true
-                    done
-                  }
-
-                  delete_namespaces "${CLUSTER_0_NAMESPACE}"
-                  delete_namespaces "${CLUSTER_1_NAMESPACE}"
-                  delete_namespaces "${CLUSTER_0_NAMESPACE_FAILOVER}"
-                  delete_namespaces "${CLUSTER_1_NAMESPACE_FAILOVER}"
+                  kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
+                  kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
