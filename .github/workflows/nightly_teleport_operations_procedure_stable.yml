@@ -17,10 +17,9 @@ on:
             - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
-            - .github/workflows/nightly_aws_operational_procedure_stable.yml
-            - .github/workflows/reuseable_aws_operational_procedure.yml
+            - .github/workflows/nightly_teleport_operational_procedure_stable.yml
+            - .github/workflows/reuseable_teleport_operational_procedure.yml
             - aws/dual-region/kubernetes/**
-            - aws/dual-region/terraform/**
             - test/**
 
 # limit to a single execution per ref (branch) of this workflow
@@ -44,16 +43,12 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86=11.1.1
 
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86_old=11.1.1
-                  # for not messing up with renovate, we add the prefix "OLD" in the next step
-
                   # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
                   # shellcheck disable=SC2034
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helmChartVersion":["'${c86}'","'OLD.${c86_old}'"]}'
+                    versions='{"helmChartVersion":["'${c86}'"}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
