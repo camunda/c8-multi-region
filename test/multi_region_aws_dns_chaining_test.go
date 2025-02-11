@@ -76,30 +76,63 @@ func TestClusterPrerequisites(t *testing.T) {
 			strings.Split(secondaryNamespaceFailoverArr, ",")...,
 		)
 
-		// Ensure both arrays have the same length.
-		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
-			t.Fatal("Primary and secondary namespace arrays must have the same length")
-		}
-
-		// Iterate over namespaces and set environment variables appropriately.
-		for i := range allPrimaryNamespaces {
-			if teleportEnabled {
-				os.Setenv("KUBECONFIG", "./kubeconfig")
-				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
-			} else {
-				os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
-				os.Setenv("CLUSTER_0", primary.ClusterName)
-				os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
-				os.Setenv("CLUSTER_1", secondary.ClusterName)
-				os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
-			}
-
+		if teleportEnabled {
+			os.Setenv("KUBECONFIG", "./kubeconfig")
+		
+			// First run with original environment variables
 			shell.RunCommand(t, shell.Command{
 				Command: "sh",
 				Args: []string{
 					"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
 				},
 			})
+		
+			// Save original values
+			originalNamespace0 := os.Getenv("CAMUNDA_NAMESPACE_0")
+			originalNamespace1 := os.Getenv("CAMUNDA_NAMESPACE_1")
+		
+			// Override environment variables for the second run
+			os.Setenv("CAMUNDA_NAMESPACE_0", os.Getenv("CLUSTER_0_NAMESPACE_FAILOVER"))
+			os.Setenv("CAMUNDA_NAMESPACE_1", os.Getenv("CLUSTER_1_NAMESPACE_FAILOVER"))
+		
+			// Second run with overridden values
+			shell.RunCommand(t, shell.Command{
+				Command: "sh",
+				Args: []string{
+					"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+				},
+			})
+		
+			// Restore original environment variables
+			os.Setenv("CAMUNDA_NAMESPACE_0", originalNamespace0)
+			os.Setenv("CAMUNDA_NAMESPACE_1", originalNamespace1)
+		} else {
+
+			// Ensure both arrays have the same length.
+			if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
+				t.Fatal("Primary and secondary namespace arrays must have the same length")
+			}
+
+			// Iterate over namespaces and set environment variables appropriately.
+			for i := range allPrimaryNamespaces {
+				if teleportEnabled {
+					os.Setenv("KUBECONFIG", "./kubeconfig")
+					t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
+				} else {
+					os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+					os.Setenv("CLUSTER_0", primary.ClusterName)
+					os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+					os.Setenv("CLUSTER_1", secondary.ClusterName)
+					os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+				}
+
+				shell.RunCommand(t, shell.Command{
+					Command: "sh",
+					Args: []string{
+						"../aws/dual-region/scripts/create_elasticsearch_secrets.sh",
+					},
+				})
+			}
 		}
 	})
 }
