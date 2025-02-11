@@ -14,6 +14,7 @@ on:
             - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
+            - .github/actions/setup-aws/action.yml
             - .github/workflows/nightly_aws_operational_procedure_stable.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/kubernetes/**
@@ -28,6 +29,8 @@ concurrency:
 env:
     AWS_PROFILE: infex
     TESTS_TF_BINARY_NAME: terraform
+    S3_BACKEND_BUCKET: tf-state-multi-reg
+    S3_BUCKET_REGION: eu-central-1
 
 jobs:
     cluster-creation:
@@ -50,9 +53,12 @@ jobs:
               run: |
                   echo "CLUSTER_NAME=nightly-$(head /dev/urandom | tr -dc 'a-z0-9' | head -c 8)" | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
             ############# Terraform Apply ################
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Terratest Terraform Init And Apply
               working-directory: ./test
               timeout-minutes: 46
@@ -90,9 +96,12 @@ jobs:
             - name: Parse GHA for namespace setup
               run: .github/workflows/scripts/c8_namespace_parser.sh ${{ github.workspace }}/.github/workflows/nightly_aws_operational_procedure_stable.yml
             ############ Export S3 credentials ############
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Get S3 credentials
               id: s3-credentials
               working-directory: ./aws/dual-region/terraform
@@ -145,10 +154,10 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c85=10.4.8
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.1.1
+                  c86=11.2.0
 
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86_old=11.1.1
+                  c86_old=11.2.0
                   # for not messing up with renovate, we add the prefix "OLD" in the next step
 
                   # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
@@ -220,9 +229,12 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 4m -run TestClusterCleanup
     ############# Terratest Teardown #############
+            # yamllint disable rule:line-length
             - name: Configure Terraform Backend
               run: |
-                  .github/workflows/scripts/tf_configure_remote_backend.sh ${{ github.workspace }}/aws/dual-region/terraform/config.tf
+                  cp ${{ github.workspace }}/test/fixtures/*.tf ${{ github.workspace }}/aws/dual-region/terraform/
+                  echo "TF_CLI_ARGS_init=-backend-config='bucket=${{ env.S3_BACKEND_BUCKET }}' -backend-config='key=state/${{ env.CLUSTER_NAME }}/terraform.tfstate' -backend-config='region=${{ env.S3_BUCKET_REGION }}' -backend-config='encrypt=true'" >> "$GITHUB_ENV"
+            # yamllint enable rule:line-length
             - name: Terraform Destroy
               id: terraform-destroy
               working-directory: ./test
@@ -256,7 +268,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@3b329de512b6e0d86345426754f63abc6c258066 # 1.2.16
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}

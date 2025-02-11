@@ -18,10 +18,8 @@ runs:
     steps:
 
         ############# Tool Installations #############
-        - name: Install tooling using asdf
-          uses: asdf-vm/actions/install@05e0d2ed97b598bfce82fd30daf324ae0c4570e6 # v3
-          with:
-              asdf_branch: v0.15.0
+        - name: Install asdf tools with cache
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
 
         - name: Print used versions
           shell: bash
