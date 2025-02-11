@@ -55,7 +55,7 @@ jobs:
                         }
                       }
                     }')
-                    versions='{"helmhelmChartVersion":['${output}']}'
+                    versions='{"helmChartVersion":['${output}']}'
                   fi
 
                   echo "${versions}"
