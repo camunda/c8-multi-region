@@ -127,10 +127,6 @@ jobs:
               run: |
                   version=${{ inputs.helmChartVersion }}
 
-                  if [[ $version =~ "OLD" ]]; then
-                  version="$(echo $version | cut -d'.' -f2-)"
-                  fi
-
                   if [[ $version == "SNAPSHOT" ]]; then
                   echo "branch=main" >> "$GITHUB_ENV"
                   else
