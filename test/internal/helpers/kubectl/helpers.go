@@ -27,6 +27,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var teleportEnabled bool
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -241,6 +243,8 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 	var output string
 	var err error
 
+	teleportEnabled = helpers.GetEnv("TELEPORT", "false")
+
 	if teleportEnabled {
 		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
 		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
@@ -350,6 +354,8 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
+
+	teleportEnabled = helpers.GetEnv("TELEPORT", "false")
 
 	if !teleportEnabled {
 		// Set environment variables for the script
