@@ -7,8 +7,7 @@ on:
             helmChartVersion:
                 type: string
                 description: Version of the Helm chart to deploy.
-                required: false
-                default: 11.1.0
+                required: true
 
             helmChartName:
                 description: Optional Helm chart name
