@@ -36,10 +36,6 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86=11.2.0
 
-                  # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
-                  # shellcheck disable=SC2034
-                  c87=SNAPSHOT
-
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
                     versions='{"helmChartVersion":["'${c86}'"]}'
                   else
