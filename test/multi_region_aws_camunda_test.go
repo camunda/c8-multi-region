@@ -46,6 +46,7 @@ var (
 
 	baseHelmVars    = map[string]string{}
 	teleportEnabled bool
+	timeout         = "600s"
 )
 
 // AWS EKS Multi-Region Tests
@@ -214,7 +215,6 @@ func initKubernetesHelpers(t *testing.T) {
 func deployC8Helm(t *testing.T) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
-	timeout := "600s"
 	retries := 30
 
 	if teleportEnabled {
@@ -338,7 +338,6 @@ func deleteSecondaryRegion(t *testing.T) {
 func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
 
-	timeout := "600s"
 	setValues := map[string]string{
 		"operate.enabled":  "false",
 		"tasklist.enabled": "false",
