@@ -192,7 +192,6 @@ jobs:
                   method: approle
                   roleId: ${{ secrets.VAULT_ROLE_ID }}
                   secretId: ${{ secrets.VAULT_SECRET_ID }}
-                  exportEnv: true
                   secrets: |
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
