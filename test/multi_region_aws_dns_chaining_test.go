@@ -42,7 +42,7 @@ func TestAWSDNSChaining(t *testing.T) {
 
 func TestClusterPrerequisites(t *testing.T) {
 	// Log the appropriate test banner.
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region through Teleport access 🚀")
 	} else {
 		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
@@ -72,7 +72,7 @@ func TestClusterPrerequisites(t *testing.T) {
 
 		// Iterate over namespaces and set environment variables appropriately.
 		for i := range allPrimaryNamespaces {
-			if teleportEnabled {
+			helpers.isTeleportEnabled() {
 				os.Setenv("KUBECONFIG", "./kubeconfig")
 				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
 			} else {

@@ -45,7 +45,6 @@ var (
 	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
 
 	baseHelmVars    = map[string]string{}
-	teleportEnabled bool
 	timeout         = "600s"
 )
 
@@ -177,9 +176,8 @@ func TestAWSDualRegCleanup(t *testing.T) {
 // Single Test functions
 
 func initKubernetesHelpers(t *testing.T) {
-	teleportEnabled = helpers.GetEnv("TELEPORT", "false")
 
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		t.Log("[K8S INIT] Initializing Kubernetes helpers with Teleport 🚀")
 		primary = helpers.Cluster{
 			Region:           "eu-west-2",
@@ -217,7 +215,7 @@ func deployC8Helm(t *testing.T) {
 
 	retries := 30
 
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
 		baseHelmVars["zeebe.affinity"] = "null"
@@ -343,7 +341,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 		"tasklist.enabled": "false",
 	}
 
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		baseHelmVars["zeebe.affinity"] = "null"
 	}
@@ -431,7 +429,7 @@ func scaleUpWebApps(t *testing.T) {
 
 func installWebAppsSecondary_8_6_plus(t *testing.T) {
 
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		baseHelmVars["zeebe.affinity"] = "null"
 	}
 
