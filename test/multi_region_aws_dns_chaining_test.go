@@ -72,7 +72,7 @@ func TestClusterPrerequisites(t *testing.T) {
 
 		// Iterate over namespaces and set environment variables appropriately.
 		for i := range allPrimaryNamespaces {
-			helpers.isTeleportEnabled() {
+			if helpers.IsTeleportEnabled() {
 				os.Setenv("KUBECONFIG", "./kubeconfig")
 				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
 			} else {
