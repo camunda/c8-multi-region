@@ -238,16 +238,6 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	// Determine if Teleport mode is enabled.
-	teleportEnabled := false
-	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
-		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
-			teleportEnabled = parsed
-		} else {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
 	var output string
 	var err error
 
@@ -360,16 +350,6 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-
-	// Check if TELEPORT is enabled.
-	teleportEnabled := false
-	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
-		var err error
-		teleportEnabled, err = strconv.ParseBool(teleportStr)
-		if err != nil {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
 
 	if !teleportEnabled {
 		// Set environment variables for the script
