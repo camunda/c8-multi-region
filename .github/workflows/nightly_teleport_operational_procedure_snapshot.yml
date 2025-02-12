@@ -1,12 +1,9 @@
 ---
-name: Nightly Teleport EKS Operational Procedure Test Stable
+name: Snapshot Teleport EKS Operational Procedure
 
 on:
     schedule:
-        - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
-    push:
-        branches:
-            - reusable-gh-workflow
+        - cron: 0 2 * * 1 # Every Monday at 02:00 UTC
     workflow_dispatch:
         inputs:
             helm-versions:
@@ -26,10 +23,6 @@ on:
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: true
-
-env:
-    AWS_PROFILE: infex
-    TESTS_TF_BINARY_NAME: terraform
 
 jobs:
     dynamic-matrix:
@@ -85,7 +78,4 @@ jobs:
             backupBucket: tests-c8-multi-region-es-eu-central-1
             helmReleaseName: camunda
             zeebeClusterSize: 8
-        secrets:
-            VAULT_ADDR: ${{ secrets.VAULT_ADDR }}
-            VAULT_ROLE_ID: ${{ secrets.VAULT_ROLE_ID }}
-            VAULT_SECRET_ID: ${{ secrets.VAULT_SECRET_ID }}
+        secrets: inherit
