@@ -241,7 +241,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 	var output string
 	var err error
 
-	if helpers.isTeleportEnabled() {
+	if helpers.IsTeleportEnabled() {
 		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
 		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
 			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
@@ -351,7 +351,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
 
-	if helpers.isTeleportEnabled() {
+	if helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
 		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
 		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
