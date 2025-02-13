@@ -1,25 +1,13 @@
 {
-  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>camunda/infraex-common-config:default.json5"],
-  "packageRules": [
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["github>camunda/infraex-common-config:default.json5"],
+  packageRules: [
+    // actively pinning k8s.io/apimachinery to 0.28.x as terratest is not compatible with > 0.28.x
     {
-      "matchPackageNames": ["k8s.io/apimachinery"],
-      "allowedVersions": "0.28.x"
+      matchPackageNames: ["k8s.io/apimachinery"],
+      allowedVersions: "0.28.x"
     }
   ],
   // We are overwriting the baseBranches as want to keep stable branches up2date concerning Helm chart releases
-  "baseBranches": ["main", "/^stable\/.*/"],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "fileMatch": ["\\.tool-versions$", "update.sh$", "reusable_teleport_operational_procedure.yml$"],
-      "matchStrings": [
-        "renovate-teleport:\\s.*[ =](?<currentValue>.*)\\s",
-        "version:\\s(?<currentValue>\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "teleport",
-      "versioningTemplate": "semver",
-      "datasourceTemplate": "custom.teleport"
-    }
-  ]
+  baseBranches: ["main", "/^stable\\/.*/"]
 }
