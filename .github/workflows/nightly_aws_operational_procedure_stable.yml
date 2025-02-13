@@ -161,7 +161,7 @@ jobs:
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c85}'","'${c86}'","'OLD.${c86_old}'"]}'
+                    versions='{"helm-version":["'${c85}'","'OLD.${c86_old}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
