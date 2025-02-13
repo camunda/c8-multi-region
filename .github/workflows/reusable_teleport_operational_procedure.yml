@@ -150,6 +150,7 @@ jobs:
             - name: Set up Teleport
               uses: teleport-actions/setup@v1
               with:
+                  # renovate: datasource=custom.teleport depName=teleport versioning=semver
                   version: 16.4.11
 
             - name: Authenticate with Teleport
