@@ -238,20 +238,10 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	// Determine if Teleport mode is enabled.
-	teleportEnabled := false
-	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
-		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
-			teleportEnabled = parsed
-		} else {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
 	var output string
 	var err error
 
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
 		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
 			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",

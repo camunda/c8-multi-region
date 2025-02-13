@@ -2,7 +2,6 @@ package test
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -42,18 +41,8 @@ func TestAWSDNSChaining(t *testing.T) {
 }
 
 func TestClusterPrerequisites(t *testing.T) {
-	// Determine if Teleport mode is enabled.
-	teleportEnabled := false
-	if teleportStr, ok := os.LookupEnv("TELEPORT"); ok {
-		if parsed, err := strconv.ParseBool(teleportStr); err == nil {
-			teleportEnabled = parsed
-		} else {
-			t.Fatalf("failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
 	// Log the appropriate test banner.
-	if teleportEnabled {
+	if helpers.IsTeleportEnabled() {
 		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region through Teleport access 🚀")
 	} else {
 		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
@@ -83,7 +72,7 @@ func TestClusterPrerequisites(t *testing.T) {
 
 		// Iterate over namespaces and set environment variables appropriately.
 		for i := range allPrimaryNamespaces {
-			if teleportEnabled {
+			if helpers.IsTeleportEnabled() {
 				os.Setenv("KUBECONFIG", "./kubeconfig")
 				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
 			} else {
