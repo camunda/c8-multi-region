@@ -140,7 +140,7 @@ jobs:
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
-                  ref: stable-8.6-teleport-test-backport
+                  ref: ${{ steps.helm-version.outputs.branch }}
 
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
