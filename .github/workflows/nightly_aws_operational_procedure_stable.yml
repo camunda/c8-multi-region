@@ -1,5 +1,5 @@
 ---
-name: Nightly AWS EKS Operational Procedure Test Stable
+name: Stable Nightly AWS EKS Operational Procedure Test
 
 on:
     schedule:
@@ -17,9 +17,7 @@ on:
             - .github/actions/setup-aws/action.yml
             - .github/workflows/nightly_aws_operational_procedure_stable.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
-            - aws/dual-region/kubernetes/**
             - aws/dual-region/terraform/**
-            - test/**
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
@@ -151,12 +149,8 @@ jobs:
             - name: Generate matrix
               id: generate-matrix
               run: |
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^9(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c84=9.4.7
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c85=10.4.8
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.2.0
 
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86_old=11.2.0
@@ -167,7 +161,7 @@ jobs:
                   c87=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c84}'","'${c85}'","'${c86}'","'OLD.${c86_old}'"]}'
+                    versions='{"helm-version":["'${c85}'","'OLD.${c86_old}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {

@@ -141,15 +141,6 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	for _, pvc := range pvcs {
 		k8s.RunKubectl(t, kubectlOptions, "delete", "pvc", pvc.Name)
 	}
-
-	pvs := k8s.ListPersistentVolumes(t, kubectlOptions, metav1.ListOptions{})
-
-	for _, pv := range pvs {
-		if pv.Spec.ClaimRef.Namespace == kubectlOptions.Namespace {
-			k8s.RunKubectl(t, kubectlOptions, "delete", "pv", pv.Name)
-		}
-	}
-
 }
 
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
@@ -244,9 +235,28 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
+	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup", "-H", "Content-Type: application/json", "-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}", clusterName, version))
+	var output string
+	var err error
+
+	if helpers.IsTeleportEnabled() {
+		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
+		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+			"-H", "Content-Type: application/json",
+			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
+				os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
+	} else {
+		// Default mode: use the provided clusterName and version.
+		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+			"-H", "Content-Type: application/json",
+			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}",
+				clusterName, version))
+	}
+
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
 		return
@@ -340,11 +350,14 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-	// Set environment variables for the script
-	os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
-	os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
-	os.Setenv("HELM_RELEASE_NAME", "camunda")
-	os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+
+	if !helpers.IsTeleportEnabled() {
+		// Set environment variables for the script
+		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
+		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
+		os.Setenv("HELM_RELEASE_NAME", "camunda")
+		os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
+	}
 
 	// Run the script and capture its output
 	cmd := exec.Command("bash", "-c", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
@@ -418,7 +431,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		return
 	}
 }
-
 func extractReplacementText(output, variableName string) string {
 	startMarker := fmt.Sprintf("- name: %s\n  value: ", variableName)
 	startIndex := strings.Index(output, startMarker)

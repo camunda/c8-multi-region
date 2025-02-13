@@ -1,0 +1,271 @@
+---
+name: reusable_teleport_operational_procedure
+
+on:
+    workflow_call:
+        inputs:
+            helmChartVersion:
+                type: string
+                description: Version of the Helm chart to deploy.
+                required: true
+
+            helmChartName:
+                description: Optional Helm chart name
+                required: false
+                type: string
+
+            globalImageTag:
+                description: Optional global image tag
+                required: false
+                type: string
+
+            awsProfile:
+                description: AWS profile to use
+                required: false
+                type: string
+                default: infex
+
+            testsTfBinaryName:
+                description: Terraform binary name for tests
+                required: false
+                type: string
+                default: terraform
+
+            namespacePrefix:
+                description: Prefix for namespaces
+                required: false
+                type: string
+                default: infraex-
+
+            clusterName:
+                description: EKS cluster name
+                required: false
+                type: string
+                default: camunda-ci-eks
+
+            labels:
+                description: Labels to apply
+                required: false
+                type: string
+                default: janitor/ttl=1h camunda.cloud/ephemeral=true
+
+            cluster:
+                description: Cluster identifier (same for Cluster 0 & 1)
+                required: false
+                type: string
+                default: camunda.teleport.sh-camunda-ci-eks
+
+            backupBucket:
+                description: Backup bucket name
+                required: false
+                type: string
+                default: tests-c8-multi-region-es-eu-central-1
+
+            helmReleaseName:
+                description: Helm release name
+                required: false
+                type: string
+                default: camunda
+
+            zeebeClusterSize:
+                description: Zeebe cluster size
+                required: false
+                type: number
+                default: 8
+
+        secrets:
+            VAULT_ADDR:
+                required: true
+            VAULT_ROLE_ID:
+                required: true
+            VAULT_SECRET_ID:
+                required: true
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    AWS_PROFILE: ${{ inputs.awsProfile }}
+    TESTS_TF_BINARY_NAME: ${{ inputs.testsTfBinaryName }}
+    NAMESPACE_PREFIX: ${{ inputs.namespacePrefix }}
+    CLUSTER_NAME: ${{ inputs.clusterName }}
+    LABELS: ${{ inputs.labels }}
+
+    # Single input used for both cluster variables (to be able to reuse dual cluster tests)
+    CLUSTER_0: ${{ inputs.cluster }}
+    CLUSTER_1: ${{ inputs.cluster }}
+
+    KUBECONFIG: ./kubeconfig
+
+    BACKUP_BUCKET: ${{ inputs.backupBucket }}
+    HELM_RELEASE_NAME: ${{ inputs.helmReleaseName }}
+    ZEEBE_CLUSTER_SIZE: ${{ inputs.zeebeClusterSize }}
+    HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
+
+    CLUSTER_1_NAMESPACE: c8-multiregion-test-cluster-1
+    CLUSTER_0_NAMESPACE: c8-multiregion-test-cluster-0
+
+    TELEPORT: true
+
+jobs:
+    teleport-setup:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Set optional environment variables conditionally
+              run: |
+                  if [ -n "${{ inputs.helmChartName }}" ]; then
+                    echo "HELM_CHART_NAME=${{ inputs.helmChartName }}" >> "$GITHUB_ENV"
+                  fi
+                  if [ -n "${{ inputs.globalImageTag }}" ]; then
+                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
+                  fi
+
+            - name: Map Helm version to branch
+              id: helm-version
+              run: |
+                  version=${{ inputs.helmChartVersion }}
+
+                  if [[ $version == "SNAPSHOT" ]]; then
+                  echo "branch=main" >> "$GITHUB_ENV"
+                  else
+                  c8_version=$(curl -X 'GET' -s \
+                  "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
+                  -H "accept: application/json" | jq -r .app_version)
+                  minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
+                  echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
+                  fi
+
+            - name: Checkout repository
+              uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+              with:
+                  ref: stable-8.6-teleport-test-backport
+
+            - name: Setup AWS and Tools
+              uses: ./.github/actions/setup-aws
+              with:
+                  secrets: ${{ toJSON(secrets) }}
+
+            - name: Set up Teleport
+              uses: teleport-actions/setup@v1
+              with:
+                  # renovate: datasource=docker depName=public.ecr.aws/gravitational/teleport-ent-distroless
+                  version: 16.4.11
+
+            - name: Authenticate with Teleport
+              uses: teleport-actions/auth-k8s@v2
+              with:
+                  proxy: camunda.teleport.sh:443
+                  token: infra-ci-prod-github-action-infraex
+                  kubernetes-cluster: camunda-ci-eks
+
+            - name: Write kubeconfig file
+              id: write-kubeconfig
+              run: |
+                  kubectl config view --raw > ./test/kubeconfig
+
+            - name: Update namespaces with prefix and random suffix
+              id: update-namespaces
+              run: |
+                  set -euxo pipefail
+
+                  RANDOM_ID="$(openssl rand -hex 3)"
+                  echo "BACKUP_NAME=${RANDOM_ID}" >> "$GITHUB_ENV"
+
+                  CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
+                  CLUSTER_0_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE}-${RANDOM_ID}"
+
+                  # Write the updated values to the GitHub Actions environment for subsequent steps.
+                  {
+                    echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
+                    echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
+                    echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
+                  } >> "$GITHUB_ENV"
+
+
+            - name: Import Secrets
+              id: secrets
+              uses: hashicorp/vault-action@v3
+              with:
+                  url: ${{ secrets.VAULT_ADDR }}
+                  method: approle
+                  roleId: ${{ secrets.VAULT_ROLE_ID }}
+                  secretId: ${{ secrets.VAULT_SECRET_ID }}
+                  secrets: |
+                      secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
+                      secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
+
+            - name: Create namespaces and secrets
+              id: create-namespaces
+              env:
+                  AWS_SECRET_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_SECRET_KEY }}
+                  AWS_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_ACCESS_KEY }}
+              working-directory: ./test
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
+
+            - name: Label namespaces and secrets
+              run: |
+                  set -euxo pipefail
+
+                  label_resources() {
+                    local namespace="$1"
+                    kubectl label namespace "$namespace" ${{ env.LABELS }} --overwrite
+                    local secrets
+                    secrets="$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')"
+                    for secret in $secrets; do
+                      kubectl label secret "$secret" -n "$namespace" ${{ env.LABELS }} --overwrite
+                    done
+                  }
+
+                  # Combine cluster-0 and cluster-1 arrays into one comma-separated list
+                  IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE},${CLUSTER_1_NAMESPACE}"
+                  for namespace in "${ALL_NAMESPACES[@]}"; do
+                    label_resources "$namespace"
+                  done
+
+            - name: Deploy dual region Camunda
+              id: deploy-camunda
+              working-directory: ./test
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
+
+            - name: Failover New - ${{ inputs.helmChartVersion }}
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+
+            - name: Set start timestamp for Failback
+              id: failback-start
+              run: |
+                  set -euxo pipefail
+                  printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+            - name: Failback New - ${{ inputs.helmChartVersion }}
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+            - name: Calculate Failback duration
+              run: |
+                  set -euxo pipefail
+                  printf -v now '%(%s)T'
+                  duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+                  echo $duration
+                  if [ "$duration" -gt "1500" ]; then
+                  echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
+                  fi
+
+            - name: Delete namespaces
+              if: always()
+              run: |
+                  set -euxo pipefail
+
+                  kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
+                  kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true

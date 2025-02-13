@@ -1,5 +1,5 @@
 ---
-name: Nightly AWS EKS Operational Procedure Test Snapshot
+name: Snapshot Nightly AWS EKS Operational Procedure Test
 
 on:
     schedule:
@@ -17,9 +17,7 @@ on:
             - .github/actions/setup-aws/action.yml
             - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
-            - aws/dual-region/kubernetes/**
             - aws/dual-region/terraform/**
-            - test/**
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:

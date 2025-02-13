@@ -32,6 +32,15 @@ func GetEnv(key, fallback string) string {
 	return value
 }
 
+func IsTeleportEnabled() bool {
+	value := GetEnv("TELEPORT", "false")
+	boolVal, err := strconv.ParseBool(value)
+	if err != nil {
+		return false // Default to false if invalid value
+	}
+	return boolVal
+}
+
 func CutOutString(originalString, searchString string) int {
 	re := regexp.MustCompile(searchString)
 	matches := re.FindStringSubmatch(originalString)

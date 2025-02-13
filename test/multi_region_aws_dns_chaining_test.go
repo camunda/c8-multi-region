@@ -41,29 +41,47 @@ func TestAWSDNSChaining(t *testing.T) {
 }
 
 func TestClusterPrerequisites(t *testing.T) {
-	t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
+	// Log the appropriate test banner.
+	if helpers.IsTeleportEnabled() {
+		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region through Teleport access 🚀")
+	} else {
+		t.Log("[DNS CHAINING] Running tests for AWS EKS Multi-Region 🚀")
+	}
 
+	// Initialize Kubernetes helpers.
 	t.Run("TestInitKubernetesHelpers", initKubernetesHelpers)
 
+	// Create namespaces and secrets.
 	t.Run("TestCreateAllNamespacesAndSecrets", func(t *testing.T) {
 		t.Log("[K8S] Creating all namespaces and secrets 🚀")
 
-		// Combine primary and failover namespaces
-		allPrimaryNamespaces := append(strings.Split(primaryNamespaceArr, ","), strings.Split(primaryNamespaceFailoverArr, ",")...)
-		allSecondaryNamespaces := append(strings.Split(secondaryNamespaceArr, ","), strings.Split(secondaryNamespaceFailoverArr, ",")...)
+		// Combine primary and failover namespaces.
+		allPrimaryNamespaces := append(
+			strings.Split(primaryNamespaceArr, ","),
+			strings.Split(primaryNamespaceFailoverArr, ",")...,
+		)
+		allSecondaryNamespaces := append(
+			strings.Split(secondaryNamespaceArr, ","),
+			strings.Split(secondaryNamespaceFailoverArr, ",")...,
+		)
 
-		// Ensure both arrays have the same length
+		// Ensure both arrays have the same length.
 		if len(allPrimaryNamespaces) != len(allSecondaryNamespaces) {
 			t.Fatal("Primary and secondary namespace arrays must have the same length")
 		}
 
-		// Iterate over namespaces
+		// Iterate over namespaces and set environment variables appropriately.
 		for i := range allPrimaryNamespaces {
-			os.Setenv("CLUSTER_0", primary.ClusterName)
-			os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
-			os.Setenv("CLUSTER_1", secondary.ClusterName)
-			os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
-			os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+			if helpers.IsTeleportEnabled() {
+				os.Setenv("KUBECONFIG", "./kubeconfig")
+				t.Logf("Primary Namespace: %s, Secondary Namespace: %s", allPrimaryNamespaces[i], allSecondaryNamespaces[i])
+			} else {
+				os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+				os.Setenv("CLUSTER_0", primary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_0", allPrimaryNamespaces[i])
+				os.Setenv("CLUSTER_1", secondary.ClusterName)
+				os.Setenv("CAMUNDA_NAMESPACE_1", allSecondaryNamespaces[i])
+			}
 
 			shell.RunCommand(t, shell.Command{
 				Command: "sh",

@@ -1,0 +1,79 @@
+---
+name: Stable Teleport EKS Operational Procedure
+
+on:
+    schedule:
+        - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
+    workflow_dispatch:
+        inputs:
+            helm-versions:
+                description: The Helm versions to use as comma separated list
+                type: string
+    pull_request:
+        branches-ignore:
+            - stable/**
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/workflows/nightly_teleport_operational_procedure_stable.yml
+            - .github/workflows/reuseable_teleport_operational_procedure.yml
+            - aws/dual-region/kubernetes/**
+            - test/**
+
+# limit to a single execution per ref (branch) of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    dynamic-matrix:
+        runs-on: ubuntu-latest
+        outputs:
+            matrix: ${{ steps.generate-matrix.outputs.matrix }}
+        steps:
+            - name: Generate matrix
+              id: generate-matrix
+              run: |
+                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+                  c86=11.2.0
+
+                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                    versions='{"helmChartVersion":["'${c86}'"]}'
+                  else
+                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                      for(i=1;i<=NF;i++) {
+                        if ($i ~ /^".*"$/) {
+                          printf("%s%s", $i, (i==NF)?"":",")
+                        } else {
+                          printf("\"%s\"%s", $i, (i==NF)?"":",")
+                        }
+                      }
+                    }')
+                    versions='{"helmChartVersion":['${output}']}'
+                  fi
+
+                  echo "${versions}"
+                  echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
+
+    operational-procedure:
+        needs:
+            - dynamic-matrix
+        strategy:
+            # parallelism is limited due to infra cluster resource constraints.
+            # Once multiple versions are compatible with testing through teleport, investigate if increasing is possible.
+            max-parallel: 1
+            fail-fast: false
+            matrix:
+                helmChartVersion: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helmChartVersion}}
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: ${{ matrix.helmChartVersion }}
+            awsProfile: infex
+            testsTfBinaryName: terraform
+            namespacePrefix: infraex-
+            clusterName: camunda-ci-eks
+            labels: janitor/ttl=1h camunda.cloud/ephemeral=true
+            cluster: camunda.teleport.sh-camunda-ci-eks
+            backupBucket: tests-c8-multi-region-es-eu-central-1
+            helmReleaseName: camunda
+            zeebeClusterSize: 8
+        secrets: inherit
