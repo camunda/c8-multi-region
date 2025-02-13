@@ -18,6 +18,7 @@ import (
 	eks_types "github.com/aws/aws-sdk-go-v2/service/eks/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/gruntwork-io/terratest/modules/k8s"
+	"github.com/gruntwork-io/terratest/modules/shell"
 	"github.com/gruntwork-io/terratest/modules/terraform"
 	"github.com/stretchr/testify/require"
 )
@@ -142,9 +143,8 @@ func GetPrivateIPsForInternalLB(region, description string) []string {
 	return privateIPs
 }
 
-func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, namespaces, namespacesFailover string) {
-
-	t.Logf("[DNS CHAINING] applying from source %s to configure target %s", source.ClusterName, target.ClusterName)
+func CreateLoadBalancers(t *testing.T, source helpers.Cluster, k8sManifests string) {
+	t.Logf("[LOAD BALANCER] Creating load balancer for source cluster %s", source.ClusterName)
 
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "internal-dns-lb.yml")
 
@@ -164,64 +164,121 @@ func DNSChaining(t *testing.T, source, target helpers.Cluster, k8sManifests, nam
 	require.NotEmpty(t, privateIPs)
 	require.Greater(t, len(privateIPs), 1)
 
-	// Just a check that the ConfigMap exists
-	k8s.GetConfigMap(t, &target.KubectlSystem, "coredns")
+	t.Logf("[LOAD BALANCER] Private IPs: %v", privateIPs)
+}
+func DNSChaining(t *testing.T, sourceCluster, targetCluster helpers.Cluster, k8sManifestsPath, primaryNamespaces, secondaryNamespaces string) {
+	// Split the namespace arrays
+	primaryNamespacesArr := strings.Split(primaryNamespaces, ",")
+	secondaryNamespacesArr := strings.Split(secondaryNamespaces, ",")
 
-	// Replace template placeholder for IPs
-	t.Logf("[DNS CHAINING] Replacing CoreDNS ConfigMap with private IPs: %s", strings.Join(privateIPs, " "))
+	// Ensure both arrays have the same length
+	if len(primaryNamespacesArr) != len(secondaryNamespacesArr) {
+		t.Fatalf("Namespace arrays must have the same length")
+		return
+	}
+
+	var sourceClusterDnsEntries string
+	var targetClusterDnsEntries string
+
+	for i := 0; i < len(primaryNamespacesArr); i++ {
+		primaryNamespace := primaryNamespacesArr[i]
+		secondaryNamespace := secondaryNamespacesArr[i]
+
+		// Set environment variables for the script
+		os.Setenv("CLUSTER_0", sourceCluster.ClusterName)
+		os.Setenv("CLUSTER_1", targetCluster.ClusterName)
+		os.Setenv("CAMUNDA_NAMESPACE_0", primaryNamespace)
+		os.Setenv("CAMUNDA_NAMESPACE_1", secondaryNamespace)
+		os.Setenv("REGION_0", sourceCluster.Region)
+		os.Setenv("REGION_1", targetCluster.Region)
+
+		// Run the script and capture its output
+		output := shell.RunCommandAndGetOutput(t, shell.Command{
+			Command: "sh",
+			Args: []string{
+				"../aws/dual-region/scripts/generate_core_dns_entry.sh",
+			},
+		})
+
+		t.Logf("[DNS CHAINING] Output from script: %s", output)
+
+		// Extract the replacement text for "Cluster 0"
+		sourceClusterDNSEntry := extractReplacementText(output, "Cluster 0")
+		t.Logf("[DNS CHAINING] Replacement text for Cluster 0: %s", sourceClusterDNSEntry)
+
+		// Accumulate the replacement texts with proper indentation
+		sourceClusterDnsEntries += formatReplacementText(sourceClusterDNSEntry)
+
+		// Extract the replacement text for "Cluster 1"
+		targetClusterDNSEntry := extractReplacementText(output, "Cluster 1")
+		t.Logf("[DNS CHAINING] Replacement text for Cluster 1: %s", targetClusterDNSEntry)
+
+		// Accumulate the replacement texts with proper indentation
+		targetClusterDnsEntries += formatReplacementText(targetClusterDNSEntry)
+	}
+
+	// Generate and apply the CoreDNS manifest
+	generateAndApplyCoreDNSManifest(t, sourceCluster, k8sManifestsPath, sourceClusterDnsEntries)
+	generateAndApplyCoreDNSManifest(t, targetCluster, k8sManifestsPath, targetClusterDnsEntries)
+
+}
+
+func generateAndApplyCoreDNSManifest(t *testing.T, targetCluster helpers.Cluster, k8sManifests, dnsEntries string) {
+	// Replace the placeholder text in the existing CoreDNS ConfigMap
+	t.Logf("[DNS CHAINING] Replacing PLACEHOLDER in CoreDNS ConfigMap with generated replacement text")
 	filePath := fmt.Sprintf("%s/%s", k8sManifests, "coredns.yml")
 	content, err := os.ReadFile(filePath)
 	if err != nil {
-		fmt.Printf("Error reading file: %v\n", err)
+		t.Fatalf("Error reading file: %v\n", err)
 		return
 	}
 
 	// Convert byte slice to string
 	fileContent := string(content)
 
-	// Get all namespaces
-
-	arr := strings.Split(namespaces+","+namespacesFailover, ",")
-
-	// Define the template and replacement string
-	template := "PLACEHOLDER"
-	replacement := ""
-
-	for _, ns := range arr {
-		replacement += fmt.Sprintf(`
-        %s.svc.cluster.local:53 {
-            errors
-            cache 30
-            forward . %s {
-                force_tcp
-            }
-        }`,
-			ns,
-			strings.Join(privateIPs, " "),
-		)
-	}
-
-	// Replace the template with the replacement string
-	modifiedContent := strings.Replace(fileContent, template, replacement, -1)
+	// Replace the placeholder with the accumulated replacement string
+	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", dnsEntries, -1)
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
 	if err != nil {
-		fmt.Printf("Error writing file: %v\n", err)
+		t.Fatalf("Error writing file: %v\n", err)
 		return
 	}
 
 	// Apply the CoreDNS change to the target cluster to let it know how to reach the source cluster
-	k8s.KubectlApply(t, &target.KubectlSystem, filePath)
+	k8s.KubectlApply(t, &targetCluster.KubectlSystem, filePath)
 
 	t.Log("[DNS CHAINING] Writing Placeholder CoreDNS ConfigMap back to file")
 	// Write the old file back to the file - required for bidirectional communication
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
 	if err != nil {
-		fmt.Printf("Error writing file: %v\n", err)
+		t.Fatalf("Error writing file: %v\n", err)
 		return
 	}
+}
 
+func extractReplacementText(output, clusterMarker string) string {
+	startMarker := fmt.Sprintf("### %s - Start ###\n", clusterMarker)
+	endMarker := fmt.Sprintf("\n### %s - End ###", clusterMarker)
+	startIndex := strings.Index(output, startMarker)
+	if startIndex == -1 {
+		return ""
+	}
+	startIndex += len(startMarker)
+	endIndex := strings.Index(output[startIndex:], endMarker)
+	if endIndex == -1 {
+		return ""
+	}
+	return strings.TrimSpace(output[startIndex : startIndex+endIndex])
+}
+
+func formatReplacementText(replacement string) string {
+	lines := strings.Split(replacement, "\n")
+	for i := range lines {
+		lines[i] = "    " + lines[i]
+	}
+	return strings.Join(lines, "\n")
 }
 
 func ClusterReadyCheck(t *testing.T, cluster helpers.Cluster) {
@@ -262,7 +319,7 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 func GenerateAWSKubeConfig(t *testing.T, clusterName, awsProfile, awsRegion, regionName string) {
 	t.Log("[TF SETUP] Generating kubeconfig files 📜")
 
-	cmd := exec.Command("aws", "eks", "--region", awsRegion, "update-kubeconfig", "--name", fmt.Sprintf("%s-%s", clusterName, regionName), "--profile", awsProfile, "--kubeconfig", fmt.Sprintf("kubeconfig-%s", regionName))
+	cmd := exec.Command("aws", "eks", "--region", awsRegion, "update-kubeconfig", "--name", fmt.Sprintf("%s-%s", clusterName, regionName), "--alias", fmt.Sprintf("%s-%s", clusterName, regionName), "--profile", awsProfile, "--kubeconfig", fmt.Sprintf("kubeconfig-%s", regionName))
 
 	_, err := cmd.Output()
 	if err != nil {

@@ -5,12 +5,7 @@ set -e
 create_namespace() {
     local context=$1
     local namespace=$2
-    if kubectl --context "$context" get namespace "$namespace" &> /dev/null; then
-        echo "Namespace $namespace already exists."
-    else
-        # Create the namespace
-        kubectl --context "$context" create namespace "$namespace"
-    fi
+    kubectl --context "$context" create namespace "$namespace" --dry-run=client -o yaml | kubectl --context "$context" apply -f -
 }
 
 create_secret() {
