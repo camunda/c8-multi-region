@@ -3,7 +3,7 @@ name: Snapshot Nightly AWS EKS Operational Procedure Test
 
 on:
     schedule:
-        - cron: 0 2 * * 1 # 02:00 UTC on Monday
+        - cron: 0 1 * * 1 # 02:00 UTC on Monday
     workflow_dispatch:
         inputs:
             helm-versions:

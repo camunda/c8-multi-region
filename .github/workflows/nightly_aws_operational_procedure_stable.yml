@@ -3,7 +3,7 @@ name: Stable Nightly AWS EKS Operational Procedure Test
 
 on:
     schedule:
-        - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
+        - cron: 0 1 * * 2 # Every Tuesday at 02:00 UTC
     workflow_dispatch:
         inputs:
             helm-versions:

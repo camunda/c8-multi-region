@@ -3,7 +3,7 @@ name: Snapshot Teleport EKS Operational Procedure
 
 on:
     schedule:
-        - cron: 0 2 * * 1 # Every Monday at 02:00 UTC
+        - cron: 2 2 * * 1 # Every Monday at 02:00 UTC
     workflow_dispatch:
         inputs:
             helm-versions:
