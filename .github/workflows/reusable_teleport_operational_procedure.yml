@@ -119,7 +119,10 @@ jobs:
                     echo "HELM_CHART_NAME=${{ inputs.helmChartName }}" >> "$GITHUB_ENV"
                   fi
                   if [ -n "${{ inputs.globalImageTag }}" ]; then
-                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
+                    # With 8.7 and 8.8 being developed concurrently, the helm chart is 8.7 while the images are 8.8
+                    # Therefore fallback atm on the helm chart defined image tags
+                    # echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
+                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}"
                   fi
 
             - name: Map Helm version to branch
