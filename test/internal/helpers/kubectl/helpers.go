@@ -8,7 +8,6 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -134,7 +133,7 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 
 	helm.Delete(t, helmOptions, "camunda", true)
 
-	t.Logf("[C8 HELM TEARDOWN] removing all PVCs and PVs from namespace %s", kubectlOptions.Namespace)
+	t.Logf("[C8 HELM TEARDOWN] removing all PVCs from namespace %s", kubectlOptions.Namespace)
 
 	pvcs := k8s.ListPersistentVolumeClaims(t, kubectlOptions, metav1.ListOptions{})
 
@@ -350,49 +349,18 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
-
-	// Check if TELEPORT is enabled.
-	teleportEnabled := false
-	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
-		var err error
-		teleportEnabled, err = strconv.ParseBool(teleportStr)
-		if err != nil {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
-	if !teleportEnabled {
-		// Set environment variables for the script
-		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
-		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
-		os.Setenv("HELM_RELEASE_NAME", "camunda")
-		os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
-	}
-
-	// Run the script and capture its output
-	cmd := exec.Command("bash", "../aws/dual-region/scripts/generate_zeebe_helm_values.sh")
-	output, err := cmd.Output()
-	if err != nil {
-		t.Fatalf("[C8 HELM] Error running script: %v\n", err)
-		return
-	}
-
-	// Convert byte slice to string
-	scriptOutput := string(output)
-
-	// Extract the replacement text for the initial contact points and Elasticsearch URLs
-	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
-	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL")
-	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL")
-
-	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
-	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
-	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
+	zeebeContactPoints := createZeebeContactPoints(t, 4, namespace0, namespace1)
 
 	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
 
 	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
-	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
+	if failover {
+		filePath = fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values-failover.yml", region)
+
+		valuesFiles = append(valuesFiles, filePath)
+	} else {
+		valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
+	}
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -403,10 +371,26 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	// Convert byte slice to string
 	fileContent := string(content)
 
-	// Replace the placeholders with the replacement strings
-	modifiedContent := strings.Replace(fileContent, "PLACEHOLDER", initialContact, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", elastic0, -1)
-	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", elastic1, -1)
+	// Define the template and replacement string
+	template := "PLACEHOLDER"
+
+	// Replace the template with the replacement string
+	modifiedContent := strings.Replace(fileContent, template, zeebeContactPoints, -1)
+
+	// Replace Elasticsearch endpoints with namespace specific ones
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0), -1)
+	modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
+
+	if failover {
+		modifiedContent = strings.Replace(modifiedContent, "http://camunda-elasticsearch-master-hl.camunda-primary-failover.svc.cluster.local:9200", fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
+	}
+
+	if esSwitch && !failover {
+		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), -1)
+	}
+	if esSwitch && failover {
+		modifiedContent = strings.Replace(modifiedContent, fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace0Failover), fmt.Sprintf("http://camunda-elasticsearch-master-hl.%s.svc.cluster.local:9200", namespace1), -1)
+	}
 
 	// Write the modified content back to the file
 	err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
@@ -440,19 +424,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		t.Fatalf("[C8 HELM] Error writing file: %v\n", err)
 		return
 	}
-}
-func extractReplacementText(output, variableName string) string {
-	startMarker := fmt.Sprintf("- name: %s\n  value: ", variableName)
-	startIndex := strings.Index(output, startMarker)
-	if startIndex == -1 {
-		return ""
-	}
-	startIndex += len(startMarker)
-	endIndex := strings.Index(output[startIndex:], "\n")
-	if endIndex == -1 {
-		return output[startIndex:]
-	}
-	return output[startIndex : startIndex+endIndex]
 }
 
 func StatefulSetContains(t *testing.T, kubectlOptions *k8s.KubectlOptions, statefulset, searchValue string) bool {

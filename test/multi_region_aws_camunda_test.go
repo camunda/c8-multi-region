@@ -3,7 +3,6 @@ package test
 import (
 	"bytes"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -46,8 +45,8 @@ var (
 	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
 	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
 
-	baseHelmVars    = map[string]string{}
-	timeout         = "600s"
+	baseHelmVars = map[string]string{}
+	timeout      = "600s"
 )
 
 // AWS EKS Multi-Region Tests
@@ -308,20 +307,20 @@ func initKubernetesHelpers(t *testing.T) {
 			KubectlFailover:  *k8s.NewKubectlOptions("", "kubeconfig", secondaryNamespaceFailover),
 		}
 	} else {
-	t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
-	primary = helpers.Cluster{
-		Region:           "eu-west-2",
-		ClusterName:      fmt.Sprintf("%s-london", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespaceFailover),
-	}
-	secondary = helpers.Cluster{
-		Region:           "eu-west-3",
-		ClusterName:      fmt.Sprintf("%s-paris", clusterName),
-		KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
-		KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
-		KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
+		t.Log("[K8S INIT] Initializing Kubernetes helpers 🚀")
+		primary = helpers.Cluster{
+			Region:           "eu-west-2",
+			ClusterName:      fmt.Sprintf("%s-london", clusterName),
+			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespace),
+			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigPrimary, "kube-system"),
+			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigPrimary, primaryNamespaceFailover),
+		}
+		secondary = helpers.Cluster{
+			Region:           "eu-west-3",
+			ClusterName:      fmt.Sprintf("%s-paris", clusterName),
+			KubectlNamespace: *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespace),
+			KubectlSystem:    *k8s.NewKubectlOptions("", kubeConfigSecondary, "kube-system"),
+			KubectlFailover:  *k8s.NewKubectlOptions("", kubeConfigSecondary, secondaryNamespaceFailover),
 		}
 	}
 }
@@ -460,27 +459,7 @@ func deleteSecondaryRegion(t *testing.T) {
 func createFailoverDeploymentPrimary(t *testing.T) {
 	t.Log("[FAILOVER] Creating failover deployment 🚀")
 
-	// Check if TELEPORT is enabled.
-	teleportEnabled := false
-	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
-		var err error
-		teleportEnabled, err = strconv.ParseBool(teleportStr)
-		if err != nil {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
-	timeout := "600s"
-	var setValues map[string]string
-
-	if teleportEnabled {
-		timeout = "1800s"
-		setValues = map[string]string{
-			"zeebe.affinity": "null",
-		}
-	}
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, true, false, helpers.CombineMaps(baseHelmVars, setValues))
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlFailover, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, true, false, baseHelmVars)
 
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlFailover, "camunda-zeebe-gateway", 20, 15*time.Second)
 
@@ -492,27 +471,7 @@ func createFailoverDeploymentPrimary(t *testing.T) {
 func pointPrimaryZeebeToFailver(t *testing.T) {
 	t.Log("[FAILOVER] Pointing primary Zeebe to failover Elastic 🚀")
 
-	// Check if TELEPORT is enabled.
-	teleportEnabled := false
-	if teleportStr := os.Getenv("TELEPORT"); teleportStr != "" {
-		var err error
-		teleportEnabled, err = strconv.ParseBool(teleportStr)
-		if err != nil {
-			t.Fatalf("[ELASTICSEARCH] Failed to parse TELEPORT env var: %v", err)
-		}
-	}
-
-	timeout := "600s"
-	var setValues map[string]string
-
-	if teleportEnabled {
-		timeout = "1800s"
-		setValues = map[string]string{
-			"zeebe.affinity": "null",
-		}
-	}
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, true, false, true, baseHelmVars)
 
 	// Give it a short time start doing the rollout, otherwise it will send data to the recreated elasticsearch
 	time.Sleep(15 * time.Second)
@@ -544,7 +503,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 	setValues := map[string]string{
 		"operate.enabled":  "false",
 		"tasklist.enabled": "false",
-		}
+	}
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
