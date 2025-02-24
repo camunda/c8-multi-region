@@ -77,3 +77,17 @@ jobs:
             helmReleaseName: camunda
             zeebeClusterSize: 8
         secrets: inherit
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' && failure()
+        needs:
+            - operational-procedure
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@e9a9f33ab193348a82a79bd9250fdf12f708390a # 1.2.19
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
