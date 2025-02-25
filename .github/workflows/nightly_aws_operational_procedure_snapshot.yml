@@ -22,7 +22,9 @@ on:
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
-    cancel-in-progress: true
+    # in case of renovate we don't cancel the previous run, so it can finish it
+    # otherwise weekly renovate PRs with tf docs updates result in broken clusters
+    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
 
 env:
     AWS_PROFILE: infex
