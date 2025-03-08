@@ -158,7 +158,7 @@ jobs:
               uses: teleport-actions/setup@v1
               with:
                   # renovate: datasource=docker depName=public.ecr.aws/gravitational/teleport-ent-distroless
-                  version: 17.3.0
+                  version: 17.3.3
 
             - name: Authenticate with Teleport
               uses: teleport-actions/auth-k8s@v2
