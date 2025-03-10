@@ -22,7 +22,7 @@ golang 1.24.1
 
 helm 3.17.1
 
-just 1.39.0
+just 1.40.0
 
 kubectl 1.32.2
 
@@ -34,4 +34,4 @@ terraform 1.11.1
 
 tflint 0.55.1
 
-trivy 0.59.1
+trivy 0.60.0
