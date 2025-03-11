@@ -24,7 +24,7 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     # in case of renovate we don't cancel the previous run, so it can finish it
     # otherwise weekly renovate PRs with tf docs updates result in broken clusters
-    cancel-in-progress: ${{ github.actor == 'renovate[bot]' && false || true }}
+    cancel-in-progress: ${{ !contains('renovate[bot]', github.actor) }}
 
 env:
     AWS_PROFILE: infex
