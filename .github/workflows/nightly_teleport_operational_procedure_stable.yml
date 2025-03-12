@@ -10,7 +10,7 @@ on:
                 description: The Helm versions to use as comma separated list
                 type: string
             notify_back_error_message:
-                description: \ Error message if retry was not successful. This parameter is used for internal call back actions.
+                description: Error message if retry was not successful. This parameter is used for internal call back actions.
                 required: false
                 default: ''
     pull_request:
