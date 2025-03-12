@@ -101,8 +101,8 @@ jobs:
               uses: camunda/infra-global-github-actions/rerun-failed-run@a6261098b91e48a8db1802a58af5191eb498630c # main
               with:
                   error-messages: |
-                      lost communication with the server
-                      The runner has received a shutdown signal
+                      Wait for deployment camunda-operate to be provisioned.' unsuccessful after
+                      Service camunda-zeebe-gateway is not available
                   run-id: ${{ github.run_id }}
                   repository: ${{ github.repository }}
                   vault-addr: ${{ secrets.VAULT_ADDR }}
