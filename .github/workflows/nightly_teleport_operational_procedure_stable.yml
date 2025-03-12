@@ -30,7 +30,7 @@ concurrency:
 
 jobs:
     triage:
-        runs-on: ubuntu-22.04
+        runs-on: ubuntu-latest
         steps:
             - name: Display notify_back_error_message if present
               if: ${{ inputs.notify_back_error_message != '' }}
