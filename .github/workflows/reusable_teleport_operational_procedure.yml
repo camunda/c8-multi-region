@@ -241,7 +241,8 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
-            - name: Show pending pod count in each namespace
+            - name: Show pending pod count in each namespace after initial deployment
+              id: pending-check-1
               if: ${{ always() }}
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after initial deployment ====="
@@ -274,8 +275,9 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
 
-            - name: Show pending pod count in each namespace
-              if: ${{ always() }}
+            - name: Show pending pod count in each namespace after failback-start
+              id: pending-check-2
+              if: ${{ steps.failback-start.outputs.timestamp }}
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
                   # List all pods that are in Pending status, then count them.
