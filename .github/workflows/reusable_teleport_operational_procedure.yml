@@ -256,6 +256,7 @@ jobs:
                   num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
                   echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
 
+                  total_pending=$((num_pending_0 + num_pending_1))
                   if [ "$total_pending" -gt 0 ]; then
                    echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
                   fi
@@ -294,6 +295,7 @@ jobs:
                   num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
                   echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
 
+                  total_pending=$((num_pending_0 + num_pending_1))
                   if [ "$total_pending" -gt 0 ]; then
                    echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
                   fi
