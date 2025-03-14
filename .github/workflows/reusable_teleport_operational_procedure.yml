@@ -282,7 +282,7 @@ jobs:
 
             - name: Show pending pod count in each namespace after failback-start
               id: pending-check-2
-              if: ${{ steps.failback-start.outputs.timestamp }}
+              if: ${{ always() && steps.failback-start.outputs.timestamp }}
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
                   # List all pods that are in Pending status, then count them.
