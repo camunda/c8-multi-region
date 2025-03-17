@@ -258,7 +258,7 @@ jobs:
 
     notify-on-failure:
         runs-on: ubuntu-latest
-        if: (github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')) && failure()
+        if: github.event_name == 'schedule' && failure()
         needs:
             - cluster-creation
             - cluster-configuration
