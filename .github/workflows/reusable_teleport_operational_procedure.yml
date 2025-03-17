@@ -238,6 +238,9 @@ jobs:
               id: deploy-camunda
               working-directory: ./test
               run: |
+                  # debug error
+                  echo "::error ::PendingPodsError: Found
+                  exit 1
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
