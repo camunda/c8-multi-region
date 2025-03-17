@@ -38,7 +38,7 @@ jobs:
               id: generate-matrix
               run: |
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.2.1
+                  c86=11.2.2
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
                     versions='{"helmChartVersion":["'${c86}'"]}'
