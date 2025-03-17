@@ -13,7 +13,6 @@ on:
                 description: Error message if retry was not successful. This parameter is used for internal call back actions.
                 required: false
                 default: ''
-
     pull_request:
         branches-ignore:
             - stable/**
