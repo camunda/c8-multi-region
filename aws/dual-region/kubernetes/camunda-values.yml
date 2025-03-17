@@ -142,11 +142,6 @@ elasticsearch:
             echo "$S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
             echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
     extraEnvVarsSecret: elasticsearch-env-secret
-    # Bitnami chart fix to allow adding keystore secrets
-    extraVolumeMounts:
-        - name: empty-dir
-          mountPath: /bitnami/elasticsearch
-          subPath: app-volume-dir
 # yamllint disable-line rule:comments-indentation
   # Fix addition for Helm Chart < 10
   # extraVolumes:
