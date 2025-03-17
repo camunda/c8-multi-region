@@ -75,6 +75,10 @@ jobs:
                   echo "${versions}"
                   echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
 
+                  echo "::error ::PendingPodsError: Found"
+                  exit 1
+
+
     operational-procedure:
         needs:
             - dynamic-matrix
