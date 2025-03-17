@@ -29,8 +29,19 @@ concurrency:
     cancel-in-progress: true
 
 jobs:
+    triage:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Display notify_back_error_message if present
+              if: ${{ inputs.notify_back_error_message != '' }}
+              run: |
+                  echo "A previous workflow failed but has attempted to retry: ${{ inputs.notify_back_error_message }}"
+                  exit 1
+
     dynamic-matrix:
         runs-on: ubuntu-latest
+        needs:
+            - triage
         outputs:
             matrix: ${{ steps.generate-matrix.outputs.matrix }}
         steps:
@@ -58,6 +69,7 @@ jobs:
                   echo "${versions}"
                   echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
 
+
     operational-procedure:
         needs:
             - dynamic-matrix
@@ -82,11 +94,31 @@ jobs:
             zeebeClusterSize: 8
         secrets: inherit
 
-    notify-on-failure:
+    rerun-failed-jobs:
+        if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
         runs-on: ubuntu-latest
-        if: github.event_name == 'schedule' && failure()
         needs:
             - operational-procedure
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@66bb8b91caf4c23a1044a67a11c852195d357193 # main at the time of 2025-03-17
+              with:
+                  error-messages: |
+                      PendingPodsError: Found
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  notify-back-on-error: 'true'
+
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: failure() && (fromJSON(github.run_attempt) >= 3 || inputs.notify_back_error_message != '') && github.event_name == 'schedule'
+        needs:
+            - operational-procedure
+            - rerun-failed-jobs
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification

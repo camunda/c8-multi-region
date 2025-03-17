@@ -241,6 +241,26 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
+            - name: Show pending pod count in each namespace after initial deployment
+              id: pending-check-1
+              if: ${{ always() }}
+              run: |
+                  echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after initial deployment ====="
+                  # List all pods that are in Pending status, then count them.
+                  kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_0=$(kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_0_NAMESPACE}: ${num_pending_0}"
+
+                  echo "===== Checking pending pods in CLUSTER_1_NAMESPACE after initial deployment ====="
+                  kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
+
+                  total_pending=$((num_pending_0 + num_pending_1))
+                  if [ "$total_pending" -gt 0 ]; then
+                   echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
+                  fi
+
             - name: Failover New - ${{ inputs.helmChartVersion }}
               working-directory: ./test
               timeout-minutes: 21
@@ -259,6 +279,27 @@ jobs:
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+
+            - name: Show pending pod count in each namespace after failback-start
+              id: pending-check-2
+              if: ${{ always() }}
+              run: |
+                  echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
+                  # List all pods that are in Pending status, then count them.
+                  kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_0=$(kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_0_NAMESPACE}: ${num_pending_0}"
+
+                  echo "===== Checking pending pods in CLUSTER_1_NAMESPACE after Failback ====="
+                  kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
+
+                  total_pending=$((num_pending_0 + num_pending_1))
+                  if [ "$total_pending" -gt 0 ]; then
+                   echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
+                  fi
+
             - name: Calculate Failback duration
               run: |
                   set -euxo pipefail
