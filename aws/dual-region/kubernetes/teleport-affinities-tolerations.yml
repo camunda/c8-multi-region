@@ -2,104 +2,200 @@
 zeebe:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 operate:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 tasklist:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 identity:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 connectors:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 optimize:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 zeebeGateway:
     tolerations:
         - key: t-core-8-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
         - key: t-core-16-unstable
-          operator: Exists
+          operator: Equal
+          value: 'true'
           effect: NoSchedule
-    nodeSelector:
-        nodegroup:
-            - t-core-8-unstable
-            - t-core-16-unstable
+    affinity:
+        nodeAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                    - matchExpressions:
+                          - key: t-core-8-unstable
+                            operator: In
+                            values:
+                                - 'true'
+                    - matchExpressions:
+                          - key: t-core-16-unstable
+                            operator: In
+                            values:
+                                - 'true'
 
 elasticsearch:
     master:
         tolerations:
             - key: t-core-8-unstable
-              operator: Exists
+              operator: Equal
+              value: 'true'
               effect: NoSchedule
             - key: t-core-16-unstable
-              operator: Exists
+              operator: Equal
+              value: 'true'
               effect: NoSchedule
-        nodeSelector:
-            nodegroup:
-                - t-core-8-unstable
-                - t-core-16-unstable
+        affinity:
+            nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                        - matchExpressions:
+                              - key: t-core-8-unstable
+                                operator: In
+                                values:
+                                    - 'true'
+                        - matchExpressions:
+                              - key: t-core-16-unstable
+                                operator: In
+                                values:
+                                    - 'true'
