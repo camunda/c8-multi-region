@@ -98,9 +98,11 @@ jobs:
     rerun-failed-jobs:
         if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
         runs-on: ubuntu-latest
+        needs:
+            - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@a6261098b91e48a8db1802a58af5191eb498630c # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@66bb8b91caf4c23a1044a67a11c852195d357193 # main at the time of 2025-03-17
               with:
                   error-messages: |
                       PendingPodsError: Found
