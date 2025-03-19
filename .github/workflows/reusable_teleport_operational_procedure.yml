@@ -130,24 +130,28 @@ jobs:
               run: |
                   version=${{ inputs.helmChartVersion }}
 
-                  if [[ $version == "SNAPSHOT" ]]; then
-                    {
-                        echo "branch=main"
-                        echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-                        echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                    } >> "$GITHUB_ENV"
+                  if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                    echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
                   else
-                    c8_version=$(curl -X 'GET' -s \
-                    "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
-                    -H "accept: application/json" | jq -r .app_version)
-                    minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
-                    echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
+                    if [[ $version == "SNAPSHOT" ]]; then
+                      {
+                          echo "branch=main" >> "$GITHUB_ENV"
+                          echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+                          echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                      } >> "$GITHUB_ENV"
+                    else
+                      c8_version=$(curl -X 'GET' -s \
+                      "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
+                      -H "accept: application/json" | jq -r .app_version)
+                      minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
+                      echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
+                    fi
                   fi
 
             - name: Checkout repository
               uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
               with:
-                  ref: ${{ steps.helm-version.outputs.branch }}
+                  ref: ${{ env.branch }}
 
             - name: Setup AWS and Tools
               uses: ./.github/actions/setup-aws
