@@ -17,6 +17,7 @@ zeebe:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 operate:
     tolerations:
@@ -36,6 +37,7 @@ operate:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 tasklist:
     tolerations:
@@ -55,6 +57,7 @@ tasklist:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 identity:
     tolerations:
@@ -74,6 +77,7 @@ identity:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 connectors:
     tolerations:
@@ -93,6 +97,7 @@ connectors:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 optimize:
     tolerations:
@@ -112,6 +117,7 @@ optimize:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 zeebeGateway:
     tolerations:
@@ -131,6 +137,7 @@ zeebeGateway:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        podAntiAffinity:
 
 elasticsearch:
     master:
@@ -151,3 +158,4 @@ elasticsearch:
                                 values:
                                     - t-core-8-unstable
                                     - t-core-16-unstable
+            podAntiAffinity:
