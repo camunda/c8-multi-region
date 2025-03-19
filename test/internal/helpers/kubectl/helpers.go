@@ -362,6 +362,10 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
 	}
 
+	if helpers.IsTeleportEnabled() {
+		valuesFiles = append(valuesFiles, "/fixtures/teleport-affinities-tolerations.yml")
+	}
+
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		t.Fatalf("[C8 HELM] Error reading file: %v\n", err)
