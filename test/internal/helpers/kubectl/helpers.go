@@ -363,7 +363,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	}
 
 	if helpers.IsTeleportEnabled() {
-		valuesFiles = append(valuesFiles, "/fixtures/teleport-affinities-tolerations.yml")
+		valuesFiles = append(valuesFiles, "./fixtures/teleport-affinities-tolerations.yml")
 	}
 
 	content, err := os.ReadFile(filePath)
