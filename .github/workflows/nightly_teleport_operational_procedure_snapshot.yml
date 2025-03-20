@@ -31,6 +31,7 @@ concurrency:
 jobs:
     triage:
         runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
         steps:
             - name: Display notify_back_error_message if present
               if: ${{ inputs.notify_back_error_message != '' }}
