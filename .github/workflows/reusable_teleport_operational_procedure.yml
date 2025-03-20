@@ -130,15 +130,19 @@ jobs:
               run: |
                   version=${{ inputs.helmChartVersion }}
 
-                  if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-                    echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
+                  if [[ $version == "SNAPSHOT" ]]; then
+                    {
+                        echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+                        echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                    } >> "$GITHUB_ENV"
+                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                      echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
+                    else
+                      echo "branch=main" >> "$GITHUB_ENV"
+                    fi
                   else
-                    if [[ $version == "SNAPSHOT" ]]; then
-                      {
-                          echo "branch=main" >> "$GITHUB_ENV"
-                          echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
-                          echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
-                      } >> "$GITHUB_ENV"
+                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                      echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
                     else
                       c8_version=$(curl -X 'GET' -s \
                       "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
