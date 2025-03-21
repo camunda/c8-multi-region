@@ -28,7 +28,7 @@ _Nothing referenced yet._
 ### Upstream Dependencies: dependencies of this project
 
 - **terraform-aws-modules**: This project relies on the official AWS modules available at [terraform-aws-modules](https://github.com/terraform-aws-modules).
-- **camunda-tf-eks-module**: This project relies on the Camunda EKS modules available at [camunda-tf-eks-module](https://github.com/camunda/camunda-tf-eks-module/).
+- **camunda-deployment-references**: This project relies on the Camunda EKS modules available at [camunda-deployment-references](https://github.com/camunda/camunda-deployment-references/), which provides an example implementation of an EKS cluster.
 
 ### Downstream Dependencies: things that depend on this project
 
