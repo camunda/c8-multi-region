@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+
 	"multiregiontests/internal/helpers"
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
 
@@ -218,7 +219,7 @@ func deployC8Helm(t *testing.T) {
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
-		baseHelmVars["zeebe.affinity"] = "null"
+		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
@@ -343,7 +344,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
-		baseHelmVars["zeebe.affinity"] = "null"
+		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, false, helpers.CombineMaps(baseHelmVars, setValues))
@@ -430,7 +431,7 @@ func scaleUpWebApps(t *testing.T) {
 func installWebAppsSecondary_8_6_plus(t *testing.T) {
 
 	if helpers.IsTeleportEnabled() {
-		baseHelmVars["zeebe.affinity"] = "null"
+		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
 	}
 
 	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
