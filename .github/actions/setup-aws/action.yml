@@ -29,7 +29,7 @@ runs:
         ################## Secrets ###################
         - name: Import Secrets
           id: secrets
-          uses: hashicorp/vault-action@v3
+          uses: hashicorp/vault-action@7709c609789c5e27b757a85817483caadbb5939a # v3
           with:
               url: ${{ fromJSON(inputs.secrets).VAULT_ADDR }}
               method: approle
