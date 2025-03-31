@@ -132,7 +132,7 @@ jobs:
 
                   if [[ $version == "SNAPSHOT" ]]; then
                     {
-                        echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
+                        echo "HELM_CHART_VERSION=0.0.0-snapshot-latest"
                         echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                     } >> "$GITHUB_ENV"
                     if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
