@@ -160,7 +160,7 @@ jobs:
 
                   # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
                   # shellcheck disable=SC2034
-                  c87=SNAPSHOT
+                  c88=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
                     versions='{"helm-version":["'${c85}'","'OLD.${c86_old}'"]}'

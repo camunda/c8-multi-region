@@ -154,10 +154,10 @@ jobs:
             - name: Generate matrix
               id: generate-matrix
               run: |
-                  c87=SNAPSHOT
+                  c88=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c87}'"]}'
+                    versions='{"helm-version":["'${c88}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
