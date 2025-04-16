@@ -306,6 +306,7 @@ func TestSetupTerraform(t *testing.T, terraformDir, clusterName, awsProfile, tfB
 			"cluster_name":          clusterName,
 			"aws_profile":           awsProfile,
 			"np_desired_node_count": np_desired_node_count,
+			"single_nat_gateway": 	 "true", // saving IPs for tests
 			// Disabling spot instances for now since tests have become very flakey
 			// "np_capacity_type":  "SPOT",
 			// "np_instance_types": []string{"m6i.xlarge", "m5.xlarge", "m5d.xlarge"},
