@@ -34,4 +34,4 @@ terraform 1.11.4
 
 tflint 0.56.0
 
-trivy 0.61.1
+trivy 0.60.0
