@@ -61,3 +61,9 @@ variable "np_desired_node_count" {
   default     = 4
   description = "Desired number of nodes in the node pool"
 }
+
+variable "single_nat_gateway" {
+  type        = bool
+  default     = false
+  description = "If true, only one NAT gateway will be created to save on e.g. IPs, not good for HA"
+}

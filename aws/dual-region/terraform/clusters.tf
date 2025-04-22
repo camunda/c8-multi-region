@@ -13,6 +13,7 @@ module "eks_cluster_region_0" {
   np_capacity_type      = var.np_capacity_type
   np_max_node_count     = var.np_max_node_count
   np_desired_node_count = var.np_desired_node_count
+  single_nat_gateway    = var.single_nat_gateway
 
   cluster_service_ipv4_cidr = local.owner.service_cidr_block
   cluster_node_ipv4_cidr    = local.owner.vpc_cidr_block
@@ -29,6 +30,7 @@ module "eks_cluster_region_1" {
   np_capacity_type      = var.np_capacity_type
   np_max_node_count     = var.np_max_node_count
   np_desired_node_count = var.np_desired_node_count
+  single_nat_gateway    = var.single_nat_gateway
 
   cluster_service_ipv4_cidr = local.accepter.service_cidr_block
   cluster_node_ipv4_cidr    = local.accepter.vpc_cidr_block
