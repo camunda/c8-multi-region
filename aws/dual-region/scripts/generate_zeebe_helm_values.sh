@@ -26,7 +26,7 @@ generate_exporter_elasticsearch_url() {
 
 namespace_0=${CAMUNDA_NAMESPACE_0:-""}
 namespace_1=${CAMUNDA_NAMESPACE_1:-""}
-helm_release_name=${HELM_RELEASE_NAME:-""}
+helm_release_name=${CAMUNDA_RELEASE_NAME:-""}
 cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
 
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"

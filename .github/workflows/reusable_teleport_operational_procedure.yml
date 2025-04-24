@@ -99,7 +99,9 @@ env:
     KUBECONFIG: ./kubeconfig
 
     BACKUP_BUCKET: ${{ inputs.backupBucket }}
-    HELM_RELEASE_NAME: ${{ inputs.helmReleaseName }}
+
+    CAMUNDA_RELEASE_NAME: ${{ inputs.helmReleaseName }}
+
     ZEEBE_CLUSTER_SIZE: ${{ inputs.zeebeClusterSize }}
     HELM_CHART_VERSION: ${{ inputs.helmChartVersion }}
 
