@@ -355,7 +355,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		// Set environment variables for the script
 		os.Setenv("CAMUNDA_NAMESPACE_0", namespace0)
 		os.Setenv("CAMUNDA_NAMESPACE_1", namespace1)
-		os.Setenv("HELM_RELEASE_NAME", "camunda")
+		os.Setenv("CAMUNDA_RELEASE_NAME", "camunda")
 		os.Setenv("ZEEBE_CLUSTER_SIZE", "8")
 	}
 
