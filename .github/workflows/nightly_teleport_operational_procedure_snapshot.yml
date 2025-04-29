@@ -1,0 +1,129 @@
+---
+name: Snapshot Teleport EKS Operational Procedure
+
+on:
+    schedule:
+        - cron: 0 2 * * 1 # Every Monday at 02:00 UTC
+    workflow_dispatch:
+        inputs:
+            helm-versions:
+                description: The Helm versions to use as comma separated list
+                type: string
+            notify_back_error_message:
+                description: Error message if retry was not successful. This parameter is used for internal call back actions.
+                required: false
+                default: ''
+    pull_request:
+        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
+        paths:
+            - .github/workflows/nightly_teleport_operational_procedure_snapshot.yml
+            - .github/workflows/reusable_teleport_operational_procedure.yml
+            - aws/dual-region/kubernetes/**
+            - test/**
+            - .tools-versions
+
+# limit to a single execution per ref (branch) of this workflow
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    triage:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        steps:
+            - name: Display notify_back_error_message if present
+              if: ${{ inputs.notify_back_error_message != '' }}
+              run: |
+                  echo "A previous workflow failed but has attempted to retry: ${{ inputs.notify_back_error_message }}"
+                  exit 1
+
+    dynamic-matrix:
+        runs-on: ubuntu-latest
+        needs:
+            - triage
+        if: github.event_name == 'schedule' || contains(github.head_ref, 'SNAPSHOT')
+        outputs:
+            matrix: ${{ steps.generate-matrix.outputs.matrix }}
+        steps:
+            - name: Generate matrix
+              id: generate-matrix
+              run: |
+                  c88=SNAPSHOT
+
+                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                    versions='{"helmChartVersion":["'${c88}'"]}'
+                  else
+                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                      for(i=1;i<=NF;i++) {
+                        if ($i ~ /^".*"$/) {
+                          printf("%s%s", $i, (i==NF)?"":",")
+                        } else {
+                          printf("\"%s\"%s", $i, (i==NF)?"":",")
+                        }
+                      }
+                    }')
+                    versions='{"helmChartVersion":['${output}']}'
+                  fi
+
+                  echo "${versions}"
+                  echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
+
+    operational-procedure:
+        needs:
+            - dynamic-matrix
+        strategy:
+            # parallelism is limited due to infra cluster resource constraints.
+            # Once multiple versions are compatible with testing through teleport, investigate if increasing is possible.
+            max-parallel: 1
+            fail-fast: false
+            matrix:
+                helmChartVersion: ${{fromJson(needs.dynamic-matrix.outputs.matrix).helmChartVersion}}
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: ${{ matrix.helmChartVersion }}
+            helmChartName: oci://ghcr.io/camunda/helm/camunda-platform
+            globalImageTag: SNAPSHOT
+            awsProfile: infex
+            testsTfBinaryName: terraform
+            namespacePrefix: infraex-
+            clusterName: camunda-ci-eks
+            labels: janitor/ttl=1h camunda.cloud/ephemeral=true
+            cluster: camunda.teleport.sh-camunda-ci-eks
+            backupBucket: tests-c8-multi-region-es-eu-central-1
+            helmReleaseName: camunda
+            zeebeClusterSize: 8
+        secrets: inherit
+
+    rerun-failed-jobs:
+        if: failure() && fromJSON(github.run_attempt) < 3 && inputs.notify_back_error_message == ''
+        runs-on: ubuntu-latest
+        needs:
+            - operational-procedure
+        steps:
+            - name: Retrigger job
+              uses: camunda/infra-global-github-actions/rerun-failed-run@d9a4c94ace01e82cb4cef3fa8e809d715ac46894 # main
+              with:
+                  error-messages: |
+                      PendingPodsError: Found
+                  run-id: ${{ github.run_id }}
+                  repository: ${{ github.repository }}
+                  vault-addr: ${{ secrets.VAULT_ADDR }}
+                  vault-role-id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault-secret-id: ${{ secrets.VAULT_SECRET_ID }}
+                  notify-back-on-error: 'true'
+
+    notify-on-failure:
+        runs-on: ubuntu-latest
+        if: failure() && (fromJSON(github.run_attempt) >= 3 || inputs.notify_back_error_message != '') && github.event_name == 'schedule'
+        needs:
+            - operational-procedure
+            - rerun-failed-jobs
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@14912e07221cd650bf9286e2a4733a138ca46374 # 1.3.6
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}
