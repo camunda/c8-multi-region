@@ -14,14 +14,13 @@ on:
                 required: false
                 default: ''
     pull_request:
-        branches-ignore:
-            - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
             - .github/workflows/nightly_teleport_operational_procedure_snapshot.yml
             - .github/workflows/reusable_teleport_operational_procedure.yml
             - aws/dual-region/kubernetes/**
             - test/**
+            - .tools-versions
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
