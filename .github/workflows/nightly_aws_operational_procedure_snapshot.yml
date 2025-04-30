@@ -18,6 +18,8 @@ on:
             - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/terraform/**
+            - test/**
+            - .tools-versions
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:

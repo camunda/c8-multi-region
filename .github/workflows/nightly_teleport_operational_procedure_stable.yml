@@ -14,14 +14,13 @@ on:
                 required: false
                 default: ''
     pull_request:
-        branches-ignore:
-            - stable/**
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
         paths:
             - .github/workflows/nightly_teleport_operational_procedure_stable.yml
             - .github/workflows/reusable_teleport_operational_procedure.yml
             - aws/dual-region/kubernetes/**
             - test/**
+            - .tools-versions
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
@@ -48,15 +47,13 @@ jobs:
             - name: Generate matrix
               id: generate-matrix
               run: |
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.3.1
+                  # TODO: [release-duty] before the release, update this!
+
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c87=12.0.1
 
-                  # TODO: [release-duty] before the release, update this!
-
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helmChartVersion":["'${c86}'","'${c87}'"]}'
+                    versions='{"helmChartVersion":["'${c87}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {

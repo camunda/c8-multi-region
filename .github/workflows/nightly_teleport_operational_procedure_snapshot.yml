@@ -22,6 +22,7 @@ on:
             - .github/workflows/reusable_teleport_operational_procedure.yml
             - aws/dual-region/kubernetes/**
             - test/**
+            - .tools-versions
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
