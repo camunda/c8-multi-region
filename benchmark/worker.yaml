@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: "registry.camunda.cloud/team-zeebe/worker:release-8-5-x-47ce446"
+          image: "registry.camunda.cloud/team-infrastructure-experience/camunda:ci-worker"
           imagePullPolicy: IfNotPresent
           env:
             - name: JDK_JAVA_OPTIONS

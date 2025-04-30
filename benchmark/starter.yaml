@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: starter
-          image: "registry.camunda.cloud/team-zeebe/starter:release-8-5-x-47ce446"
+          image: "registry.camunda.cloud/team-infrastructure-experience/camunda:ci-starter"
           imagePullPolicy: IfNotPresent
           env:
             - name: JDK_JAVA_OPTIONS
