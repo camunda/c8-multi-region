@@ -36,7 +36,7 @@ variable "kubernetes_version" {
   type        = string
   description = "Kubernetes version to use"
   # renovate: datasource=endoflife-date depName=amazon-eks versioning=loose
-  default = "1.30"
+  default = "1.32"
 }
 
 variable "np_instance_types" {
