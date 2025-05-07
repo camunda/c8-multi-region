@@ -2,6 +2,7 @@ AVD-AWS-0040 #(CRITICAL): Public cluster access is enabled.
 AVD-AWS-0041 #(CRITICAL): Cluster allows access from a public CIDR: 0.0.0.0/0
 AVD-AWS-0104 #(CRITICAL): Security group rule allows egress to multiple public internet addresses.
 
+AVD-AWS-0345 #(HIGH): IAM policy allows 's3:*' action
 AVD-AWS-0086 #(HIGH): No public access block so not blocking public acls
 AVD-AWS-0087 #(HIGH): No public access block so not blocking public policies
 AVD-AWS-0088 #(HIGH): Bucket does not have encryption enabled
