@@ -18,7 +18,7 @@ actionlint 1.7.7
 
 awscli 2.25.11
 
-golang 1.24.2
+golang 1.24.3
 
 helm 3.17.3
 
