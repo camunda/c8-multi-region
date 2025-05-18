@@ -30,7 +30,7 @@ const (
 var (
 	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "12.0.1")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "12.0.2")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
