@@ -48,9 +48,9 @@ jobs:
               id: generate-matrix
               run: |
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.3.1
+                  c86=11.3.2
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c87=12.0.1
+                  c87=12.0.2
 
                   # TODO: [release-duty] before the release, update this!
 
@@ -104,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@bdb65684547e0d89272b8348a81d3f6c141abf3b # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@d55074322f05534a37cd9c07f9cc2ab1e8ea1439 # main
               with:
                   error-messages: |
                       PendingPodsError: Found
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@76b69ba0940210c33bd7c271917d2ec1da6a5ca1 # 1.3.7
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@791f01a12a6b0c44f16a1dce9c9791de34ec4767 # 1.3.8
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
