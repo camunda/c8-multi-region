@@ -154,10 +154,10 @@ jobs:
               id: generate-matrix
               run: |
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c85=10.6.0
+                  c85=10.7.1
 
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86_old=11.3.2
+                  c86_old=11.4.0
                   # for not messing up with renovate, we add the prefix "OLD" in the next step
 
                   # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
@@ -268,7 +268,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@c585602ff49e32c4c3b2dc4be1d7e7a0017961db # 1.3.9
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@b6ccf3dc9315fc7c6eedf84ea9be59f9fbcf8316 # 1.4.2
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
