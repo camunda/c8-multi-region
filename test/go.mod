@@ -5,9 +5,9 @@ go 1.23.0
 require (
 	github.com/aws/aws-sdk-go v1.55.7
 	github.com/aws/aws-sdk-go-v2/config v1.29.14
-	github.com/aws/aws-sdk-go-v2/service/ec2 v1.211.3
-	github.com/aws/aws-sdk-go-v2/service/eks v1.64.0
-	github.com/gruntwork-io/terratest v0.48.2
+	github.com/aws/aws-sdk-go-v2/service/ec2 v1.224.0
+	github.com/aws/aws-sdk-go-v2/service/eks v1.65.0
+	github.com/gruntwork-io/terratest v0.49.0
 	github.com/stretchr/testify v1.10.0
 	k8s.io/apimachinery v0.28.15
 )
