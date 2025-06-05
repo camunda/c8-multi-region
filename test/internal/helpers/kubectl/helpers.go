@@ -146,8 +146,7 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
-	// strange behaviour since service is on 80 but pod on 8080
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-operate", 0, 8080)
+	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-operate", 0, 80)
 	defer tunnelOperate.Close()
 	tunnelOperate.ForwardPort(t)
 
