@@ -104,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@96d2582c14dc5c3c4c680435f48bdb952234b910 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@c14fc2f96b40e93e931eec38d0cd9106b9b697c1 # main
               with:
                   error-messages: |
                       PendingPodsError: Found
@@ -125,7 +125,7 @@ jobs:
         steps:
             - name: Notify in Slack in case of failure
               id: slack-notification
-              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@5c02ca6f44133445c0f977ddc4eeeb815b4aface # 1.4.3
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@d0b1d5e182380299c16ea63709b6b6949736b36f # 1.4.4
               with:
                   vault_addr: ${{ secrets.VAULT_ADDR }}
                   vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
