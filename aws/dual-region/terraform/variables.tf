@@ -68,3 +68,8 @@ variable "single_nat_gateway" {
   default     = false
   description = "If true, only one NAT gateway will be created to save on e.g. IPs, not good for HA"
 }
+variable "default_tags" {
+  type        = map(string)
+  default     = {}
+  description = "Default tags to apply to all resources"
+}
