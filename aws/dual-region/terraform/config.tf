@@ -22,10 +22,16 @@ terraform {
 provider "aws" {
   region  = local.owner.region
   profile = var.aws_profile # optional, feel free to remove if you use the default profile
+  default_tags {
+    tags = var.default_tags
+  }
 }
 
 provider "aws" {
   region  = local.accepter.region
   alias   = "accepter"
   profile = var.aws_profile # optional, feel free to remove if you use the default profile
+  default_tags {
+    tags = var.default_tags
+  }
 }
