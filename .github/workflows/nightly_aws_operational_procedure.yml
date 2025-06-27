@@ -29,6 +29,8 @@ env:
     AWS_PROFILE: infex
     TESTS_TF_BINARY_NAME: terraform
 
+    TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
+
 jobs:
     cluster-creation:
         runs-on: ubuntu-latest
