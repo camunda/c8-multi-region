@@ -34,6 +34,8 @@ env:
     S3_BACKEND_BUCKET: tf-state-multi-reg
     S3_BUCKET_REGION: eu-central-1
 
+    TF_VAR_default_tags: '{"map-migrated": "migARUADZHVWZ"}'
+
 jobs:
     cluster-creation:
         runs-on: ubuntu-latest
