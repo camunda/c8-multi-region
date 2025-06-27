@@ -61,3 +61,9 @@ variable "np_desired_node_count" {
   default     = 4
   description = "Desired number of nodes in the node pool"
 }
+
+variable "default_tags" {
+  type        = map(string)
+  default     = {}
+  description = "Default tags to apply to all resources"
+}
