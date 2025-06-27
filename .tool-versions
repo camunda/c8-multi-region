@@ -28,6 +28,8 @@ kubectl 1.33.2
 
 pre-commit 4.2.0
 
+python 3.13.5
+
 shellcheck 0.10.0
 
 terraform 1.12.2
