@@ -165,7 +165,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
 
             - name: Set up Teleport
-              uses: teleport-actions/setup@176c25dfcd19cd31a252f275d579822b243e7b9c # v1
+              uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6 # v1
               with:
                   # renovate: datasource=docker depName=public.ecr.aws/gravitational/teleport-ent-distroless
                   version: 17.4.10
