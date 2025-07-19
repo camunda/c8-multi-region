@@ -22,7 +22,7 @@ golang 1.24.5
 
 helm 3.18.4
 
-just 1.41.0
+just 1.42.3
 
 kubectl 1.33.3
 
