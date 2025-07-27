@@ -16,13 +16,13 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-awscli 2.27.55
+awscli 2.27.60
 
 golang 1.24.5
 
 helm 3.18.4
 
-just 1.42.3
+just 1.42.4
 
 kubectl 1.33.3
 
