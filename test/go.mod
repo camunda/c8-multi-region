@@ -3,7 +3,7 @@ module multiregiontests
 go 1.23.0
 
 require (
-	github.com/aws/aws-sdk-go v1.55.7
+	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2/config v1.30.3
 	github.com/aws/aws-sdk-go-v2/service/ec2 v1.241.0
 	github.com/aws/aws-sdk-go-v2/service/eks v1.69.0
