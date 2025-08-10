@@ -14,7 +14,7 @@ awscli 2.25.11
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.7
 
-golang 1.24.5
+golang 1.24.6
 
 helm 3.17.3
 
@@ -22,7 +22,7 @@ kubectl 1.32.3
 
 pre-commit 4.2.0
 
-python 3.13.5
+python 3.13.6
 
 shellcheck 0.10.0
 
