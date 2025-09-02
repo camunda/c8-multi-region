@@ -2,6 +2,7 @@ package test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -104,7 +105,9 @@ func createStorageClass(t *testing.T) {
 		return
 	}
 
-	os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+	wd, _ := os.Getwd()
+	os.Setenv("KUBECONFIG",
+		filepath.Join(wd, kubeConfigPrimary)+string(os.PathListSeparator)+filepath.Join(wd, kubeConfigSecondary))
 	os.Setenv("CLUSTER_0", primary.ClusterName)
 	os.Setenv("CLUSTER_1", secondary.ClusterName)
 
