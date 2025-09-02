@@ -109,9 +109,10 @@ func createStorageClass(t *testing.T) {
 	os.Setenv("CLUSTER_1", secondary.ClusterName)
 
 	shell.RunCommand(t, shell.Command{
-		Command: "sh",
+		Command:    "sh",
+		WorkingDir: "../aws/dual-region/scripts",
 		Args: []string{
-			"../aws/dual-region/scripts/storageclass-configure.sh",
+			"./storageclass-configure.sh",
 		},
 	})
 
