@@ -91,6 +91,36 @@ func TestClusterPrerequisites(t *testing.T) {
 			})
 		}
 	})
+
+	// Create Storage Class.
+	t.Run("TestCreateStorageClass", createStorageClass)
+}
+
+func createStorageClass(t *testing.T) {
+	t.Log("[STORAGE CLASS] Creating Storage Class for both clusters 🚀")
+
+	if helpers.IsTeleportEnabled() {
+		t.Logf("Skipping Storage Class creation when Teleport is enabled")
+		return
+	}
+
+	os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
+	os.Setenv("CLUSTER_0", primary.ClusterName)
+	os.Setenv("CLUSTER_1", secondary.ClusterName)
+
+	shell.RunCommand(t, shell.Command{
+		Command: "sh",
+		Args: []string{
+			"../aws/dual-region/scripts/storageclass-configure.sh",
+		},
+	})
+
+	shell.RunCommand(t, shell.Command{
+		Command: "sh",
+		Args: []string{
+			"../aws/dual-region/scripts/storageclass-verify.sh",
+		},
+	})
 }
 
 func clusterReadyCheck(t *testing.T) {

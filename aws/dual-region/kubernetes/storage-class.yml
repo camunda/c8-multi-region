@@ -1,0 +1,19 @@
+---
+# StorageClass manifest for EKS using AWS EBS CSI driver.
+# gp3 is not enabled as the default in EKS, so we explicitly define it here.
+# We also set a minimum of 3000 IOPS to ensure performance requirements.
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+    name: ebs-sc
+    annotations:
+        storageclass.kubernetes.io/is-default-class: 'true'
+provisioner: ebs.csi.aws.com
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+    type: gp3
+    iops: '3000'
+    throughput: '125'
