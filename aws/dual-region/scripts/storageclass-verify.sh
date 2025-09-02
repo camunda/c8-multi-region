@@ -1,7 +1,5 @@
 #!/bin/bash
 
-set -euo pipefail
-
 SC_NAME="ebs-sc"
 
 # verify_storageclass <kube_context>
