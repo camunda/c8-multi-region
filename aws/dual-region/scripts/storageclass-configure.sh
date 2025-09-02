@@ -1,5 +1,4 @@
 #!/bin/bash
-set -euo pipefail
 
 # Resolve path to the storage class YAML relative to this script, so it works from any CWD.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
