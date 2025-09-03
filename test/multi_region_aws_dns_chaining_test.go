@@ -2,6 +2,7 @@ package test
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -90,6 +91,39 @@ func TestClusterPrerequisites(t *testing.T) {
 				},
 			})
 		}
+	})
+
+	// Create Storage Class.
+	t.Run("TestCreateStorageClass", createStorageClass)
+}
+
+func createStorageClass(t *testing.T) {
+	t.Log("[STORAGE CLASS] Creating Storage Class for both clusters 🚀")
+
+	if helpers.IsTeleportEnabled() {
+		t.Logf("Skipping Storage Class creation when Teleport is enabled")
+		return
+	}
+
+	wd, _ := os.Getwd()
+	os.Setenv("KUBECONFIG",
+		filepath.Join(wd, kubeConfigPrimary)+string(os.PathListSeparator)+filepath.Join(wd, kubeConfigSecondary))
+	os.Setenv("CLUSTER_0", primary.ClusterName)
+	os.Setenv("CLUSTER_1", secondary.ClusterName)
+
+	shell.RunCommand(t, shell.Command{
+		Command:    "sh",
+		WorkingDir: "../aws/dual-region/scripts",
+		Args: []string{
+			"./storageclass-configure.sh",
+		},
+	})
+
+	shell.RunCommand(t, shell.Command{
+		Command: "sh",
+		Args: []string{
+			"../aws/dual-region/scripts/storageclass-verify.sh",
+		},
 	})
 }
 
