@@ -3,8 +3,7 @@
 ################################
 
 module "eks_cluster_region_0" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster"
+  source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster?ref=stable/8.7"
 
   region                = local.owner.region
   name                  = "${var.cluster_name}-${local.owner.region_full_name}"
@@ -19,8 +18,7 @@ module "eks_cluster_region_0" {
 }
 
 module "eks_cluster_region_1" {
-  # tflint-ignore: terraform_module_pinned_source
-  source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster"
+  source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster?ref=stable/8.7"
 
   region                = local.accepter.region
   name                  = "${var.cluster_name}-${local.accepter.region_full_name}"
