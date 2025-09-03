@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 kubectl --context "$CLUSTER_0" patch storageclass gp2 \
   -p '{"metadata":{"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 kubectl --context "$CLUSTER_1" patch storageclass gp2 \
