@@ -146,52 +146,19 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-operate", 0, 80)
+	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
 	defer tunnelOperate.Close()
 	tunnelOperate.ForwardPort(t)
 
-	// the Cookie grants access since we don't have an API key
-	resp, err := http.Post(fmt.Sprintf("http://%s/api/login?username=demo&password=demo", tunnelOperate.Endpoint()), "application/json", bytes.NewBufferString("{}"))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
-		return
-	}
-
-	csrfTokenName := "OPERATE-X-CSRF-TOKEN"
-	csrfToken := resp.Header.Get(csrfTokenName)
-	if csrfToken == "" {
-		csrfTokenName = "X-CSRF-TOKEN"
-		csrfToken = resp.Header.Get(csrfTokenName)
-	}
-
-	var cookieAuth string
-	var csrfTokenId string
-	for _, val := range resp.Cookies() {
-		if val.Name == "OPERATE-SESSION" {
-			cookieAuth = val.Value
-		}
-		if val.Name == csrfTokenName {
-			csrfTokenId = val.Value
-		}
-	}
-	require.NotEmpty(t, cookieAuth)
-
 	// create http client to add cookie to the request
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/process-definitions/search", tunnelOperate.Endpoint()), strings.NewReader(`{}`))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", tunnelOperate.Endpoint()), strings.NewReader(`{}`))
 	if err != nil {
 		t.Fatalf("[C8 PROCESS] %s", err)
 		return
 	}
 	req.Header.Add("Content-Type", "application/json")
-	// > 8.5.1, we need to supply the csrf token
-	if csrfTokenId != "" {
-		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s; %s=%s", cookieAuth, csrfTokenName, csrfTokenId))
-		req.Header.Add(csrfTokenName, csrfToken)
-		req.Header.Add("accept", "application/json")
-	} else {
-		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s", cookieAuth))
-	}
+	req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
 
 	var bodyString string
 	for i := 0; i < 8; i++ {
@@ -338,8 +305,8 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	zeebeContactPoints := ""
 
 	for i := 0; i < size; i++ {
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe-headless.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe-headless.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
 	}
 
 	// Cut the last character "," from the string
@@ -490,19 +457,28 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 		return -1
 	}
 
-	return helpers.CutOutString(output, "ZEEBE_BROKER_CLUSTER_NODEID=[0-9]")
+	return helpers.CutOutString(output, "ORCHESTRATION_NODE_ID=[0-9]")
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
+	require.Equal(t, service.Name, "camunda-zeebe")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
 	// Get the topology of the Zeebe cluster
-	code, body := http_helper.HttpGet(t, fmt.Sprintf("http://%s/v2/topology", tunnel.Endpoint()), nil)
+	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method: "GET",
+		Url:    fmt.Sprintf("http://%s/v2/topology", tunnel.Endpoint()),
+		Headers: map[string]string{
+			"Authorization": "Basic ZGVtbzpkZW1v",
+			"Accept":        "application/json",
+		},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
 	if code != 200 {
 		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
 		return
@@ -536,10 +512,10 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 }
 
 func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary helpers.Cluster, resourceDir string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
+	require.Equal(t, service.Name, "camunda-zeebe")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
@@ -572,10 +548,14 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	}
 
 	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method:    "POST",
-		Url:       fmt.Sprintf("http://%s/v2/deployments", tunnel.Endpoint()),
-		Body:      reqBody,
-		Headers:   map[string]string{"Content-Type": writer.FormDataContentType(), "Accept": "application/json"},
+		Method: "POST",
+		Url:    fmt.Sprintf("http://%s/v2/deployments", tunnel.Endpoint()),
+		Body:   reqBody,
+		Headers: map[string]string{
+			"Content-Type":  writer.FormDataContentType(),
+			"Accept":        "application/json",
+			"Authorization": "Basic ZGVtbzpkZW1v",
+		},
 		TlsConfig: nil,
 		Timeout:   30,
 	})
@@ -593,10 +573,14 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 
 	t.Log("[C8 PROCESS] Starting another Process instance 🚀")
 	code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method:    "POST",
-		Url:       fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
-		Body:      strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
-		Headers:   map[string]string{"Content-Type": "application/json", "Accept": "application/json"},
+		Method: "POST",
+		Url:    fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
+		Body:   strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
+		Headers: map[string]string{
+			"Content-Type":  "application/json",
+			"Accept":        "application/json",
+			"Authorization": "Basic ZGVtbzpkZW1v",
+		},
 		TlsConfig: nil,
 		Timeout:   30,
 	})

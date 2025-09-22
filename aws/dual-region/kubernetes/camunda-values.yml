@@ -22,22 +22,10 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
-    elasticsearch:
-        disableExporter: true
-
-operate:
-    env:
-        - name: CAMUNDA_OPERATE_BACKUP_REPOSITORYNAME
-          value: camunda_backup
-tasklist:
-    env:
-        - name: CAMUNDA_TASKLIST_BACKUP_REPOSITORYNAME
-          value: camunda_backup
 
 identity:
     enabled: false
 
-# Temporary Helm chart v10 fix
 identityKeycloak:
     enabled: false
 
@@ -47,12 +35,14 @@ optimize:
 connectors:
     enabled: false
 
-zeebe:
-    clusterSize: 8
-    partitionCount: 8
-    replicationFactor: 4
+orchestration:
+    clusterSize: '8'
+    partitionCount: '8'
+    replicationFactor: '4'
     env:
-        - name: ZEEBE_BROKER_DATA_SNAPSHOTPERIOD
+        - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
+          value: camunda_backup
+        - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
         - name: ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK
           value: '0.85'
@@ -60,23 +50,14 @@ zeebe:
           value: '0.87'
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
-          value: io.camunda.zeebe.exporter.ElasticsearchExporter
-        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
-        # Enable JSON logging for Google Cloud Stackdriver
-        - name: ZEEBE_LOG_APPENDER
-          value: Stackdriver
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICENAME
-          value: zeebe
-        - name: ZEEBE_LOG_STACKDRIVER_SERVICEVERSION
-          valueFrom:
-              fieldRef:
-                  fieldPath: metadata.namespace
+          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
+          #   value: io.camunda.exporter.CamundaExporter
+          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_CONNECT_URL
+          #   value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
+          #   value: io.camunda.exporter.CamundaExporter
+          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_CONNECT_URL
+          #   value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
@@ -87,36 +68,27 @@ zeebe:
           value: GZIP
         - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
           value: 1s
-    pvcSize: 1Gi
-
-    resources:
-        requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 512m
-            memory: 2Gi
-
-zeebeGateway:
-    replicas: 1
-
-    env:
-        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
-        - name: ZEEBE_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
+          # DEBUG
+          # - name: CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI
+          #   value: "true"
+          # - name: "CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED"
+          #   value: "false"
+    pvcSize: 1Gi
+    logLevel: ERROR
 
     resources:
         requests:
-            cpu: 100m
-            memory: 512M
-        limits:
-            cpu: 1000m
+            cpu: 200m
             memory: 1Gi
-
-    logLevel: ERROR
+        limits:
+            cpu: 1512m
+            memory: 3Gi
 
 elasticsearch:
     enabled: true
@@ -124,10 +96,10 @@ elasticsearch:
         replicaCount: 2
         resources:
             requests:
-                cpu: 100m
+                cpu: 0.1
                 memory: 512M
             limits:
-                cpu: 1000m
+                cpu: 1
                 memory: 2Gi
         persistence:
             size: 15Gi

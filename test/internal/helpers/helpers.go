@@ -109,10 +109,7 @@ func CombineMaps(map1, map2 map[string]string) map[string]string {
 // Overwrite the image tag for Camunda images in the map with the provided tag
 func OverwriteImageTag(map1 map[string]string, tag string) map[string]string {
 	// Allows to later add additional images to the map like Optimize / Connectors
-	map1["zeebe.image.tag"] = tag
-	map1["zeebeGateway.image.tag"] = tag
-	map1["operate.image.tag"] = tag
-	map1["tasklist.image.tag"] = tag
+	map1["orchestration.image.tag"] = tag
 
 	return map1
 }
