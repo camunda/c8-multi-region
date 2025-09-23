@@ -11,8 +11,8 @@ generate_initial_contact() {
     local port_number=26502
     local result=""
     for ((i=0; i<count/2; i++)); do
-        result+="${release}-zeebe-${i}.${release}-zeebe-headless.${ns_0}.svc.cluster.local:${port_number},"
-        result+="${release}-zeebe-${i}.${release}-zeebe-headless.${ns_1}.svc.cluster.local:${port_number},"
+        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_0}.svc.cluster.local:${port_number},"
+        result+="${release}-zeebe-${i}.${release}-zeebe.${ns_1}.svc.cluster.local:${port_number},"
     done
     echo "${result%,}"  # Remove the trailing comma
 }

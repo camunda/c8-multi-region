@@ -146,7 +146,7 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
+	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnelOperate.Close()
 	tunnelOperate.ForwardPort(t)
 
@@ -305,8 +305,8 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	zeebeContactPoints := ""
 
 	for i := 0; i < size; i++ {
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe-headless.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe-headless.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
+		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
 	}
 
 	// Cut the last character "," from the string
@@ -461,10 +461,10 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
@@ -512,10 +512,10 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 }
 
 func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary helpers.Cluster, resourceDir string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 8080)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 

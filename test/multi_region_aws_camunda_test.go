@@ -344,7 +344,7 @@ func stopZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe:9600/actuator/exporting/pause", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/pause", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to pause exporters: %v", err)
 			return
@@ -370,7 +370,7 @@ func startZeebeExporters(t *testing.T) {
 
 	// Partition distribution may take a while and results in a 500 error
 	for i := 0; i < 10; i++ {
-		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe:9600/actuator/exporting/resume", "-XPOST")
+		output, err = k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-i", "camunda-zeebe-gateway:9600/actuator/exporting/resume", "-XPOST")
 		if err != nil {
 			t.Fatalf("[ZEEBE EXPORTERS] Failed to resume exporters: %v", err)
 			return
@@ -427,10 +427,10 @@ func checkTheMathFailover_8_6_plus(t *testing.T) {
 
 func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Removing secondary brokers 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 9600)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
@@ -473,10 +473,10 @@ func removeSecondaryBrokers(t *testing.T) {
 
 func disableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILOVER] Disabling Elasticsearch Exporters to secondary 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 9600)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
@@ -514,10 +514,10 @@ func disableElasticExportersToSecondary(t *testing.T) {
 
 func enableElasticExportersToSecondary(t *testing.T) {
 	t.Log("[FAILBACK] Enabling Elasticsearch Exporters to secondary 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 9600)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
@@ -555,10 +555,10 @@ func enableElasticExportersToSecondary(t *testing.T) {
 
 func addSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILBACK] Adding secondary brokers 🚀")
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe")
-	require.Equal(t, service.Name, "camunda-zeebe")
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe", 0, 9600)
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
