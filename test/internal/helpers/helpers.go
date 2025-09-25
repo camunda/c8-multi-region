@@ -121,7 +121,7 @@ func HttpRequest(t *testing.T, method, url string, payload io.Reader) (*http.Res
 		return nil, ""
 	}
 
-	if method == "POST" {
+	if method == http.MethodPost || method == http.MethodPatch {
 		req.Header.Set("Content-Type", "application/json")
 	}
 

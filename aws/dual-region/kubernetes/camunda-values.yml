@@ -4,6 +4,8 @@
 # For changes and documentation, use your favorite diff tool to compare it with:
 # https://github.com/camunda/camunda-platform-helm/blob/main/charts/camunda-platform/values.yaml
 
+# This is an example values.yml for a dual-region setup and might require resource tuning from your side
+
 global:
     # Multiregion options for Zeebe
     #
@@ -22,6 +24,8 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
+    elasticsearch:
+        prefix: '' # temporary fix for https://github.com/camunda/camunda-platform-helm/pull/4284
 
 identity:
     enabled: false
@@ -36,28 +40,38 @@ connectors:
     enabled: false
 
 orchestration:
+    image:
+        tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'
+    exporters:
+        camunda:
+            enabled: false
+        zeebe:
+            enabled: false
     env:
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
+        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
+          value: PLACEHOLDER
+        # Region 0 exporter config
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
+          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+        # Region 1 exporter config
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
+          value: io.camunda.exporter.CamundaExporter
+        - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
+          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+        # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
         - name: ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK
           value: '0.85'
         - name: ZEEBE_BROKER_DATA_DISKUSAGEREPLICATIONWATERMARK
           value: '0.87'
-        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: PLACEHOLDER
-          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
-          #   value: io.camunda.exporter.CamundaExporter
-          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_CONNECT_URL
-          #   value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
-          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
-          #   value: io.camunda.exporter.CamundaExporter
-          # - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_CONNECT_URL
-          #   value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
@@ -74,13 +88,11 @@ orchestration:
           value: 500ms
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
-          # DEBUG
-          # - name: CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI
-          #   value: "true"
-          # - name: "CAMUNDA_SECURITY_AUTHORIZATIONS_ENABLED"
-          #   value: "false"
-    pvcSize: 1Gi
-    logLevel: ERROR
+        # DEBUG
+        - name: LOGGING_LEVEL_IO_CAMUNDA_ZEEBE
+          value: DEBUG
+    pvcSize: 32Gi
+    logLevel: DEBUG
 
     resources:
         requests:
@@ -102,7 +114,7 @@ elasticsearch:
                 cpu: 1
                 memory: 2Gi
         persistence:
-            size: 15Gi
+            size: 30Gi
     initScripts:
         init-keystore.sh: |
             #!/bin/bash

@@ -98,6 +98,7 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
 		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
+		{"TestDeployC8processAndCheckFailover", deployC8processAndCheckFailover},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -129,13 +130,13 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
 		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
 		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
+		{"TestResetSecondaryElastic", resetSecondaryElastic},
 		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
 		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestStartZeebeExporters", startZeebeExporters},
-		{"TestInstallWebAppsSecondary", installWebAppsSecondary_8_6_plus},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestDeployC8processAndCheckFailback", deployC8processAndCheckFailback},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -242,7 +243,33 @@ func checkC8RunningProperly(t *testing.T) {
 
 func deployC8processAndCheck(t *testing.T) {
 	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
-	kubectlHelpers.DeployC8processAndCheck(t, primary, secondary, resourceDir)
+	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
+
+	kubectlHelpers.CheckOperateForProcesses(t, primary)
+	kubectlHelpers.CheckOperateForProcesses(t, secondary)
+
+	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 6)
+	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, 6)
+}
+
+func deployC8processAndCheckFailover(t *testing.T) {
+	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
+	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
+
+	kubectlHelpers.CheckOperateForProcesses(t, primary)
+
+	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 12)
+}
+
+func deployC8processAndCheckFailback(t *testing.T) {
+	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
+	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
+
+	kubectlHelpers.CheckOperateForProcesses(t, primary)
+	kubectlHelpers.CheckOperateForProcesses(t, secondary)
+
+	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 18)
+	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, 18)
 }
 
 func teardownAllC8Helm(t *testing.T) {
@@ -305,6 +332,12 @@ func checkThatElasticBackupIsPresentSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Checking if Elasticsearch Backup is present 🚀")
 
 	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName, clusterName, remoteChartVersion)
+}
+
+func resetSecondaryElastic(t *testing.T) {
+	t.Log("[ELASTICSEARCH] Resetting secondary Elasticsearch 🚀")
+
+	kubectlHelpers.ResetElastic(t, secondary)
 }
 
 func restoreElasticBackupSecondary(t *testing.T) {
@@ -388,17 +421,6 @@ func startZeebeExporters(t *testing.T) {
 	t.Logf("[ZEEBE EXPORTERS] Resumed exporters: %s", output)
 }
 
-func installWebAppsSecondary_8_6_plus(t *testing.T) {
-
-	if helpers.IsTeleportEnabled() {
-		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
-	}
-
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, true, false, false, baseHelmVars)
-
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
-}
-
 func checkTheMath(t *testing.T) {
 	t.Log("[MATH] Checking the math 🚀")
 
@@ -435,7 +457,12 @@ func removeSecondaryBrokers(t *testing.T) {
 	tunnel.ForwardPort(t)
 
 	// Redistribute to remaining brokers
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/cluster/brokers?force=true", tunnel.Endpoint()), bytes.NewBuffer([]byte(`[0, 2, 4, 6]`)))
+	res, body := helpers.HttpRequest(
+		t,
+		"PATCH",
+		fmt.Sprintf("http://%s/actuator/cluster?force=true", tunnel.Endpoint()),
+		bytes.NewBuffer([]byte(`{"brokers":{"remove":[1,3,5,7]}}`)),
+	)
 	if res == nil {
 		t.Fatal("[FAILOVER] Failed to create request")
 		return
@@ -480,7 +507,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/elasticsearchregion1/disable", tunnel.Endpoint()), nil)
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/disable", tunnel.Endpoint()), nil)
 	if res == nil {
 		t.Fatal("[FAILOVER] Failed to create request")
 		return
@@ -499,7 +526,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 			return
 		}
 
-		if strings.Contains(body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"}") {
+		if strings.Contains(body, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}") {
 			break
 		}
 		t.Log("[FAILOVER] Exporter not yet disabled, retrying...")
@@ -508,8 +535,8 @@ func disableElasticExportersToSecondary(t *testing.T) {
 
 	require.Equal(t, 200, res.StatusCode)
 	require.NotEmpty(t, body)
-	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"camundaregion1\",\"status\":\"DISABLED\"}")
 }
 
 func enableElasticExportersToSecondary(t *testing.T) {
@@ -521,7 +548,7 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	defer tunnel.Close()
 	tunnel.ForwardPort(t)
 
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/elasticsearchregion1/enable", tunnel.Endpoint()), bytes.NewBuffer([]byte(`{"initializeFrom":"elasticsearchregion0"}`)))
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/enable", tunnel.Endpoint()), bytes.NewBuffer([]byte(`{"initializeFrom":"camundaregion0"}`)))
 	if res == nil {
 		t.Fatal("[FAILBACK] Failed to create request")
 		return
@@ -533,14 +560,15 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	require.Contains(t, body, "PARTITION_ENABLE_EXPORTER")
 
 	// Check that the exporter was enabled
-	for i := 0; i < 3; i++ {
+	// It can take a while until the exporter is fully enabled again
+	for i := 0; i < 30; i++ {
 		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()), nil)
 		if res == nil {
 			t.Fatal("[FAILBACK] Failed to create request")
 			return
 		}
 
-		if strings.Contains(body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"ENABLED\"}") {
+		if strings.Contains(body, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}") {
 			break
 		}
 		t.Log("[FAILBACK] Exporter not yet enabled, retrying...")
@@ -549,8 +577,8 @@ func enableElasticExportersToSecondary(t *testing.T) {
 
 	require.Equal(t, 200, res.StatusCode)
 	require.NotEmpty(t, body)
-	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion0\",\"status\":\"ENABLED\"}")
-	require.Contains(t, body, "{\"exporterId\":\"elasticsearchregion1\",\"status\":\"ENABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"camundaregion0\",\"status\":\"ENABLED\"}")
+	require.Contains(t, body, "{\"exporterId\":\"camundaregion1\",\"status\":\"ENABLED\"}")
 }
 
 func addSecondaryBrokers(t *testing.T) {
@@ -563,7 +591,12 @@ func addSecondaryBrokers(t *testing.T) {
 	tunnel.ForwardPort(t)
 
 	// Redistribute to new brokers
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/cluster/brokers?replicationFactor=4", tunnel.Endpoint()), bytes.NewBuffer([]byte(`[0, 1, 2, 3, 4, 5, 6, 7]`)))
+	res, body := helpers.HttpRequest(
+		t,
+		"PATCH",
+		fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()),
+		bytes.NewBuffer([]byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`)),
+	)
 	if res == nil {
 		t.Fatal("[FAILBACK] Failed to create request")
 		return
