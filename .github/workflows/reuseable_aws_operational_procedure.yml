@@ -97,10 +97,8 @@ jobs:
                   # ALPHA chart = future minor version
                   if [ "$version" == "snapshot" ]; then
                   {
-                  # With 8.7 and 8.8 being developed concurrently, the helm chart is 8.7 while the images are 8.8
-                  # Therefore fallback atm on the helm chart defined image tags
-                  # echo "GLOBAL_IMAGE_TAG=SNAPSHOT"
-                  echo "HELM_CHART_VERSION=0.0.0-snapshot-latest"
+                  echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
+                  echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
                   echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                   } >> "$GITHUB_ENV"
                   else
