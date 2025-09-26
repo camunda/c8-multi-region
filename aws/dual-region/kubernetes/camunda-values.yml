@@ -7,7 +7,7 @@
 # This is an example values.yml for a dual-region setup and might require resource tuning from your side
 
 global:
-    # Multiregion options for Zeebe
+    # Multiregion options for the Orchestration Cluster
     #
     ## WARNING: In order to get your multi-region setup covered by Camunda enterprise support
     # you MUST get your configuration and run books reviewed by Camunda before going to production.
@@ -37,7 +37,9 @@ optimize:
     enabled: false
 
 connectors:
-    enabled: false
+    image:
+        tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
+    enabled: true
 
 orchestration:
     image:
@@ -45,6 +47,7 @@ orchestration:
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'
+    # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:
             enabled: false
@@ -53,6 +56,8 @@ orchestration:
     env:
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
+        - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
+          value: 'true'
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
         # Region 0 exporter config
@@ -88,11 +93,8 @@ orchestration:
           value: 500ms
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
-        # DEBUG
-        - name: LOGGING_LEVEL_IO_CAMUNDA_ZEEBE
-          value: DEBUG
     pvcSize: 32Gi
-    logLevel: DEBUG
+    logLevel: ERROR
 
     resources:
         requests:

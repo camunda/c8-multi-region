@@ -47,6 +47,7 @@ var (
 
 	baseHelmVars = map[string]string{}
 	timeout      = "600s"
+	retries      = 20
 )
 
 // AWS EKS Multi-Region Tests
@@ -215,6 +216,7 @@ func deployC8Helm(t *testing.T) {
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
+		retries = 100
 		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
 	}
 
@@ -234,6 +236,9 @@ func deployC8Helm(t *testing.T) {
 	// no functions for Statefulsets yet
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
+
+	// connectors last as they depend on the Orchestration Cluster
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
 }
 
 func checkC8RunningProperly(t *testing.T) {
@@ -629,4 +634,6 @@ func addSecondaryBrokers(t *testing.T) {
 
 	// Check that the new brokers have become ready, now that they're integrated in the zeebe cluster again
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
+
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
 }
