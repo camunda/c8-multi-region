@@ -87,7 +87,7 @@ zeebe:
           value: GZIP
         - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
           value: 1s
-    pvcSize: 1Gi
+    pvcSize: 32Gi
 
     resources:
         requests:
@@ -130,7 +130,7 @@ elasticsearch:
                 cpu: 1000m
                 memory: 2Gi
         persistence:
-            size: 15Gi
+            size: 30Gi
     initScripts:
         init-keystore.sh: |
             #!/bin/bash
