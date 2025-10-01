@@ -489,7 +489,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		helmOptions.ExtraArgs = map[string][]string{"upgrade": []string{"--version", remoteChartVersion}}
 		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 	} else {
-		helm.Install(t, helmOptions, remoteChartName, "camunda")
+		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 	}
 
 	// Write the old file back to the file - mostly for local development

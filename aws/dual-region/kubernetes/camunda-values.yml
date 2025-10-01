@@ -39,9 +39,18 @@ optimize:
 connectors:
     image:
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
-    enabled: true
+    enabled: false
 
 orchestration:
+    affinity:
+        podAntiAffinity:
+    contextPath: /
+    migration:
+        data:
+            enabled: true
+    importer:
+        enabled: true
+
     image:
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
     clusterSize: '8'
@@ -54,29 +63,40 @@ orchestration:
         zeebe:
             enabled: false
     env:
+        # Migration
+        - name: CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI
+          value: 'true'
+        - name: CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK
+          value: 'false'
+        # above is extra, not really needed in final release, hopefully ...
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
+          value: io.camunda.zeebe.exporter.ElasticsearchExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
+          value: http://camunda-elasticsearch-master-hl.c8-snap-cluster-0.svc.cluster.local:9200
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
+          value: io.camunda.zeebe.exporter.ElasticsearchExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
+          value: http://camunda-elasticsearch-master-hl.c8-snap-cluster-1.svc.cluster.local:9200
+        # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: PLACEHOLDER
+          value: camunda-zeebe-0.camunda-zeebe.c8-snap-cluster-0.svc.cluster.local:26502,camunda-zeebe-0.camunda-zeebe.c8-snap-cluster-1.svc.cluster.local:26502,camunda-zeebe-1.camunda-zeebe.c8-snap-cluster-0.svc.cluster.local:26502,camunda-zeebe-1.camunda-zeebe.c8-snap-cluster-1.svc.cluster.local:26502,camunda-zeebe-2.camunda-zeebe.c8-snap-cluster-0.svc.cluster.local:26502,camunda-zeebe-2.camunda-zeebe.c8-snap-cluster-1.svc.cluster.local:26502,camunda-zeebe-3.camunda-zeebe.c8-snap-cluster-0.svc.cluster.local:26502,camunda-zeebe-3.camunda-zeebe.c8-snap-cluster-1.svc.cluster.local:26502
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+          value: http://camunda-elasticsearch-master-hl.c8-snap-cluster-0.svc.cluster.local:9200
         # Region 1 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+          value: http://camunda-elasticsearch-master-hl.c8-snap-cluster-1.svc.cluster.local:9200
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
-        - name: ZEEBE_BROKER_DATA_DISKUSAGECOMMANDWATERMARK
-          value: '0.85'
-        - name: ZEEBE_BROKER_DATA_DISKUSAGEREPLICATIONWATERMARK
-          value: '0.87'
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
         - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
@@ -85,8 +105,6 @@ orchestration:
           value: 10s
         - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
-        - name: ZEEBE_BROKER_BACKPRESSURE_AIMD_REQUESTTIMEOUT
-          value: 1s
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
         - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
