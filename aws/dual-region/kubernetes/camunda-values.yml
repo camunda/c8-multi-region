@@ -24,8 +24,6 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
-    # elasticsearch:
-    #     prefix: '' # temporary fix for https://github.com/camunda/camunda-platform-helm/pull/4284
 
 identity:
     enabled: false
@@ -39,12 +37,11 @@ optimize:
 connectors:
     image:
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
-    enabled: false
+    enabled: true
 
 orchestration:
     affinity:
         podAntiAffinity:
-    contextPath: /
     migration:
         data:
             enabled: true
@@ -64,12 +61,14 @@ orchestration:
             enabled: false
     env:
         # Migration
+        # TODO: remove - only needed for snapshot tests
         - name: CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK
           value: 'false'
         # Need this for the importer since it's a standalone Gateway
+        # While Orchestration Cluster is now embedded Gateway (ZEEBE_BROKER_GATEWAY vs ZEEBE_GATEWAY)
         - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
           value: GZIP
-        # above is extra, not really needed in final release, hopefully ...
+        # Old Exporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
