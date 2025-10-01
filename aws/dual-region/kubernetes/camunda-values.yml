@@ -24,8 +24,8 @@ global:
             # Disable the Identity authentication
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
-    elasticsearch:
-        prefix: '' # temporary fix for https://github.com/camunda/camunda-platform-helm/pull/4284
+    # elasticsearch:
+    #     prefix: '' # temporary fix for https://github.com/camunda/camunda-platform-helm/pull/4284
 
 identity:
     enabled: false
@@ -64,10 +64,11 @@ orchestration:
             enabled: false
     env:
         # Migration
-        - name: CAMUNDA_SECURITY_AUTHENTICATION_UNPROTECTEDAPI
-          value: 'true'
         - name: CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK
           value: 'false'
+        # Need this for the importer since it's a standalone Gateway
+        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+          value: GZIP
         # above is extra, not really needed in final release, hopefully ...
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
