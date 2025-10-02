@@ -1,5 +1,5 @@
 ---
-zeebe:
+orchestration:
     tolerations:
         - key: t-core-8-unstable
           operator: Exists
