@@ -39,12 +39,11 @@ optimize:
 
 connectors:
     image:
+        # TODO: [release-duty] before the release, remove this!
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
     enabled: true
 
 orchestration:
-    affinity:
-        podAntiAffinity:      # temporary fix for the migration topics
     migration:
         data:
             enabled: true
@@ -52,6 +51,7 @@ orchestration:
         enabled: true
 
     image:
+        # TODO: [release-duty] before the release, remove this!
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
     clusterSize: '8'
     partitionCount: '8'
@@ -64,7 +64,7 @@ orchestration:
             enabled: false
     env:
         # Migration
-        # TODO: remove - only needed for snapshot tests
+        # TODO: [release-duty] before the release, remove this!
         - name: CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK
           value: 'false'
         # Need this for the importer since it's a standalone Gateway
@@ -80,6 +80,7 @@ orchestration:
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
           value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+        # Base greenfield config
         # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup

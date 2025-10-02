@@ -4,7 +4,6 @@ name: Teleport Migration Procedure (Snapshot)
 on:
     schedule:
         - cron: 0 3 * * 1-5   # At 03:00 on every day-of-week from Monday through Friday.
-    push: # temporary trigger
     pull_request:
         # in current form is very limited to 8.7 to 8.8 migration only
         branches-ignore:
