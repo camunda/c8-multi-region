@@ -413,7 +413,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	return zeebeContactPoints
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, failover, esSwitch bool, setValues map[string]string) {
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
@@ -484,13 +484,11 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
 	}
 
-	if upgrade {
-		// Terratest is actively ignoring the version in an upgrade
-		helmOptions.ExtraArgs = map[string][]string{"upgrade": []string{"--version", remoteChartVersion}}
-		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
-	} else {
-		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
+	// Terratest is actively ignoring the version in an upgrade
+	helmOptions.ExtraArgs = map[string][]string{
+		"upgrade": {"--version", remoteChartVersion, "--install"},
 	}
+	helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 
 	// Write the old file back to the file - mostly for local development
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
