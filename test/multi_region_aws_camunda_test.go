@@ -22,6 +22,8 @@ const (
 	kubeConfigPrimary   = "./kubeconfig-london"
 	kubeConfigSecondary = "./kubeconfig-paris"
 	k8sManifests        = "../aws/dual-region/kubernetes"
+	defaultValuesYaml   = "camunda-values.yml"
+	migrationValuesYaml = "camunda-values-migration.yml"
 
 	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
@@ -221,9 +223,9 @@ func deployC8Helm(t *testing.T) {
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 0, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 0, false, false, baseHelmVars)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 1, false, false, baseHelmVars)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -367,7 +369,7 @@ func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
 		baseHelmVars["zeebe.affinity.podAntiAffinity"] = "null"
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, 1, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 1, false, false, helpers.CombineMaps(baseHelmVars, setValues))
 
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503

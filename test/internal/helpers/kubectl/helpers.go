@@ -413,7 +413,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	return zeebeContactPoints
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, failover, esSwitch bool, setValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover, valuesYaml string, region int, failover, esSwitch bool, setValues map[string]string) {
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
@@ -443,14 +443,14 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
 	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
 
-	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
-
-	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
-	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
+	valuesFiles := []string{fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)}
+	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/%s", region, "camunda-values.yml")) // these are the region overlays and should change whether migration or not
 
 	if helpers.IsTeleportEnabled() {
 		valuesFiles = append(valuesFiles, "./fixtures/teleport-affinities-tolerations.yml")
 	}
+
+	filePath := fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
