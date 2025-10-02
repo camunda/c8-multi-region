@@ -75,7 +75,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6) }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "normal") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -102,7 +102,7 @@ func TestMigrationDualReg(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestCheckMigrationSucceed", checkMigrationSucceed},
 		{"TestPostMigrationCleanup", postMigrationCleanup},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7) }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7, "migration") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -131,7 +131,7 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
 		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 12) }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 12, "failover") }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -169,7 +169,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18) }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "failback") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -281,7 +281,7 @@ func checkC8RunningProperly(t *testing.T) {
 	kubectlHelpers.CheckC8RunningProperly(t, primary, primaryNamespace, secondaryNamespace)
 }
 
-func deployC8processAndCheck(t *testing.T, expectedProcesses int) {
+func deployC8processAndCheck(t *testing.T, expectedProcesses int, mode string) {
 	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
 
 	tmpExpectedProcesses := expectedProcesses + migrationOffset
@@ -289,10 +289,16 @@ func deployC8processAndCheck(t *testing.T, expectedProcesses int) {
 	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
 
 	kubectlHelpers.CheckOperateForProcesses(t, primary)
-	kubectlHelpers.CheckOperateForProcesses(t, secondary)
+
+	if mode != "failover" {
+		kubectlHelpers.CheckOperateForProcesses(t, secondary)
+	}
 
 	kubectlHelpers.CheckOperateForProcessInstances(t, primary, tmpExpectedProcesses)
-	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses)
+
+	if mode != "failover" {
+		kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses)
+	}
 }
 
 func teardownAllC8Helm(t *testing.T) {
