@@ -475,15 +475,14 @@ func removeSecondaryBrokers(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
 
 	// Redistribute to remaining brokers
 	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster?force=true", tunnel.Endpoint()),
+		fmt.Sprintf("http://%s/actuator/cluster?force=true", endpoint),
 		bytes.NewBuffer([]byte(`{"brokers":{"remove":[1,3,5,7]}}`)),
 	)
 	if res == nil {
@@ -501,7 +500,7 @@ func removeSecondaryBrokers(t *testing.T) {
 
 	// Check that the removal of obsolete brokers was completed
 	for i := 0; i < 3; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()), nil)
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILOVER] Failed to create request")
 			return
@@ -526,11 +525,10 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
 
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/disable", tunnel.Endpoint()), nil)
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/disable", endpoint), nil)
 	if res == nil {
 		t.Fatal("[FAILOVER] Failed to create request")
 		return
@@ -543,7 +541,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 
 	// Check that the exporter was disabled
 	for i := 0; i < 3; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()), nil)
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILOVER] Failed to create request")
 			return
@@ -567,11 +565,10 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
 
-	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/enable", tunnel.Endpoint()), bytes.NewBuffer([]byte(`{"initializeFrom":"camundaregion0"}`)))
+	res, body := helpers.HttpRequest(t, "POST", fmt.Sprintf("http://%s/actuator/exporters/camundaregion1/enable", endpoint), bytes.NewBuffer([]byte(`{"initializeFrom":"camundaregion0"}`)))
 	if res == nil {
 		t.Fatal("[FAILBACK] Failed to create request")
 		return
@@ -585,7 +582,7 @@ func enableElasticExportersToSecondary(t *testing.T) {
 	// Check that the exporter was enabled
 	// It can take a while until the exporter is fully enabled again
 	for i := 0; i < 30; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()), nil)
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILBACK] Failed to create request")
 			return
@@ -609,15 +606,14 @@ func addSecondaryBrokers(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
 
 	// Redistribute to new brokers
 	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()),
+		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
 		bytes.NewBuffer([]byte(`{"brokers":{"add":[1,3,5,7]},"partitions":{"replicationFactor":4}}`)),
 	)
 	if res == nil {
@@ -632,7 +628,7 @@ func addSecondaryBrokers(t *testing.T) {
 	// Check that the addition of new brokers was completed
 	// This can take a while
 	for i := 0; i < 20; i++ {
-		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()), nil)
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILBACK] Failed to create request")
 			return
@@ -677,9 +673,8 @@ func postMigrationCleanup(t *testing.T) {
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
 
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
+	defer closeFn()
 
 	// Disable old migration exporters
 	exporterIDs := []string{"elasticsearchregion0", "elasticsearchregion1"}
@@ -688,7 +683,7 @@ func postMigrationCleanup(t *testing.T) {
 		res, body := helpers.HttpRequest(
 			t,
 			"POST",
-			fmt.Sprintf("http://%s/actuator/exporters/%s/disable", tunnel.Endpoint(), id),
+			fmt.Sprintf("http://%s/actuator/exporters/%s/disable", endpoint, id),
 			nil,
 		)
 		if res == nil {
@@ -704,7 +699,7 @@ func postMigrationCleanup(t *testing.T) {
 			resCluster, bodyCluster := helpers.HttpRequest(
 				t,
 				"GET",
-				fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()),
+				fmt.Sprintf("http://%s/actuator/cluster", endpoint),
 				nil,
 			)
 			if resCluster == nil {
@@ -734,7 +729,7 @@ func postMigrationCleanup(t *testing.T) {
 		res, body = helpers.HttpRequest(
 			t,
 			"GET",
-			fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()),
+			fmt.Sprintf("http://%s/actuator/exporters", endpoint),
 			nil,
 		)
 		if res == nil {

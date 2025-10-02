@@ -49,6 +49,53 @@ type ClusterInfo struct {
 	GatewayVersion    string   `json:"gatewayVersion"`
 }
 
+// NewServiceTunnelWithRetry establishes a port-forward tunnel to a Kubernetes Service with retry logic.
+// Parameters:
+//
+//	t: *testing.T
+//	kubectlOptions: target kubectl options
+//	serviceName: name of the Service (must exist)
+//	localPort: local port to bind (0 lets kubectl choose a random free port)
+//	remotePort: target Service port
+//	maxRetries: how many times to retry establishing the tunnel
+//	backoff: sleep duration between retries
+//
+// Returns: (endpoint string, close func())
+func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions, serviceName string, localPort, remotePort, maxRetries int, backoff time.Duration) (string, func()) {
+	t.Helper()
+
+	// Ensure service exists early (gives clearer error)
+	svc := k8s.GetService(t, kubectlOptions, serviceName)
+	require.Equal(t, serviceName, svc.Name)
+
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
+	if backoff <= 0 {
+		backoff = 5 * time.Second
+	}
+
+	tunnel := k8s.NewTunnel(kubectlOptions, k8s.ResourceTypeService, serviceName, localPort, remotePort)
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		err = tunnel.ForwardPortE(t)
+		if err == nil {
+			break
+		}
+		t.Logf("[TUNNEL] port-forward attempt %d/%d failed for %s:%d -> %s: %v", i+1, maxRetries, serviceName, remotePort, kubectlOptions.Namespace, err)
+		if i < maxRetries-1 {
+			time.Sleep(backoff)
+		}
+	}
+	if err != nil {
+		t.Fatalf("[TUNNEL] failed to establish port-forward after %d attempts: %v", maxRetries, err)
+		return "", func() {}
+	}
+
+	cleanup := func() { tunnel.Close() }
+	return tunnel.Endpoint(), cleanup
+}
+
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
 	kubeResourcePath := fmt.Sprintf("%s/%s", k8sManifests, "nginx.yml")
 
@@ -146,26 +193,12 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnelOperate.Close()
-	// Retry port-forward in case of transient errors
-	maxRetries := 5
-	var pfErr error
-	for i := 0; i < maxRetries; i++ {
-		pfErr = tunnelOperate.ForwardPortE(t)
-		if pfErr == nil {
-			break
-		}
-		t.Logf("[C8 PROCESS] port-forward attempt %d/%d failed: %v; retrying...", i+1, maxRetries, pfErr)
-		time.Sleep(15 * time.Second)
-	}
-	if pfErr != nil {
-		t.Fatalf("[C8 PROCESS] port-forward failed after %d attempts: %v", maxRetries, pfErr)
-	}
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
 
 	// create http client to add cookie to the request
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", tunnelOperate.Endpoint()), strings.NewReader(`{}`))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(`{}`))
 	if err != nil {
 		t.Fatalf("[C8 PROCESS] %s", err)
 		return
@@ -207,13 +240,12 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 
 	t.Logf("[C8 PROCESS INSTANCES] Checking for Cluster %s whether instances of bigVarProcess are created", cluster.ClusterName)
 
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnelOperate.Close()
-	tunnelOperate.ForwardPort(t)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
 
 	// create http client to add cookie to the request
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", tunnelOperate.Endpoint()), strings.NewReader(`{}`))
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(`{}`))
 	if err != nil {
 		t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
 		return
@@ -570,17 +602,13 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
-
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
 
 	// Get the topology of the Zeebe cluster
 	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 		Method: "GET",
-		Url:    fmt.Sprintf("http://%s/v2/topology", tunnel.Endpoint()),
+		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
 		Headers: map[string]string{
 			"Authorization": "Basic ZGVtbzpkZW1v",
 			"Accept":        "application/json",
@@ -597,7 +625,7 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 
 	err := json.Unmarshal([]byte(body), &topology)
 	if err != nil {
-		t.Fatalf("[C8 CHECK] Error unmarshalling JSON:", err)
+		t.Fatalf("[C8 CHECK] Error unmarshalling JSON: %v", err)
 		return
 	}
 
@@ -621,12 +649,8 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 }
 
 func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resourceDir string) {
-	service := k8s.GetService(t, &kubectlOptions.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
-
-	tunnel := k8s.NewTunnel(&kubectlOptions.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &kubectlOptions.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
 
 	file, err := os.Open(fmt.Sprintf("%s/single-task.bpmn", resourceDir))
 	if err != nil {
@@ -658,7 +682,7 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 
 	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 		Method: "POST",
-		Url:    fmt.Sprintf("http://%s/v2/deployments", tunnel.Endpoint()),
+		Url:    fmt.Sprintf("http://%s/v2/deployments", endpoint),
 		Body:   reqBody,
 		Headers: map[string]string{
 			"Content-Type":  writer.FormDataContentType(),
@@ -684,7 +708,7 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 		t.Logf("[C8 PROCESS] Starting Process instance %d/6 🚀", i)
 		code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 			Method: "POST",
-			Url:    fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
+			Url:    fmt.Sprintf("http://%s/v2/process-instances", endpoint),
 			Body:   strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
