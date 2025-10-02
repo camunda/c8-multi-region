@@ -666,15 +666,7 @@ func checkMigrationSucceed(t *testing.T) {
 }
 
 func postMigrationCleanup(t *testing.T) {
-	t.Log("[MIGRATION CLEANUP] Cleaning up after Camunda Platform Migration 🚦")
-
-	t.Log("[MIGRATION CLEANUP] Bumping migration offset for process instance checks")
-
-	t.Log("[MIGRATION CLEANUP] removing job and deployment")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "job", "camunda-zeebe-migration-data")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "job", "camunda-zeebe-migration-data")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "deployment", "camunda-zeebe-importer")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "deployment", "camunda-zeebe-importer")
+	t.Log("[MIGRATION CLEANUP] Disabling old exporters after Camunda Platform Migration 🚦")
 
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")

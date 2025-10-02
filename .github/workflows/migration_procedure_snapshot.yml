@@ -2,7 +2,18 @@
 name: Teleport Migration Procedure (Snapshot)
 
 on:
-    push:
+    schedule:
+        - cron: 0 3 * * 1-5   # At 03:00 on every day-of-week from Monday through Friday.
+    push: # temporary trigger
+    pull_request:
+        # in current form is very limited to 8.7 to 8.8 migration only
+        branches-ignore:
+            - stable/**
+        paths:
+            - .github/workflows/migration_procedure_snapshot.yml.yml
+            - .github/workflows/reuseable_aws_operational_procedure.yml
+            - aws/dual-region/kubernetes/**/**.yml
+            - aws/dual-region/scripts/generate_zeebe_helm_values.sh
     workflow_dispatch:
         inputs:
             previous-helm-chart:
@@ -13,24 +24,41 @@ on:
                 description: Snapshot Helm chart version tag
                 required: false
                 default: SNAPSHOT
+            keep-alive:
+                description: Keep the clusters alive after the procedure (default false)
+                required: false
+                default: false
+                type: boolean
+            skip-failover:
+                description: Skip the failover part of the procedure (default false)
+                required: false
+                default: false
+                type: boolean
+            skip-failback:
+                description: Skip the failback part of the procedure (default false)
+                required: false
+                default: false
+                type: boolean
 
-# Adjust if you need to restrict concurrency
+env:
+    IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+
 concurrency:
-    group: teleport-migration-${{ github.ref }}
+    group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
 
 jobs:
     deploy_previous_release:
-        name: Deploy release (deployOne)
+        name: Deploy previous release only
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
             helmChartVersion: ${{ github.event.inputs.previous-helm-chart || '12.6.1' }}
             deployOnly: true
-            overwriteBranch: 8.7-increase-size
+            overwriteBranch: 8.7-increase-size # changed pvc sizes
         secrets: inherit
 
     deploy_migration_release:
-        name: Deploy snapshot with migration
+        name: Deploy snapshot with migration enabled
         needs: deploy_previous_release
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
@@ -40,4 +68,23 @@ jobs:
             cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}
             backup_name: ${{ needs.deploy_previous_release.outputs.BACKUP_NAME }}
             overwriteBranch: 8-8-adjustments-migration
+            keepAlive: ${{ github.event.inputs.keep-alive || false }}
+            skipFailover: ${{ github.event.inputs.skip-failover || false }}
+            skipFailback: ${{ github.event.inputs.skip-failback || false }}
         secrets: inherit
+
+    report-failure:
+        name: Report failures
+        if: failure()
+        runs-on: ubuntu-latest
+        needs:
+            - deploy_migration_release
+        steps:
+            - name: Notify in Slack in case of failure
+              id: slack-notification
+              if: env.IS_SCHEDULE == 'true'
+              uses: camunda/infraex-common-config/.github/actions/report-failure-on-slack@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+              with:
+                  vault_addr: ${{ secrets.VAULT_ADDR }}
+                  vault_role_id: ${{ secrets.VAULT_ROLE_ID }}
+                  vault_secret_id: ${{ secrets.VAULT_SECRET_ID }}

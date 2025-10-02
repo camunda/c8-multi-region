@@ -100,6 +100,21 @@ on:
                 description: Optional branch to checkout instead of inferring from helm chart version
                 required: false
                 type: string
+            keepAlive:
+                description: Whether to keep the clusters alive after the procedure
+                required: false
+                type: boolean
+                default: false
+            skipFailover:
+                description: Whether to skip the tests after deployment
+                required: false
+                type: boolean
+                default: false
+            skipFailback:
+                description: Whether to skip the tests after deployment
+                required: false
+                type: boolean
+                default: false
         outputs:
             CLUSTER_0_NAMESPACE:
                 description: Namespace for cluster 0
@@ -319,6 +334,7 @@ jobs:
               if: inputs.migrationEnabled == false
               id: deploy-camunda
               working-directory: ./test
+              timeout-minutes: 31
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
@@ -327,12 +343,41 @@ jobs:
               if: inputs.migrationEnabled == true
               id: deploy-camunda-migration
               working-directory: ./test
+              timeout-minutes: 46
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 45m -run TestMigrationDualReg
 
                   # 8.7 process instance created during deploy offset
                   echo "MIGRATION_OFFSET=1" >> "$GITHUB_ENV"
+
+                  mkdir -p ./migration_logs
+
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
+
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
 
             - name: Show pending pod count in each namespace after initial deployment
               id: pending-check-1
@@ -355,7 +400,7 @@ jobs:
                   fi
 
             - name: Failover New - ${{ inputs.helmChartVersion }}
-              if: inputs.deployOnly == false
+              if: inputs.deployOnly == false && inputs.skipFailover == false
               working-directory: ./test
               timeout-minutes: 21
               run: |
@@ -363,13 +408,13 @@ jobs:
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
 
             - name: Set start timestamp for Failback
-              if: inputs.deployOnly == false
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               id: failback-start
               run: |
                   set -euxo pipefail
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
             - name: Failback New - ${{ inputs.helmChartVersion }}
-              if: inputs.deployOnly == false
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               working-directory: ./test
               timeout-minutes: 46
               run: |
@@ -378,7 +423,7 @@ jobs:
 
             - name: Show pending pod count in each namespace after failback-start
               id: pending-check-2
-              if: always() && inputs.deployOnly == false
+              if: always() && inputs.deployOnly == false && inputs.skipFailback == false
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
                   # List all pods that are in Pending status, then count them.
@@ -397,7 +442,7 @@ jobs:
                   fi
 
             - name: Calculate Failback duration
-              if: inputs.deployOnly == false
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               run: |
                   set -euxo pipefail
                   printf -v now '%(%s)T'
@@ -408,9 +453,56 @@ jobs:
                   fi
 
             - name: Delete namespaces
-              if: always() && inputs.deployOnly == false
+              if: always() && inputs.deployOnly == false && inputs.keepAlive == false
               run: |
                   set -euxo pipefail
 
                   kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
                   kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
+
+            - name: Get failed Pods info - ${{ env.CLUSTER_0_NAMESPACE }}
+              timeout-minutes: 10
+              if: failure()
+              working-directory: ./test
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p ./logs
+
+                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po
+                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}logs.txt";
+                  done
+
+            - name: Get failed Pods info - ${{ env.CLUSTER_1_NAMESPACE }}
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p ./logs
+
+                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po
+                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
+                  done
+
+            - name: Upload migration logs
+              if: always() && inputs.migrationEnabled == true
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: migration-logs
+                  path: |
+                      ./test/migration_logs/
+
+            - name: Upload failed logs
+              if: failure()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: failure-logs
+                  path: |
+                      ./test/logs/
