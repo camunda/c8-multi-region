@@ -48,9 +48,10 @@ var (
 	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
 	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
 
-	baseHelmVars = map[string]string{}
-	timeout      = "600s"
-	retries      = 20
+	baseHelmVars    = map[string]string{}
+	timeout         = "600s"
+	retries         = 20
+	migrationOffset = 0 // Offset for process instances started before migration
 )
 
 // AWS EKS Multi-Region Tests
@@ -73,7 +74,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6) }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -100,7 +101,7 @@ func TestMigrationDualReg(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestCheckMigrationSucceed", checkMigrationSucceed},
 		{"TestPostMigrationCleanup", postMigrationCleanup},
-		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7) }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -129,7 +130,7 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
 		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
-		{"TestDeployC8processAndCheckFailover", deployC8processAndCheckFailover},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 12) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -167,7 +168,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheckFailback", deployC8processAndCheckFailback},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18) }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -276,35 +277,18 @@ func checkC8RunningProperly(t *testing.T) {
 	kubectlHelpers.CheckC8RunningProperly(t, primary, primaryNamespace, secondaryNamespace)
 }
 
-func deployC8processAndCheck(t *testing.T) {
+func deployC8processAndCheck(t *testing.T, expectedProcesses int) {
 	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
+
+	tmpExpectedProcesses := expectedProcesses + migrationOffset
+
 	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
 
 	kubectlHelpers.CheckOperateForProcesses(t, primary)
 	kubectlHelpers.CheckOperateForProcesses(t, secondary)
 
-	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 6)
-	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, 6)
-}
-
-func deployC8processAndCheckFailover(t *testing.T) {
-	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
-	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
-
-	kubectlHelpers.CheckOperateForProcesses(t, primary)
-
-	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 12)
-}
-
-func deployC8processAndCheckFailback(t *testing.T) {
-	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
-	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
-
-	kubectlHelpers.CheckOperateForProcesses(t, primary)
-	kubectlHelpers.CheckOperateForProcesses(t, secondary)
-
-	kubectlHelpers.CheckOperateForProcessInstances(t, primary, 18)
-	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, 18)
+	kubectlHelpers.CheckOperateForProcessInstances(t, primary, tmpExpectedProcesses)
+	kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses)
 }
 
 func teardownAllC8Helm(t *testing.T) {
@@ -672,19 +656,25 @@ func checkMigrationSucceed(t *testing.T) {
 	t.Log("[MIGRATION CHECK] Checking if Camunda Platform Migration is running 🚦")
 
 	// Waiting for the importer to be ready
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-importer", retries, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
 
 	// If the Job succeeds, then the migration was successfully completed
-	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-migration-data", retries, 30*time.Second)
-	k8s.WaitUntilJobSucceed(t, &secondary.KubectlNamespace, "camunda-migration-data", retries, 30*time.Second)
+	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
+	k8s.WaitUntilJobSucceed(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
 }
 
 func postMigrationCleanup(t *testing.T) {
 	t.Log("[MIGRATION CLEANUP] Cleaning up after Camunda Platform Migration 🚦")
 
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "job", "camunda-migration-data", "--ignore-not-found=true")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "deployment", "camunda-importer", "--ignore-not-found=true")
+	t.Log("[MIGRATION CLEANUP] Bumping migration offset for process instance checks")
+	migrationOffset = 1 // 8.7 deploy creates one process instance during deploy
+
+	t.Log("[MIGRATION CLEANUP] removing job and deployment")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "job", "camunda-zeebe-migration-data")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "job", "camunda-zeebe-migration-data")
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "deployment", "camunda-zeebe-importer")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "deployment", "camunda-zeebe-importer")
 
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, service.Name, "camunda-zeebe-gateway")
@@ -694,8 +684,9 @@ func postMigrationCleanup(t *testing.T) {
 	tunnel.ForwardPort(t)
 
 	// Disable old migration exporters
-	exporterIDs := []string{"ELASTICSEARCHREGION0", "ELASTICSEARCHREGION1"}
+	exporterIDs := []string{"elasticsearchregion0", "elasticsearchregion1"}
 	for _, id := range exporterIDs {
+		t.Logf("[MIGRATION CLEANUP] Disabling exporter %s", id)
 		res, body := helpers.HttpRequest(
 			t,
 			"POST",
@@ -709,6 +700,31 @@ func postMigrationCleanup(t *testing.T) {
 		require.Equal(t, 202, res.StatusCode, "unexpected status disabling exporter %s", id)
 		require.NotEmpty(t, body)
 		require.Contains(t, body, "DISABLED")
+
+		// Wait until the cluster reports the last change as COMPLETED before continuing
+		for i := 0; i < 20; i++ {
+			resCluster, bodyCluster := helpers.HttpRequest(
+				t,
+				"GET",
+				fmt.Sprintf("http://%s/actuator/cluster", tunnel.Endpoint()),
+				nil,
+			)
+			if resCluster == nil {
+				t.Fatal("[MIGRATION CLEANUP] Failed to query cluster status")
+				return
+			}
+			if strings.Contains(bodyCluster, "\"lastChange\"") &&
+				strings.Contains(bodyCluster, "\"status\":\"COMPLETED\"") &&
+				!strings.Contains(bodyCluster, "pendingChange") {
+				t.Log("[MIGRATION CLEANUP] Cluster lastChange status is COMPLETED")
+				break
+			}
+			if i == 19 {
+				t.Fatalf("[MIGRATION CLEANUP] Cluster lastChange did not reach COMPLETED. Body: %s", bodyCluster)
+			}
+			t.Log("[MIGRATION CLEANUP] Cluster change not yet COMPLETED, retrying...")
+			time.Sleep(10 * time.Second)
+		}
 	}
 
 	// Confirm both exporters are disabled
@@ -728,8 +744,8 @@ func postMigrationCleanup(t *testing.T) {
 			return
 		}
 
-		if strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION0\",\"status\":\"DISABLED\"") &&
-			strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION1\",\"status\":\"DISABLED\"") {
+		if strings.Contains(body, "\"exporterId\":\"elasticsearchregion0\",\"status\":\"DISABLED\"") &&
+			strings.Contains(body, "\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"") {
 			break
 		}
 		t.Log("[MIGRATION CLEANUP] Exporters not yet disabled, retrying...")
@@ -738,52 +754,7 @@ func postMigrationCleanup(t *testing.T) {
 
 	require.Equal(t, 200, res.StatusCode)
 	require.NotEmpty(t, body)
-	require.Contains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION0\",\"status\":\"DISABLED\"")
-	require.Contains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION1\",\"status\":\"DISABLED\"")
+	require.Contains(t, body, "\"exporterId\":\"elasticsearchregion0\",\"status\":\"DISABLED\"")
+	require.Contains(t, body, "\"exporterId\":\"elasticsearchregion1\",\"status\":\"DISABLED\"")
 	t.Log("[MIGRATION CLEANUP] Successfully disabled migration exporters")
-
-	// Delete old exporters, we don't have Optimize so not needed
-	for _, id := range exporterIDs {
-		res, body := helpers.HttpRequest(
-			t,
-			"DELETE",
-			fmt.Sprintf("http://%s/actuator/exporters/%s", tunnel.Endpoint(), id),
-			nil,
-		)
-		if res == nil {
-			t.Fatalf("[MIGRATION CLEANUP] Failed to create delete request for exporter %s", id)
-			return
-		}
-		if res.StatusCode != 202 && res.StatusCode != 200 {
-			t.Fatalf("[MIGRATION CLEANUP] Unexpected status deleting exporter %s: %d body: %s", id, res.StatusCode, body)
-		}
-		t.Logf("[MIGRATION CLEANUP] Delete requested for exporter %s (status %d)", id, res.StatusCode)
-	}
-
-	// Confirm exporters are removed
-	for i := 0; i < 15; i++ {
-		res, body = helpers.HttpRequest(
-			t,
-			"GET",
-			fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()),
-			nil,
-		)
-		if res == nil {
-			t.Fatal("[MIGRATION CLEANUP] Failed to query exporters after delete")
-			return
-		}
-
-		if !strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION0\"") &&
-			!strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION1\"") {
-			break
-		}
-		t.Log("[MIGRATION CLEANUP] Exporters still present after delete, retrying...")
-		time.Sleep(10 * time.Second)
-	}
-
-	require.Equal(t, 200, res.StatusCode)
-	require.NotEmpty(t, body)
-	require.NotContains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION0\"")
-	require.NotContains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION1\"")
-	t.Log("[MIGRATION CLEANUP] Successfully deleted migration exporters")
 }
