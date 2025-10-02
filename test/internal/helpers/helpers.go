@@ -110,6 +110,7 @@ func CombineMaps(map1, map2 map[string]string) map[string]string {
 func OverwriteImageTag(map1 map[string]string, tag string) map[string]string {
 	// Allows to later add additional images to the map like Optimize / Connectors
 	map1["orchestration.image.tag"] = tag
+	map1["connectors.image.tag"] = tag
 
 	return map1
 }
