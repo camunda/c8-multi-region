@@ -212,6 +212,12 @@ jobs:
               with:
                   secrets: ${{ toJSON(secrets) }}
 
+            - name: Install extra Go and use inbuilt caching
+              uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
+              with:
+                  go-version-file: ./test/go.mod
+                  cache-dependency-path: ./test/go.sum
+
             - name: Set up Teleport
               uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6 # v1
               with:
