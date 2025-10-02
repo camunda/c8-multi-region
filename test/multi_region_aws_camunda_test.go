@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -38,6 +39,7 @@ var (
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
 	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                      // allows supplying random backup name via GHA
 	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infex")
+	migrationOffset, _ = strconv.Atoi(helpers.GetEnv("MIGRATION_OFFSET", "0")) // Offset for process instances started before migration
 
 	primary   helpers.Cluster
 	secondary helpers.Cluster
@@ -48,10 +50,9 @@ var (
 	secondaryNamespace         = helpers.GetEnv("CLUSTER_1_NAMESPACE", "c8-snap-cluster-1")
 	secondaryNamespaceFailover = helpers.GetEnv("CLUSTER_1_NAMESPACE_FAILOVER", "c8-snap-cluster-1-failover")
 
-	baseHelmVars    = map[string]string{}
-	timeout         = "600s"
-	retries         = 20
-	migrationOffset = 0 // Offset for process instances started before migration
+	baseHelmVars = map[string]string{}
+	timeout      = "600s"
+	retries      = 20
 )
 
 // AWS EKS Multi-Region Tests
@@ -668,7 +669,6 @@ func postMigrationCleanup(t *testing.T) {
 	t.Log("[MIGRATION CLEANUP] Cleaning up after Camunda Platform Migration 🚦")
 
 	t.Log("[MIGRATION CLEANUP] Bumping migration offset for process instance checks")
-	migrationOffset = 1 // 8.7 deploy creates one process instance during deploy
 
 	t.Log("[MIGRATION CLEANUP] removing job and deployment")
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "job", "camunda-zeebe-migration-data")

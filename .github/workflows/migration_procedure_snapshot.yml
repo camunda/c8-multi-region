@@ -1,0 +1,41 @@
+---
+name: Teleport Migration Procedure (Snapshot Follow-up)
+
+on:
+    workflow_dispatch:
+        inputs:
+            previous-helm-chart:
+                description: Release Helm chart version (default 12.6.1)
+                required: false
+                default: 12.6.1
+            migration-helm-chart:
+                description: Snapshot Helm chart version tag
+                required: false
+                default: SNAPSHOT
+
+# Adjust if you need to restrict concurrency
+concurrency:
+    group: teleport-migration-${{ github.ref }}
+    cancel-in-progress: false
+
+jobs:
+    deploy_previous_release:
+        name: Deploy release (deployOne)
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: ${{ github.event.inputs.previous-helm-chart || '12.6.1' }}
+            deployOnly: true
+        secrets: inherit
+
+    deploy_migration_release:
+        name: Deploy snapshot with migration
+        needs: deploy_previous_release
+        uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
+        with:
+            helmChartVersion: ${{ github.event.inputs.migration-helm-chart || 'SNAPSHOT' }}
+            migrationEnabled: true
+            cluster_0_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_0_NAMESPACE }}
+            cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}
+            backup_name: ${{ needs.deploy_previous_release.outputs.BACKUP_NAME }}
+            overwriteBranch: 8-8-adjustments-migration
+        secrets: inherit
