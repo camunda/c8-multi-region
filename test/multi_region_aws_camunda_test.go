@@ -3,6 +3,7 @@ package test
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -70,8 +71,35 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployC8Helm", deployC8Helm},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestDeployC8processAndCheck", deployC8processAndCheck},
+		{"TestCheckTheMath", checkTheMath},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestMigrationDualReg(t *testing.T) {
+	t.Log("[2 REGION TEST] Migrate Camunda 8 in multi region mode 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		// Camunda 8 Deployment
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, migrationValuesYaml) }},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestCheckMigrationSucceed", checkMigrationSucceed},
+		{"TestPostMigrationCleanup", postMigrationCleanup},
 		{"TestDeployC8processAndCheck", deployC8processAndCheck},
 		{"TestCheckTheMath", checkTheMath},
 	} {
@@ -213,7 +241,7 @@ func initKubernetesHelpers(t *testing.T) {
 	}
 }
 
-func deployC8Helm(t *testing.T) {
+func deployC8Helm(t *testing.T, valuesYaml string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
 	if helpers.IsTeleportEnabled() {
@@ -223,9 +251,9 @@ func deployC8Helm(t *testing.T) {
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 0, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, valuesYaml, 0, false, false, baseHelmVars)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 1, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, valuesYaml, 1, false, false, baseHelmVars)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -638,4 +666,124 @@ func addSecondaryBrokers(t *testing.T) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout=300s", "statefulset/camunda-zeebe")
 
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-connectors", retries, 15*time.Second)
+}
+
+func checkMigrationSucceed(t *testing.T) {
+	t.Log("[MIGRATION CHECK] Checking if Camunda Platform Migration is running 🚦")
+
+	// Waiting for the importer to be ready
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-importer", retries, 15*time.Second)
+
+	// If the Job succeeds, then the migration was successfully completed
+	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-migration-data", retries, 30*time.Second)
+	k8s.WaitUntilJobSucceed(t, &secondary.KubectlNamespace, "camunda-migration-data", retries, 30*time.Second)
+}
+
+func postMigrationCleanup(t *testing.T) {
+	t.Log("[MIGRATION CLEANUP] Cleaning up after Camunda Platform Migration 🚦")
+
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "job", "camunda-migration-data", "--ignore-not-found=true")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "deployment", "camunda-importer", "--ignore-not-found=true")
+
+	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
+	require.Equal(t, service.Name, "camunda-zeebe-gateway")
+
+	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 9600)
+	defer tunnel.Close()
+	tunnel.ForwardPort(t)
+
+	// Disable old migration exporters
+	exporterIDs := []string{"ELASTICSEARCHREGION0", "ELASTICSEARCHREGION1"}
+	for _, id := range exporterIDs {
+		res, body := helpers.HttpRequest(
+			t,
+			"POST",
+			fmt.Sprintf("http://%s/actuator/exporters/%s/disable", tunnel.Endpoint(), id),
+			nil,
+		)
+		if res == nil {
+			t.Fatalf("[MIGRATION CLEANUP] Failed to create request for exporter %s", id)
+			return
+		}
+		require.Equal(t, 202, res.StatusCode, "unexpected status disabling exporter %s", id)
+		require.NotEmpty(t, body)
+		require.Contains(t, body, "DISABLED")
+	}
+
+	// Confirm both exporters are disabled
+	var (
+		res  *http.Response
+		body string
+	)
+	for i := 0; i < 10; i++ {
+		res, body = helpers.HttpRequest(
+			t,
+			"GET",
+			fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()),
+			nil,
+		)
+		if res == nil {
+			t.Fatal("[MIGRATION CLEANUP] Failed to query exporters status")
+			return
+		}
+
+		if strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION0\",\"status\":\"DISABLED\"") &&
+			strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION1\",\"status\":\"DISABLED\"") {
+			break
+		}
+		t.Log("[MIGRATION CLEANUP] Exporters not yet disabled, retrying...")
+		time.Sleep(10 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.Contains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION0\",\"status\":\"DISABLED\"")
+	require.Contains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION1\",\"status\":\"DISABLED\"")
+	t.Log("[MIGRATION CLEANUP] Successfully disabled migration exporters")
+
+	// Delete old exporters, we don't have Optimize so not needed
+	for _, id := range exporterIDs {
+		res, body := helpers.HttpRequest(
+			t,
+			"DELETE",
+			fmt.Sprintf("http://%s/actuator/exporters/%s", tunnel.Endpoint(), id),
+			nil,
+		)
+		if res == nil {
+			t.Fatalf("[MIGRATION CLEANUP] Failed to create delete request for exporter %s", id)
+			return
+		}
+		if res.StatusCode != 202 && res.StatusCode != 200 {
+			t.Fatalf("[MIGRATION CLEANUP] Unexpected status deleting exporter %s: %d body: %s", id, res.StatusCode, body)
+		}
+		t.Logf("[MIGRATION CLEANUP] Delete requested for exporter %s (status %d)", id, res.StatusCode)
+	}
+
+	// Confirm exporters are removed
+	for i := 0; i < 15; i++ {
+		res, body = helpers.HttpRequest(
+			t,
+			"GET",
+			fmt.Sprintf("http://%s/actuator/exporters", tunnel.Endpoint()),
+			nil,
+		)
+		if res == nil {
+			t.Fatal("[MIGRATION CLEANUP] Failed to query exporters after delete")
+			return
+		}
+
+		if !strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION0\"") &&
+			!strings.Contains(body, "\"exporterId\":\"ELASTICSEARCHREGION1\"") {
+			break
+		}
+		t.Log("[MIGRATION CLEANUP] Exporters still present after delete, retrying...")
+		time.Sleep(10 * time.Second)
+	}
+
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+	require.NotContains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION0\"")
+	require.NotContains(t, body, "\"exporterId\":\"ELASTICSEARCHREGION1\"")
+	t.Log("[MIGRATION CLEANUP] Successfully deleted migration exporters")
 }
