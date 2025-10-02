@@ -148,7 +148,20 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 
 	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
 	defer tunnelOperate.Close()
-	tunnelOperate.ForwardPort(t)
+	// Retry port-forward in case of transient errors
+	maxRetries := 5
+	var pfErr error
+	for i := 0; i < maxRetries; i++ {
+		pfErr = tunnelOperate.ForwardPortE(t)
+		if pfErr == nil {
+			break
+		}
+		t.Logf("[C8 PROCESS] port-forward attempt %d/%d failed: %v; retrying...", i+1, maxRetries, pfErr)
+		time.Sleep(15 * time.Second)
+	}
+	if pfErr != nil {
+		t.Fatalf("[C8 PROCESS] port-forward failed after %d attempts: %v", maxRetries, pfErr)
+	}
 
 	// create http client to add cookie to the request
 	client := &http.Client{}

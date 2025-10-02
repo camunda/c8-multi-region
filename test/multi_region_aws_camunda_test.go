@@ -260,6 +260,9 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
 
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
+
 	// Elastic itself takes already ~2+ minutes to start
 	// no functions for Statefulsets yet
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
@@ -655,6 +658,9 @@ func addSecondaryBrokers(t *testing.T) {
 
 func checkMigrationSucceed(t *testing.T) {
 	t.Log("[MIGRATION CHECK] Checking if Camunda Platform Migration is running 🚦")
+
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
 	// Waiting for the importer to be ready
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
