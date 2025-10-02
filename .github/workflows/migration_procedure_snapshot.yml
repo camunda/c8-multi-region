@@ -1,7 +1,8 @@
 ---
-name: Teleport Migration Procedure (Snapshot Follow-up)
+name: Teleport Migration Procedure (Snapshot)
 
 on:
+    push:
     workflow_dispatch:
         inputs:
             previous-helm-chart:
@@ -25,6 +26,7 @@ jobs:
         with:
             helmChartVersion: ${{ github.event.inputs.previous-helm-chart || '12.6.1' }}
             deployOnly: true
+            overwriteBranch: 8.7-increase-size
         secrets: inherit
 
     deploy_migration_release:
