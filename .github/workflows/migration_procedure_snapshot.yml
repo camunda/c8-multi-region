@@ -9,20 +9,18 @@ on:
         branches-ignore:
             - stable/**
         paths:
-            - .github/workflows/migration_procedure_snapshot.yml.yml
+            - .github/workflows/migration_procedure_snapshot.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/kubernetes/**/**.yml
             - aws/dual-region/scripts/generate_zeebe_helm_values.sh
     workflow_dispatch:
         inputs:
             previous-helm-chart:
-                description: Release Helm chart version (default 12.6.1)
+                description: Release Helm chart version
                 required: false
-                default: 12.6.1
             migration-helm-chart:
-                description: Snapshot Helm chart version tag
+                description: Helm chart version for migration
                 required: false
-                default: SNAPSHOT
             keep-alive:
                 description: Keep the clusters alive after the procedure (default false)
                 required: false
@@ -42,26 +40,51 @@ on:
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
+    # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+    PREVIOUS_HELM_CHART: 12.6.1
+    MIGRATION_HELM_CHART: SNAPSHOT
+
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: false
 
 jobs:
+
+    # Workaround as reuseable workflows do not support env vars from calling workflow yet
+    convert_env_to_output:
+        name: Convert env to output
+        runs-on: ubuntu-latest
+        outputs:
+            PREVIOUS_HELM_CHART: ${{ steps.set-outputs.outputs.PREVIOUS_HELM_CHART }}
+            MIGRATION_HELM_CHART: ${{ steps.set-outputs.outputs.MIGRATION_HELM_CHART }}
+        steps:
+            - name: Set outputs
+              id: set-outputs
+              run: |
+                  {
+                    echo "PREVIOUS_HELM_CHART=${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}"
+                    echo "MIGRATION_HELM_CHART=${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}"
+                  } >> "$GITHUB_OUTPUT"
+
     deploy_previous_release:
         name: Deploy previous release only
+        needs:
+            - convert_env_to_output
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: ${{ github.event.inputs.previous-helm-chart || '12.6.1' }}
+            helmChartVersion: ${{ needs.convert_env_to_output.outputs.PREVIOUS_HELM_CHART }}
             deployOnly: true
             overwriteBranch: 8.7-increase-size # changed pvc sizes
         secrets: inherit
 
     deploy_migration_release:
         name: Deploy snapshot with migration enabled
-        needs: deploy_previous_release
+        needs:
+            - deploy_previous_release
+            - convert_env_to_output
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: ${{ github.event.inputs.migration-helm-chart || 'SNAPSHOT' }}
+            helmChartVersion: ${{ needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART }}
             migrationEnabled: true
             cluster_0_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_0_NAMESPACE }}
             cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}

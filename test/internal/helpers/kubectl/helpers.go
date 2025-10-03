@@ -213,11 +213,15 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 			t.Fatalf("[C8 PROCESS] %s", err)
 			return
 		}
-		defer res.Body.Close()
 
 		body, err := io.ReadAll(res.Body)
+		closeErr := res.Body.Close()
 		if err != nil {
 			t.Fatalf("[C8 PROCESS] %s", err)
+			return
+		}
+		if closeErr != nil {
+			t.Fatalf("[C8 PROCESS] close body: %v", closeErr)
 			return
 		}
 
@@ -260,11 +264,15 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
 			return
 		}
-		defer res.Body.Close()
 
 		body, err := io.ReadAll(res.Body)
+		closeErr := res.Body.Close()
 		if err != nil {
 			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
+			return
+		}
+		if closeErr != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] close body: %v", closeErr)
 			return
 		}
 
