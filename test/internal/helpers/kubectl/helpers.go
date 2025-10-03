@@ -196,18 +196,20 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
 	defer closeFn()
 
-	// create http client to add cookie to the request
+	// create http client
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(`{}`))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
-		return
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
 
 	var bodyString string
 	for i := 0; i < 8; i++ {
+		// fresh request each iteration to avoid reusing consumed body
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatalf("[C8 PROCESS] %s", err)
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
+
 		res, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("[C8 PROCESS] %s", err)
@@ -247,18 +249,20 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
 	defer closeFn()
 
-	// create http client to add cookie to the request
+	// create http client
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(`{}`))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
-		return
-	}
-	req.Header.Add("Content-Type", "application/json")
-	req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
 
 	var bodyString string
 	for i := 0; i < 8; i++ {
+		// fresh request each iteration to avoid reusing consumed body
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
+
 		res, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
@@ -712,8 +716,10 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 	t.Log("[C8 PROCESS] Sleeping shortly to let process be propagated")
 	time.Sleep(30 * time.Second)
 
-	for i := 1; i <= 6; i++ {
-		t.Logf("[C8 PROCESS] Starting Process instance %d/6 🚀", i)
+	const instancesToStart = 6
+
+	for i := 1; i <= instancesToStart; i++ {
+		t.Logf("[C8 PROCESS] Starting Process instance %d/%d 🚀", i, instancesToStart)
 		code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 			Method: "POST",
 			Url:    fmt.Sprintf("http://%s/v2/process-instances", endpoint),
