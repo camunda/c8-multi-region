@@ -109,10 +109,8 @@ func CombineMaps(map1, map2 map[string]string) map[string]string {
 // Overwrite the image tag for Camunda images in the map with the provided tag
 func OverwriteImageTag(map1 map[string]string, tag string) map[string]string {
 	// Allows to later add additional images to the map like Optimize / Connectors
-	map1["zeebe.image.tag"] = tag
-	map1["zeebeGateway.image.tag"] = tag
-	map1["operate.image.tag"] = tag
-	map1["tasklist.image.tag"] = tag
+	map1["orchestration.image.tag"] = tag
+	map1["connectors.image.tag"] = tag
 
 	return map1
 }
@@ -124,7 +122,7 @@ func HttpRequest(t *testing.T, method, url string, payload io.Reader) (*http.Res
 		return nil, ""
 	}
 
-	if method == "POST" {
+	if method == http.MethodPost || method == http.MethodPatch {
 		req.Header.Set("Content-Type", "application/json")
 	}
 
