@@ -27,6 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// basicAuthDemoHeader is the precomputed base64 for credentials demo:demo -> echo -n 'demo:demo' | base64
+// Used only for test/demo authentication against the Camunda components.
+const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -208,7 +212,7 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 			return
 		}
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
+		req.Header.Add("Authorization", basicAuthDemoHeader)
 
 		res, err := client.Do(req)
 		if err != nil {
@@ -261,7 +265,7 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 			return
 		}
 		req.Header.Add("Content-Type", "application/json")
-		req.Header.Add("Authorization", "Basic ZGVtbzpkZW1v")
+		req.Header.Add("Authorization", basicAuthDemoHeader)
 
 		res, err := client.Do(req)
 		if err != nil {
@@ -622,7 +626,7 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 		Method: "GET",
 		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
 		Headers: map[string]string{
-			"Authorization": "Basic ZGVtbzpkZW1v",
+			"Authorization": basicAuthDemoHeader,
 			"Accept":        "application/json",
 		},
 		TlsConfig: nil,
@@ -699,7 +703,7 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 		Headers: map[string]string{
 			"Content-Type":  writer.FormDataContentType(),
 			"Accept":        "application/json",
-			"Authorization": "Basic ZGVtbzpkZW1v",
+			"Authorization": basicAuthDemoHeader,
 		},
 		TlsConfig: nil,
 		Timeout:   30,
@@ -727,7 +731,7 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
 				"Accept":        "application/json",
-				"Authorization": "Basic ZGVtbzpkZW1v",
+				"Authorization": basicAuthDemoHeader,
 			},
 			TlsConfig: nil,
 			Timeout:   30,
