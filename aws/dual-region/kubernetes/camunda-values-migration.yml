@@ -6,6 +6,9 @@
 
 # This is an example values.yml for a dual-region setup and might require resource tuning from your side
 
+# !important
+# This file is intended as an example for a 8.7 to 8.8 migration with dual-region setup and no identity / external oidc setup.
+
 global:
     # Multiregion options for the Orchestration Cluster
     #
@@ -41,6 +44,12 @@ connectors:
     enabled: true
 
 orchestration:
+    migration:
+        data:
+            enabled: true
+    importer:
+        enabled: true
+
     image:
         # TODO: [release-duty] before the release, remove this!
         tag: 8.8-SNAPSHOT # temporary fix for Helm Chart alpha snapshot usage
@@ -54,6 +63,24 @@ orchestration:
         zeebe:
             enabled: false
     env:
+        # Migration
+        # TODO: [release-duty] before the release, remove this!
+        - name: CAMUNDA_SYSTEM_UPGRADE_ENABLEVERSIONCHECK
+          value: 'false'
+        # Need this for the importer since it's a standalone Gateway
+        # While Orchestration Cluster is now embedded Gateway (ZEEBE_BROKER_GATEWAY vs ZEEBE_GATEWAY)
+        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
+          value: GZIP
+        # Old Exporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
+          value: io.camunda.zeebe.exporter.ElasticsearchExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL
+          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_CLASSNAME
+          value: io.camunda.zeebe.exporter.ElasticsearchExporter
+        - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL
+          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+        # Base greenfield config
         # Config
         - name: CAMUNDA_DATA_BACKUP_REPOSITORYNAME
           value: camunda_backup

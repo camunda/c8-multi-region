@@ -11,67 +11,100 @@ on:
 
             helmChartName:
                 description: Optional Helm chart name
-                required: false
                 type: string
 
             globalImageTag:
                 description: Optional global image tag
-                required: false
                 type: string
 
             awsProfile:
                 description: AWS profile to use
-                required: false
                 type: string
                 default: infex
 
             testsTfBinaryName:
                 description: Terraform binary name for tests
-                required: false
                 type: string
                 default: terraform
 
             namespacePrefix:
                 description: Prefix for namespaces
-                required: false
                 type: string
                 default: infraex-
 
             clusterName:
                 description: EKS cluster name
-                required: false
                 type: string
                 default: camunda-ci-eks
 
             labels:
                 description: Labels to apply
-                required: false
                 type: string
                 default: janitor/ttl=1h camunda.cloud/ephemeral=true
 
             cluster:
                 description: Cluster identifier (same for Cluster 0 & 1)
-                required: false
                 type: string
                 default: camunda.teleport.sh-camunda-ci-eks
 
             backupBucket:
                 description: Backup bucket name
-                required: false
                 type: string
                 default: tests-c8-multi-region-es-eu-central-1
 
             helmReleaseName:
                 description: Helm release name
-                required: false
                 type: string
                 default: camunda
 
             zeebeClusterSize:
                 description: Zeebe cluster size
-                required: false
                 type: number
                 default: 8
+
+            deployOnly:
+                description: If true, only deploy Camunda and skip failover/failback tests
+                type: boolean
+                default: false
+
+            migrationEnabled:
+                description: If true, enable migration mode
+                type: boolean
+                default: false
+            cluster_0_namespace:
+                description: Allows setting a custom namespace for cluster 0
+                type: string
+            cluster_1_namespace:
+                description: Allows setting a custom namespace for cluster 1
+                type: string
+            backup_name:
+                description: Allows setting a custom backup name
+                type: string
+            overwriteBranch:
+                description: Optional branch to checkout instead of inferring from helm chart version
+                type: string
+            keepAlive:
+                description: Whether to keep the clusters alive after the procedure
+                type: boolean
+                default: false
+            skipFailover:
+                description: Whether to skip the tests after deployment
+                type: boolean
+                default: false
+            skipFailback:
+                description: Whether to skip the tests after deployment
+                type: boolean
+                default: false
+        outputs:
+            CLUSTER_0_NAMESPACE:
+                description: Namespace for cluster 0
+                value: ${{ jobs.teleport-setup.outputs.CLUSTER_0_NAMESPACE }}
+            CLUSTER_1_NAMESPACE:
+                description: Namespace for cluster 1
+                value: ${{ jobs.teleport-setup.outputs.CLUSTER_1_NAMESPACE }}
+            BACKUP_NAME:
+                description: Random ID used for backup name
+                value: ${{ jobs.teleport-setup.outputs.BACKUP_NAME }}
 
         secrets:
             VAULT_ADDR:
@@ -113,6 +146,10 @@ env:
 jobs:
     teleport-setup:
         runs-on: ubuntu-latest
+        outputs:
+            CLUSTER_0_NAMESPACE: ${{ steps.update-namespaces.outputs.CLUSTER_0_NAMESPACE }}
+            CLUSTER_1_NAMESPACE: ${{ steps.update-namespaces.outputs.CLUSTER_1_NAMESPACE }}
+            BACKUP_NAME: ${{ steps.update-namespaces.outputs.BACKUP_NAME }}
 
         steps:
             - name: Set optional environment variables conditionally
@@ -133,8 +170,11 @@ jobs:
                   version=${{ inputs.helmChartVersion }}
 
                   if [[ $version == "SNAPSHOT" ]]; then
+                    # we use the snapshot alpha chart of the Helm Chart
+                    # We use the snapshot image of camunda/camunda
                     {
-                        echo "HELM_CHART_VERSION=0.0.0-snapshot-latest"
+                        echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
+                        echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
                         echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                     } >> "$GITHUB_ENV"
                     if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
@@ -154,6 +194,11 @@ jobs:
                     fi
                   fi
 
+                  if [ -n "${{ inputs.overwriteBranch }}" ]; then
+                    echo "Overwriting branch to checkout with input: ${{ inputs.overwriteBranch }}"
+                    echo "branch=${{ inputs.overwriteBranch }}" >> "$GITHUB_ENV"
+                  fi
+
             - name: Checkout repository
               uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
               with:
@@ -163,6 +208,12 @@ jobs:
               uses: ./.github/actions/setup-aws
               with:
                   secrets: ${{ toJSON(secrets) }}
+
+            - name: Install extra Go and use inbuilt caching
+              uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6
+              with:
+                  go-version-file: ./test/go.mod
+                  cache-dependency-path: ./test/go.sum
 
             - name: Set up Teleport
               uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6 # v1
@@ -188,21 +239,36 @@ jobs:
                   set -euxo pipefail
 
                   RANDOM_ID="$(openssl rand -hex 3)"
-                  echo "BACKUP_NAME=${RANDOM_ID}" >> "$GITHUB_ENV"
 
+                  BACKUP_NAME=${RANDOM_ID}
                   CLUSTER_1_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_1_NAMESPACE}-${RANDOM_ID}"
                   CLUSTER_0_NAMESPACE="${NAMESPACE_PREFIX}${CLUSTER_0_NAMESPACE}-${RANDOM_ID}"
 
+                  # Override with inputs if provided
+                  if [ -n "${{ inputs.cluster_0_namespace }}" ]; then
+                    CLUSTER_0_NAMESPACE="${{ inputs.cluster_0_namespace }}"
+                  fi
+
+                  if [ -n "${{ inputs.cluster_1_namespace }}" ]; then
+                    CLUSTER_1_NAMESPACE="${{ inputs.cluster_1_namespace }}"
+                  fi
+
+                  if [ -n "${{ inputs.backup_name }}" ]; then
+                    RANDOM_ID="${{ inputs.backup_name }}"
+                  fi
+
                   # Write the updated values to the GitHub Actions environment for subsequent steps.
                   {
+                    echo "BACKUP_NAME=${BACKUP_NAME}"
                     echo "CLUSTER_1_NAMESPACE=${CLUSTER_1_NAMESPACE}"
                     echo "CLUSTER_0_NAMESPACE=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_0=${CLUSTER_0_NAMESPACE}"
                     echo "CAMUNDA_NAMESPACE_1=${CLUSTER_1_NAMESPACE}"
-                  } >> "$GITHUB_ENV"
+                  } | tee -a "$GITHUB_ENV" "$GITHUB_OUTPUT"
 
 
             - name: Import Secrets
+              if: inputs.migrationEnabled == false
               id: secrets
               uses: hashicorp/vault-action@4c06c5ccf5c0761b6029f56cfb1dcf5565918a3b # v3
               with:
@@ -215,6 +281,7 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
             - name: Create namespaces and secrets
+              if: inputs.migrationEnabled == false
               id: create-namespaces
               env:
                   AWS_SECRET_ACCESS_KEY_ES: ${{ steps.secrets.outputs.S3_BACKUP_SECRET_KEY }}
@@ -225,6 +292,7 @@ jobs:
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
 
             - name: Label namespaces and secrets
+              if: inputs.migrationEnabled == false
               run: |
                   set -euxo pipefail
 
@@ -244,16 +312,58 @@ jobs:
                     label_resources "$namespace"
                   done
 
-            - name: Deploy dual region Camunda
+            - name: Deploy dual region Camunda - ${{ inputs.helmChartVersion }}
+              if: inputs.migrationEnabled == false
               id: deploy-camunda
               working-directory: ./test
+              timeout-minutes: 31
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 30m -run TestAWSDeployDualRegCamunda
 
+            - name: Deploy dual region Camunda with migration - ${{ inputs.helmChartVersion }}
+              if: inputs.migrationEnabled == true
+              id: deploy-camunda-migration
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 45m -run TestMigrationDualReg
+
+                  # 8.7 process instance created during deploy offset
+                  echo "MIGRATION_OFFSET=1" >> "$GITHUB_ENV"
+
+                  mkdir -p ./migration_logs
+
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
+
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
+                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
+
             - name: Show pending pod count in each namespace after initial deployment
               id: pending-check-1
-              if: ${{ always() }}
+              if: always()
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after initial deployment ====="
                   # List all pods that are in Pending status, then count them.
@@ -272,6 +382,7 @@ jobs:
                   fi
 
             - name: Failover New - ${{ inputs.helmChartVersion }}
+              if: inputs.deployOnly == false && inputs.skipFailover == false
               working-directory: ./test
               timeout-minutes: 21
               run: |
@@ -279,11 +390,13 @@ jobs:
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
 
             - name: Set start timestamp for Failback
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               id: failback-start
               run: |
                   set -euxo pipefail
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
             - name: Failback New - ${{ inputs.helmChartVersion }}
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               working-directory: ./test
               timeout-minutes: 46
               run: |
@@ -292,7 +405,7 @@ jobs:
 
             - name: Show pending pod count in each namespace after failback-start
               id: pending-check-2
-              if: ${{ always() }}
+              if: always() && inputs.deployOnly == false && inputs.skipFailback == false
               run: |
                   echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
                   # List all pods that are in Pending status, then count them.
@@ -311,6 +424,7 @@ jobs:
                   fi
 
             - name: Calculate Failback duration
+              if: inputs.deployOnly == false && inputs.skipFailback == false
               run: |
                   set -euxo pipefail
                   printf -v now '%(%s)T'
@@ -321,9 +435,56 @@ jobs:
                   fi
 
             - name: Delete namespaces
-              if: always()
+              if: always() && inputs.deployOnly == false && inputs.keepAlive == false
               run: |
                   set -euxo pipefail
 
                   kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
                   kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
+
+            - name: Get failed Pods info - ${{ env.CLUSTER_0_NAMESPACE }}
+              timeout-minutes: 10
+              if: failure()
+              working-directory: ./test
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p ./logs
+
+                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po
+                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}logs.txt";
+                  done
+
+            - name: Get failed Pods info - ${{ env.CLUSTER_1_NAMESPACE }}
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p ./logs
+
+                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po
+                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Failed Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
+                  done
+
+            - name: Upload migration logs
+              if: always() && inputs.migrationEnabled == true
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: migration-logs
+                  path: |
+                      ./test/migration_logs/
+
+            - name: Upload failed logs
+              if: failure()
+              uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+              with:
+                  name: failure-logs
+                  path: |
+                      ./test/logs/

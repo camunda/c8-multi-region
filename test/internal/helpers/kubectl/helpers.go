@@ -27,6 +27,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// basicAuthDemoHeader is the precomputed base64 for credentials demo:demo -> echo -n 'demo:demo' | base64
+// Used only for test/demo authentication against the Camunda components.
+const basicAuthDemoHeader = "Basic ZGVtbzpkZW1v"
+
 type Partition struct {
 	PartitionId int    `json:"partitionId"`
 	Role        string `json:"role"`
@@ -47,6 +51,53 @@ type ClusterInfo struct {
 	PartitionsCount   int      `json:"partitionsCount"`
 	ReplicationFactor int      `json:"replicationFactor"`
 	GatewayVersion    string   `json:"gatewayVersion"`
+}
+
+// NewServiceTunnelWithRetry establishes a port-forward tunnel to a Kubernetes Service with retry logic.
+// Parameters:
+//
+//	t: *testing.T
+//	kubectlOptions: target kubectl options
+//	serviceName: name of the Service (must exist)
+//	localPort: local port to bind (0 lets kubectl choose a random free port)
+//	remotePort: target Service port
+//	maxRetries: how many times to retry establishing the tunnel
+//	backoff: sleep duration between retries
+//
+// Returns: (endpoint string, close func())
+func NewServiceTunnelWithRetry(t *testing.T, kubectlOptions *k8s.KubectlOptions, serviceName string, localPort, remotePort, maxRetries int, backoff time.Duration) (string, func()) {
+	t.Helper()
+
+	// Ensure service exists early (gives clearer error)
+	svc := k8s.GetService(t, kubectlOptions, serviceName)
+	require.Equal(t, serviceName, svc.Name)
+
+	if maxRetries < 1 {
+		maxRetries = 1
+	}
+	if backoff <= 0 {
+		backoff = 5 * time.Second
+	}
+
+	tunnel := k8s.NewTunnel(kubectlOptions, k8s.ResourceTypeService, serviceName, localPort, remotePort)
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		err = tunnel.ForwardPortE(t)
+		if err == nil {
+			break
+		}
+		t.Logf("[TUNNEL] port-forward attempt %d/%d failed for %s:%d -> %s: %v", i+1, maxRetries, serviceName, remotePort, kubectlOptions.Namespace, err)
+		if i < maxRetries-1 {
+			time.Sleep(backoff)
+		}
+	}
+	if err != nil {
+		t.Fatalf("[TUNNEL] failed to establish port-forward after %d attempts: %v", maxRetries, err)
+		return "", func() {}
+	}
+
+	cleanup := func() { tunnel.Close() }
+	return tunnel.Endpoint(), cleanup
 }
 
 func CrossClusterCommunication(t *testing.T, withDNS bool, k8sManifests string, primary, secondary helpers.Cluster, kubeConfigPrimary, kubeConfigSecondary string) {
@@ -146,65 +197,37 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
-	tunnelOperate := k8s.NewTunnel(&cluster.KubectlNamespace, k8s.ResourceTypeService, "camunda-operate", 0, 80)
-	defer tunnelOperate.Close()
-	tunnelOperate.ForwardPort(t)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
 
-	// the Cookie grants access since we don't have an API key
-	resp, err := http.Post(fmt.Sprintf("http://%s/api/login?username=demo&password=demo", tunnelOperate.Endpoint()), "application/json", bytes.NewBufferString("{}"))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
-		return
-	}
-
-	csrfTokenName := "OPERATE-X-CSRF-TOKEN"
-	csrfToken := resp.Header.Get(csrfTokenName)
-	if csrfToken == "" {
-		csrfTokenName = "X-CSRF-TOKEN"
-		csrfToken = resp.Header.Get(csrfTokenName)
-	}
-
-	var cookieAuth string
-	var csrfTokenId string
-	for _, val := range resp.Cookies() {
-		if val.Name == "OPERATE-SESSION" {
-			cookieAuth = val.Value
-		}
-		if val.Name == csrfTokenName {
-			csrfTokenId = val.Value
-		}
-	}
-	require.NotEmpty(t, cookieAuth)
-
-	// create http client to add cookie to the request
+	// create http client
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v1/process-definitions/search", tunnelOperate.Endpoint()), strings.NewReader(`{}`))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] %s", err)
-		return
-	}
-	req.Header.Add("Content-Type", "application/json")
-	// > 8.5.1, we need to supply the csrf token
-	if csrfTokenId != "" {
-		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s; %s=%s", cookieAuth, csrfTokenName, csrfTokenId))
-		req.Header.Add(csrfTokenName, csrfToken)
-		req.Header.Add("accept", "application/json")
-	} else {
-		req.Header.Add("Cookie", fmt.Sprintf("OPERATE-SESSION=%s", cookieAuth))
-	}
 
 	var bodyString string
 	for i := 0; i < 8; i++ {
+		// fresh request each iteration to avoid reusing consumed body
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatalf("[C8 PROCESS] %s", err)
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", basicAuthDemoHeader)
+
 		res, err := client.Do(req)
 		if err != nil {
 			t.Fatalf("[C8 PROCESS] %s", err)
 			return
 		}
-		defer res.Body.Close()
 
 		body, err := io.ReadAll(res.Body)
+		closeErr := res.Body.Close()
 		if err != nil {
 			t.Fatalf("[C8 PROCESS] %s", err)
+			return
+		}
+		if closeErr != nil {
+			t.Fatalf("[C8 PROCESS] close body: %v", closeErr)
 			return
 		}
 
@@ -221,6 +244,60 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 
 	require.Contains(t, bodyString, "Big variable process")
 	require.Contains(t, bodyString, "bigVarProcess")
+}
+
+func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size int) {
+
+	t.Logf("[C8 PROCESS INSTANCES] Checking for Cluster %s whether instances of bigVarProcess are created", cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	// create http client
+	client := &http.Client{}
+
+	var bodyString string
+	for i := 0; i < 8; i++ {
+		// fresh request each iteration to avoid reusing consumed body
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(`{}`))
+		if err != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
+			return
+		}
+		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Authorization", basicAuthDemoHeader)
+
+		res, err := client.Do(req)
+		if err != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
+			return
+		}
+
+		body, err := io.ReadAll(res.Body)
+		closeErr := res.Body.Close()
+		if err != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
+			return
+		}
+		if closeErr != nil {
+			t.Fatalf("[C8 PROCESS INSTANCES] close body: %v", closeErr)
+			return
+		}
+
+		bodyString = string(body)
+
+		t.Logf("[C8 Process INSTANCES] %s", bodyString)
+		if !strings.Contains(bodyString, "\"totalItems\":0") {
+			t.Log("[C8 PROCESS INSTANCES] processes are present, breaking and asserting")
+			break
+		}
+		t.Log("[C8 PROCESS INSTANCES] not imported yet, waiting...")
+		time.Sleep(15 * time.Second)
+	}
+
+	require.Contains(t, bodyString, "Big variable process")
+	require.Contains(t, bodyString, "bigVarProcess")
+	require.Contains(t, bodyString, fmt.Sprintf("\"totalItems\":%d", size))
 }
 
 func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions, command ...string) {
@@ -334,6 +411,55 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 }
 
+func ResetElastic(t *testing.T, cluster helpers.Cluster) {
+	t.Logf("[ELASTICSEARCH RESET] Resetting Elasticsearch indices for cluster %s", cluster.ClusterName)
+
+	// Get list of indices (one per line)
+	indicesOutput, err := k8s.RunKubectlAndGetOutputE(
+		t,
+		&cluster.KubectlNamespace,
+		"exec", "camunda-elasticsearch-master-0", "--",
+		"curl", "-s", "localhost:9200/_cat/indices?h=index",
+	)
+	if err != nil {
+		t.Fatalf("[ELASTICSEARCH RESET] failed to list indices: %v", err)
+		return
+	}
+
+	indices := strings.Fields(indicesOutput)
+	if len(indices) == 0 {
+		t.Log("[ELASTICSEARCH RESET] No indices found to delete")
+		return
+	}
+
+	// _cat/indices output may be prefixed with:
+	// "Defaulted container "elasticsearch" out of: elasticsearch, sysctl (init), copy-default-plugins (init)"
+	// when kubectl exec selects the default container. Skip that line.
+	lines := strings.Split(indicesOutput, "\n")
+	for _, l := range lines {
+		l = strings.TrimSpace(l)
+		if l == "" || strings.HasPrefix(l, "Defaulted container ") {
+			continue
+		}
+
+		idx := l
+		t.Logf("[ELASTICSEARCH RESET] Deleting index %s", idx)
+		delOut, err := k8s.RunKubectlAndGetOutputE(
+			t,
+			&cluster.KubectlNamespace,
+			"exec", "camunda-elasticsearch-master-0", "--",
+			"curl", "-s", "-X", "DELETE", fmt.Sprintf("localhost:9200/%s", idx),
+		)
+		if err != nil {
+			t.Fatalf("[ELASTICSEARCH RESET] error deleting index %s: %v", idx, err)
+			return
+		}
+		require.Contains(t, delOut, "acknowledged", "[ELASTICSEARCH RESET] unexpected delete response for index %s: %s", idx, delOut)
+	}
+
+	t.Logf("[ELASTICSEARCH RESET] Deleted %d indices", len(indices))
+}
+
 func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 string) string {
 	zeebeContactPoints := ""
 
@@ -348,7 +474,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	return zeebeContactPoints
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover string, region int, upgrade, failover, esSwitch bool, setValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover, valuesYaml string, region int, failover, esSwitch bool, setValues map[string]string) {
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
@@ -371,21 +497,21 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 
 	// Extract the replacement text for the initial contact points and Elasticsearch URLs
 	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
-	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_ARGS_URL")
-	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION1_ARGS_URL")
+	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_URL")
+	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_URL")
 
 	require.NotEmpty(t, initialContact, "Initial contact points should not be empty")
 	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
 	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
 
-	valuesFiles := []string{"../aws/dual-region/kubernetes/camunda-values.yml"}
-
-	filePath := "../aws/dual-region/kubernetes/camunda-values.yml"
-	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/camunda-values.yml", region))
+	valuesFiles := []string{fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)}
+	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/%s", region, "camunda-values.yml")) // these are the region overlays and should change whether migration or not
 
 	if helpers.IsTeleportEnabled() {
 		valuesFiles = append(valuesFiles, "./fixtures/teleport-affinities-tolerations.yml")
 	}
+
+	filePath := fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -419,13 +545,11 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 		helm.AddRepo(t, helmOptions, "camunda", remoteChartSource)
 	}
 
-	if upgrade {
-		// Terratest is actively ignoring the version in an upgrade
-		helmOptions.ExtraArgs = map[string][]string{"upgrade": []string{"--version", remoteChartVersion}}
-		helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
-	} else {
-		helm.Install(t, helmOptions, remoteChartName, "camunda")
+	// Terratest is actively ignoring the version in an upgrade
+	helmOptions.ExtraArgs = map[string][]string{
+		"upgrade": {"--version", remoteChartVersion, "--install"},
 	}
+	helm.Upgrade(t, helmOptions, remoteChartName, "camunda")
 
 	// Write the old file back to the file - mostly for local development
 	err = os.WriteFile(filePath, []byte(fileContent), 0644)
@@ -490,19 +614,24 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 		return -1
 	}
 
-	return helpers.CutOutString(output, "ZEEBE_BROKER_CLUSTER_NODEID=[0-9]")
+	return helpers.CutOutString(output, "ORCHESTRATION_NODE_ID=[0-9]")
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
-
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
 
 	// Get the topology of the Zeebe cluster
-	code, body := http_helper.HttpGet(t, fmt.Sprintf("http://%s/v2/topology", tunnel.Endpoint()), nil)
+	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method: "GET",
+		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
+		Headers: map[string]string{
+			"Authorization": basicAuthDemoHeader,
+			"Accept":        "application/json",
+		},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
 	if code != 200 {
 		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
 		return
@@ -512,7 +641,7 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 
 	err := json.Unmarshal([]byte(body), &topology)
 	if err != nil {
-		t.Fatalf("[C8 CHECK] Error unmarshalling JSON:", err)
+		t.Fatalf("[C8 CHECK] Error unmarshalling JSON: %v", err)
 		return
 	}
 
@@ -535,13 +664,9 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 	require.Equal(t, 4, secondaryCount)
 }
 
-func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary helpers.Cluster, resourceDir string) {
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, service.Name, "camunda-zeebe-gateway")
-
-	tunnel := k8s.NewTunnel(&primary.KubectlNamespace, k8s.ResourceTypeService, "camunda-zeebe-gateway", 0, 8080)
-	defer tunnel.Close()
-	tunnel.ForwardPort(t)
+func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resourceDir string) {
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &kubectlOptions.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
 
 	file, err := os.Open(fmt.Sprintf("%s/single-task.bpmn", resourceDir))
 	if err != nil {
@@ -572,10 +697,14 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	}
 
 	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method:    "POST",
-		Url:       fmt.Sprintf("http://%s/v2/deployments", tunnel.Endpoint()),
-		Body:      reqBody,
-		Headers:   map[string]string{"Content-Type": writer.FormDataContentType(), "Accept": "application/json"},
+		Method: "POST",
+		Url:    fmt.Sprintf("http://%s/v2/deployments", endpoint),
+		Body:   reqBody,
+		Headers: map[string]string{
+			"Content-Type":  writer.FormDataContentType(),
+			"Accept":        "application/json",
+			"Authorization": basicAuthDemoHeader,
+		},
 		TlsConfig: nil,
 		Timeout:   30,
 	})
@@ -591,27 +720,33 @@ func DeployC8processAndCheck(t *testing.T, primary helpers.Cluster, secondary he
 	t.Log("[C8 PROCESS] Sleeping shortly to let process be propagated")
 	time.Sleep(30 * time.Second)
 
-	t.Log("[C8 PROCESS] Starting another Process instance 🚀")
-	code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method:    "POST",
-		Url:       fmt.Sprintf("http://%s/v2/process-instances", tunnel.Endpoint()),
-		Body:      strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
-		Headers:   map[string]string{"Content-Type": "application/json", "Accept": "application/json"},
-		TlsConfig: nil,
-		Timeout:   30,
-	})
-	if code != 200 {
-		t.Fatalf("[C8 PROCESS] Failed to start process instance: %s", resBody)
-		return
+	const instancesToStart = 6
+
+	for i := 1; i <= instancesToStart; i++ {
+		t.Logf("[C8 PROCESS] Starting Process instance %d/%d 🚀", i, instancesToStart)
+		code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+			Method: "POST",
+			Url:    fmt.Sprintf("http://%s/v2/process-instances", endpoint),
+			Body:   strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
+			Headers: map[string]string{
+				"Content-Type":  "application/json",
+				"Accept":        "application/json",
+				"Authorization": basicAuthDemoHeader,
+			},
+			TlsConfig: nil,
+			Timeout:   30,
+		})
+		if code != 200 {
+			t.Fatalf("[C8 PROCESS] Failed to start process instance (%d): %s", i, resBody)
+			return
+		}
+		t.Logf("[C8 PROCESS] Created process instance %d: %s", i, resBody)
+		require.NotEmpty(t, resBody)
+		require.Contains(t, resBody, "bigVarProcess")
 	}
 
-	t.Logf("[C8 PROCESS] Created process: %s", resBody)
-	require.NotEmpty(t, resBody)
-	require.Contains(t, resBody, "bigVarProcess")
-
-	// check that was exported to ElasticSearch and available via Operate
-	CheckOperateForProcesses(t, primary)
-	CheckOperateForProcesses(t, secondary)
+	t.Log("[C8 PROCESS] Sleeping shortly to let instances be propagated")
+	time.Sleep(30 * time.Second)
 }
 
 func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
