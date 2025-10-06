@@ -74,7 +74,6 @@ jobs:
         with:
             helmChartVersion: ${{ needs.convert_env_to_output.outputs.PREVIOUS_HELM_CHART }}
             deployOnly: true
-            overwriteBranch: 8.7-increase-size # changed pvc sizes
         secrets: inherit
 
     deploy_migration_release:
