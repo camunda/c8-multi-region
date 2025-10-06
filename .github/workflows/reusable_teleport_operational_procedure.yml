@@ -11,108 +11,88 @@ on:
 
             helmChartName:
                 description: Optional Helm chart name
-                required: false
                 type: string
 
             globalImageTag:
                 description: Optional global image tag
-                required: false
                 type: string
 
             awsProfile:
                 description: AWS profile to use
-                required: false
                 type: string
                 default: infex
 
             testsTfBinaryName:
                 description: Terraform binary name for tests
-                required: false
                 type: string
                 default: terraform
 
             namespacePrefix:
                 description: Prefix for namespaces
-                required: false
                 type: string
                 default: infraex-
 
             clusterName:
                 description: EKS cluster name
-                required: false
                 type: string
                 default: camunda-ci-eks
 
             labels:
                 description: Labels to apply
-                required: false
                 type: string
                 default: janitor/ttl=1h camunda.cloud/ephemeral=true
 
             cluster:
                 description: Cluster identifier (same for Cluster 0 & 1)
-                required: false
                 type: string
                 default: camunda.teleport.sh-camunda-ci-eks
 
             backupBucket:
                 description: Backup bucket name
-                required: false
                 type: string
                 default: tests-c8-multi-region-es-eu-central-1
 
             helmReleaseName:
                 description: Helm release name
-                required: false
                 type: string
                 default: camunda
 
             zeebeClusterSize:
                 description: Zeebe cluster size
-                required: false
                 type: number
                 default: 8
 
             deployOnly:
                 description: If true, only deploy Camunda and skip failover/failback tests
-                required: false
                 type: boolean
                 default: false
 
             migrationEnabled:
                 description: If true, enable migration mode
-                required: false
                 type: boolean
                 default: false
             cluster_0_namespace:
                 description: Allows setting a custom namespace for cluster 0
-                required: false
                 type: string
             cluster_1_namespace:
                 description: Allows setting a custom namespace for cluster 1
-                required: false
                 type: string
             backup_name:
                 description: Allows setting a custom backup name
-                required: false
                 type: string
             overwriteBranch:
                 description: Optional branch to checkout instead of inferring from helm chart version
-                required: false
                 type: string
             keepAlive:
                 description: Whether to keep the clusters alive after the procedure
-                required: false
                 type: boolean
                 default: false
             skipFailover:
                 description: Whether to skip the tests after deployment
-                required: false
                 type: boolean
                 default: false
             skipFailback:
                 description: Whether to skip the tests after deployment
-                required: false
                 type: boolean
                 default: false
         outputs:
@@ -190,6 +170,8 @@ jobs:
                   version=${{ inputs.helmChartVersion }}
 
                   if [[ $version == "SNAPSHOT" ]]; then
+                    # we use the snapshot alpha chart of the Helm Chart
+                    # We use the snapshot image of camunda/camunda
                     {
                         echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
                         echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
