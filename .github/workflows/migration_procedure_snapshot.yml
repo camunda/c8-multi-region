@@ -74,6 +74,7 @@ jobs:
         with:
             helmChartVersion: ${{ needs.convert_env_to_output.outputs.PREVIOUS_HELM_CHART }}
             deployOnly: true
+            overwriteBranch: stable/8.7
         secrets: inherit
 
     deploy_migration_release:
