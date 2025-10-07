@@ -47,8 +47,6 @@ orchestration:
     migration:
         data:
             enabled: true
-    importer:
-        enabled: true
 
     image:
         # TODO: [release-duty] before the release, remove this!
