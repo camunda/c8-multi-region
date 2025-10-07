@@ -143,14 +143,16 @@ jobs:
                       echo "branch=main" >> "$GITHUB_ENV"
                     fi
                   else
-                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                    c8_version=$(curl -X 'GET' -s \
+                    "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
+                    -H "accept: application/json" | jq -r .app_version)
+                    minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
+                    echo "branch=stable/8.${minor_version}" >> "$GITHUB_ENV"
+
+                    # For PRs, overwrite to the head ref if the base ref matches the detected minor version
+                    if [[ "$GITHUB_EVENT_NAME" == "pull_request" && "$GITHUB_BASE_REF" =~ 8.${minor_version} ]]; then
+                      echo "Detected PR against matching stable branch, using head ref"
                       echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
-                    else
-                      c8_version=$(curl -X 'GET' -s \
-                      "https://artifacthub.io/api/v1/packages/helm/camunda/camunda-platform/${version}" \
-                      -H "accept: application/json" | jq -r .app_version)
-                      minor_version=$(echo "$c8_version" | cut -d '.' -f 2)
-                      echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
                     fi
                   fi
 
