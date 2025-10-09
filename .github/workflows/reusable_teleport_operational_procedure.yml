@@ -196,6 +196,12 @@ jobs:
                     fi
                   fi
 
+                  # For workflow_dispatch events, use the ref that triggered the workflow
+                  if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+                    echo "Detected workflow_dispatch event, using triggered ref - $GITHUB_REF_NAME"
+                    echo "branch=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+                  fi
+
                   if [ -n "${{ inputs.overwriteBranch }}" ]; then
                     echo "Overwriting branch to checkout with input: ${{ inputs.overwriteBranch }}"
                     echo "branch=${{ inputs.overwriteBranch }}" >> "$GITHUB_ENV"
