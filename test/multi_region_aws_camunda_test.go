@@ -411,7 +411,13 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, defaultValuesYaml, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
 	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
-	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
+
+	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
+	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
+	// We skip this for region 1 since only region 0 is part of the cluster at this point.
+	if region == 0 {
+		k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
+	}
 }
 
 func stopZeebeExporters(t *testing.T) {
