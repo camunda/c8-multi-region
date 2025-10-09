@@ -17,24 +17,16 @@ on:
         inputs:
             previous-helm-chart:
                 description: Release Helm chart version
-                required: false
             migration-helm-chart:
                 description: Helm chart version for migration
-                required: false
             keep-alive:
                 description: Keep the clusters alive after the procedure (default false)
-                required: false
-                default: false
                 type: boolean
             skip-failover:
                 description: Skip the failover part of the procedure (default false)
-                required: false
-                default: false
                 type: boolean
             skip-failback:
                 description: Skip the failback part of the procedure (default false)
-                required: false
-                default: false
                 type: boolean
 
 env:
