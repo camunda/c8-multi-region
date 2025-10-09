@@ -411,55 +411,6 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 
 }
 
-func ResetElastic(t *testing.T, cluster helpers.Cluster) {
-	t.Logf("[ELASTICSEARCH RESET] Resetting Elasticsearch indices for cluster %s", cluster.ClusterName)
-
-	// Get list of indices (one per line)
-	indicesOutput, err := k8s.RunKubectlAndGetOutputE(
-		t,
-		&cluster.KubectlNamespace,
-		"exec", "camunda-elasticsearch-master-0", "--",
-		"curl", "-s", "localhost:9200/_cat/indices?h=index",
-	)
-	if err != nil {
-		t.Fatalf("[ELASTICSEARCH RESET] failed to list indices: %v", err)
-		return
-	}
-
-	indices := strings.Fields(indicesOutput)
-	if len(indices) == 0 {
-		t.Log("[ELASTICSEARCH RESET] No indices found to delete")
-		return
-	}
-
-	// _cat/indices output may be prefixed with:
-	// "Defaulted container "elasticsearch" out of: elasticsearch, sysctl (init), copy-default-plugins (init)"
-	// when kubectl exec selects the default container. Skip that line.
-	lines := strings.Split(indicesOutput, "\n")
-	for _, l := range lines {
-		l = strings.TrimSpace(l)
-		if l == "" || strings.HasPrefix(l, "Defaulted container ") {
-			continue
-		}
-
-		idx := l
-		t.Logf("[ELASTICSEARCH RESET] Deleting index %s", idx)
-		delOut, err := k8s.RunKubectlAndGetOutputE(
-			t,
-			&cluster.KubectlNamespace,
-			"exec", "camunda-elasticsearch-master-0", "--",
-			"curl", "-s", "-X", "DELETE", fmt.Sprintf("localhost:9200/%s", idx),
-		)
-		if err != nil {
-			t.Fatalf("[ELASTICSEARCH RESET] error deleting index %s: %v", idx, err)
-			return
-		}
-		require.Contains(t, delOut, "acknowledged", "[ELASTICSEARCH RESET] unexpected delete response for index %s: %s", idx, delOut)
-	}
-
-	t.Logf("[ELASTICSEARCH RESET] Deleted %d indices", len(indices))
-}
-
 func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 string) string {
 	zeebeContactPoints := ""
 
@@ -474,7 +425,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	return zeebeContactPoints
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, namespace0Failover, namespace1Failover, valuesYaml string, region int, failover, esSwitch bool, setValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, valuesYaml string, region int, setValues, setStringValues map[string]string) {
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
@@ -535,10 +486,11 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	}
 
 	helmOptions := &helm.Options{
-		KubectlOptions: kubectlOptions,
-		Version:        remoteChartVersion,
-		ValuesFiles:    valuesFiles,
-		SetValues:      setValues,
+		KubectlOptions:  kubectlOptions,
+		Version:         remoteChartVersion,
+		ValuesFiles:     valuesFiles,
+		SetValues:       setValues,
+		SetStringValues: setStringValues,
 	}
 
 	if !strings.Contains(remoteChartVersion, "snapshot") {
