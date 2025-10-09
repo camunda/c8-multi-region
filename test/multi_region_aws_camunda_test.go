@@ -75,7 +75,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "normal") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -155,7 +155,8 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		// Multi-Region Operational Procedure
 		// Failback
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestRecreateCamundaInSecondary", recreateCamundaInSecondary_8_6_plus},
+		{"TestRecreateCamundaInSecondary", func(t *testing.T) { redeployWithoutOperateTasklist(t, secondary, true) }},
+		{"TestRedeployCamundaInPrimary", func(t *testing.T) { redeployWithoutOperateTasklist(t, primary, false) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestStopZeebeExporters", stopZeebeExporters},
 		{"TestCreateElasticBackupRepoPrimary", createElasticBackupRepoPrimary},
@@ -163,13 +164,13 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestCheckThatElasticBackupIsPresentPrimary", checkThatElasticBackupIsPresentPrimary},
 		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
 		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
-		{"TestResetSecondaryElastic", resetSecondaryElastic},
 		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
 		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
-		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestStartZeebeExporters", startZeebeExporters},
+		{"TestAddSecondaryBrokers", addSecondaryBrokers},
+		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "failback") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -246,6 +247,8 @@ func initKubernetesHelpers(t *testing.T) {
 func deployC8Helm(t *testing.T, valuesYaml string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
+	setStringValues := map[string]string{}
+
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
@@ -253,9 +256,9 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, valuesYaml, 0, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYaml, 0, baseHelmVars, setStringValues)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, valuesYaml, 1, false, false, baseHelmVars)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYaml, 1, baseHelmVars, setStringValues)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -363,12 +366,6 @@ func checkThatElasticBackupIsPresentSecondary(t *testing.T) {
 	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName, clusterName, remoteChartVersion)
 }
 
-func resetSecondaryElastic(t *testing.T) {
-	t.Log("[ELASTICSEARCH] Resetting secondary Elasticsearch 🚀")
-
-	kubectlHelpers.ResetElastic(t, secondary)
-}
-
 func restoreElasticBackupSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Restoring Elasticsearch Backup 🚀")
 
@@ -381,21 +378,46 @@ func deleteSecondaryRegion(t *testing.T) {
 	kubectlHelpers.TeardownC8Helm(t, &secondary.KubectlNamespace)
 }
 
-func recreateCamundaInSecondary_8_6_plus(t *testing.T) {
-	t.Log("[C8 HELM] Recreating Camunda Platform Helm Chart in secondary 🚀")
+// redeployWithoutOperateTasklist redeploys Camunda in the specified cluster with Operate and Tasklist disabled.
+// For secondary cluster, it also disables schema creation to prevent conflicts during DB restore.
+func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disableSchemaCreation bool) {
+	t.Logf("[C8 HELM] Redeploying Camunda Platform Helm Chart in %s 🚀", cluster.ClusterName)
+
+	region := 0
+
+	// assumption: eu-west-2 = 0 and eu-west-3 = 1
+	if cluster.Region == "eu-west-3" {
+		region = 1
+	}
 
 	setValues := map[string]string{}
+	setStringValues := map[string]string{}
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, primaryNamespaceFailover, secondaryNamespaceFailover, defaultValuesYaml, 1, false, false, helpers.CombineMaps(baseHelmVars, setValues))
+	// We have to disable Operate and Tasklist due to better UX + risk of data loss in case of local actions
+	setValues["orchestration.profiles.operate"] = "false"
+	setValues["orchestration.profiles.tasklist"] = "false"
 
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+	// Disable schema creation if requested (needed for secondary during DB restore)
+	if disableSchemaCreation {
+		setStringValues["orchestration.env[15].name"] = "CAMUNDA_DATABASE_SCHEMAMANAGER_CREATESCHEMA"
+		setStringValues["orchestration.env[15].value"] = "false"
+	}
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, defaultValuesYaml, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
+
+	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
+
 	// We can't wait for Zeebe to become ready as it's not part of the cluster, therefore out of service 503
 	// We are using instead elastic to become ready as the next steps depend on it, additionally as direct next step we check that the brokers have joined in again.
+	// We skip this for region 1 since only region 0 is part of the cluster at this point.
+	if region == 0 {
+		k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-zeebe")
+	}
 }
 
 func stopZeebeExporters(t *testing.T) {
