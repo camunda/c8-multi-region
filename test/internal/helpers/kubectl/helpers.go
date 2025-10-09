@@ -486,11 +486,11 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	}
 
 	helmOptions := &helm.Options{
-		KubectlOptions:  kubectlOptions,
-		Version:         remoteChartVersion,
-		ValuesFiles:     valuesFiles,
-		SetValues:       setValues,
-		SetStringValues: setStringValues,
+		KubectlOptions: kubectlOptions,
+		Version:        remoteChartVersion,
+		ValuesFiles:    valuesFiles,
+		SetValues:      setValues,
+		SetStrValues:   setStringValues,
 	}
 
 	if !strings.Contains(remoteChartVersion, "snapshot") {
