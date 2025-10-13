@@ -14,11 +14,11 @@
 # diff <(sed '/^#/d; /^$/d' .tool-versions | sort) <(sed '/^#/d; /^$/d' .tool-versions) && echo ".tool-versions is sorted correctly" || echo ".tool-versions is not sorted correctly"
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.7
+actionlint 1.7.8
 
-awscli 2.31.9
+awscli 2.31.13
 
-golang 1.25.1
+golang 1.25.2
 
 helm 3.19.0
 
