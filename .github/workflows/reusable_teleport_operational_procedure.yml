@@ -45,7 +45,7 @@ on:
                 description: 'Annotations to apply (format: key1=val1 key2=val2)'
                 required: false
                 type: string
-                default: janitor/ttl=1h camunda.cloud/ephemeral=true
+                default: janitor/ttl=2h
 
             cluster:
                 description: Cluster identifier (same for Cluster 0 & 1)
