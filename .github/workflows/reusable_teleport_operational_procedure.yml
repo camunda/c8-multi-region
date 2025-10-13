@@ -47,6 +47,11 @@ on:
                 description: Labels to apply
                 required: false
                 type: string
+                default: camunda.cloud/ephemeral=true
+            annotations:
+                description: 'Annotations to apply (format: key1=val1 key2=val2)'
+                required: false
+                type: string
                 default: janitor/ttl=1h camunda.cloud/ephemeral=true
 
             cluster:
@@ -91,6 +96,7 @@ env:
     NAMESPACE_PREFIX: ${{ inputs.namespacePrefix }}
     CLUSTER_NAME: ${{ inputs.clusterName }}
     LABELS: ${{ inputs.labels }}
+    ANNOTATIONS: ${{ inputs.annotations }}
 
     # Single input used for both cluster variables (to be able to reuse dual cluster tests)
     CLUSTER_0: ${{ inputs.cluster }}
@@ -226,24 +232,44 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 9m -run TestClusterPrerequisites
 
-            - name: Label namespaces and secrets
+            - name: Label and annotate namespaces and secrets
               run: |
                   set -euxo pipefail
 
-                  label_resources() {
+                  apply_labels_and_annotations() {
                     local namespace="$1"
-                    kubectl label namespace "$namespace" ${{ env.LABELS }} --overwrite
+
+                    # Apply labels to namespace
+                    if [ -n "${LABELS:-}" ]; then
+                      kubectl label namespace "$namespace" "${LABELS}" --overwrite
+                    fi
+
+                    # Apply annotations to namespace
+                    if [ -n "${ANNOTATIONS:-}" ]; then
+                      for ann in ${ANNOTATIONS}; do
+                        kubectl annotate namespace "$namespace" "$ann" --overwrite
+                      done
+                    fi
+
+                    # Apply labels and annotations to all secrets in the namespace
                     local secrets
                     secrets="$(kubectl get secrets -n "$namespace" -o jsonpath='{.items[*].metadata.name}')"
                     for secret in $secrets; do
-                      kubectl label secret "$secret" -n "$namespace" ${{ env.LABELS }} --overwrite
+                      if [ -n "${LABELS:-}" ]; then
+                        kubectl label secret "$secret" -n "$namespace" "${LABELS}" --overwrite
+                      fi
+                      if [ -n "${ANNOTATIONS:-}" ]; then
+                        for ann in ${ANNOTATIONS}; do
+                          kubectl annotate secret "$secret" -n "$namespace" "$ann" --overwrite
+                        done
+                      fi
                     done
                   }
 
                   # Combine cluster-0 and cluster-1 arrays into one comma-separated list
                   IFS=',' read -r -a ALL_NAMESPACES <<< "${CLUSTER_0_NAMESPACE},${CLUSTER_1_NAMESPACE}"
                   for namespace in "${ALL_NAMESPACES[@]}"; do
-                    label_resources "$namespace"
+                    apply_labels_and_annotations "$namespace"
                   done
 
             - name: Deploy dual region Camunda

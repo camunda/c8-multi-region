@@ -88,7 +88,6 @@ jobs:
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
             clusterName: camunda-ci-eks
-            labels: janitor/ttl=1h camunda.cloud/ephemeral=true
             cluster: camunda.teleport.sh-camunda-ci-eks
             backupBucket: tests-c8-multi-region-es-eu-central-1
             helmReleaseName: camunda
