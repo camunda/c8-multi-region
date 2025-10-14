@@ -1,5 +1,5 @@
 ---
-name: Teleport Migration Procedure (Snapshot)
+name: Teleport Migration Procedure
 
 on:
     schedule:
@@ -9,7 +9,7 @@ on:
         branches-ignore:
             - stable/**
         paths:
-            - .github/workflows/migration_procedure_snapshot.yml
+            - .github/workflows/migration_procedure.yml
             - .github/workflows/reuseable_aws_operational_procedure.yml
             - aws/dual-region/kubernetes/**/**.yml
             - aws/dual-region/scripts/generate_zeebe_helm_values.sh
@@ -33,8 +33,9 @@ env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
 
     # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-    PREVIOUS_HELM_CHART: 12.6.2
-    MIGRATION_HELM_CHART: SNAPSHOT
+    PREVIOUS_HELM_CHART: 12.6.1
+    # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
+    MIGRATION_HELM_CHART: 13.0.0
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
