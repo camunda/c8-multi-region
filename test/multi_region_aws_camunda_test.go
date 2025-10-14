@@ -31,7 +31,6 @@ const (
 )
 
 var (
-	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
 	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.0.0")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
