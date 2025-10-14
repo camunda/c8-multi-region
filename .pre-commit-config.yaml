@@ -9,12 +9,12 @@ repos:
           - id: end-of-file-fixer
           - id: check-added-large-files
     - repo: https://github.com/antonbabenko/pre-commit-terraform
-      rev: v1.101.0
+      rev: v1.101.1
       hooks:
           - id: terraform_fmt
           - id: terraform_tflint
     - repo: https://github.com/rhysd/actionlint
-      rev: v1.7.7
+      rev: v1.7.8
       hooks:
           - id: actionlint
     - repo: https://github.com/shellcheck-py/shellcheck-py
@@ -23,7 +23,7 @@ repos:
           - id: shellcheck
             args: [--external-sources, --source-path, .github/workflows/scripts]
     - repo: https://github.com/renovatebot/pre-commit-hooks
-      rev: 41.135.3
+      rev: 41.146.0
       hooks:
           - id: renovate-config-validator
             args: [--strict]

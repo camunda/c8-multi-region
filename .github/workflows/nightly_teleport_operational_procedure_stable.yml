@@ -74,7 +74,6 @@ jobs:
                   echo "${versions}"
                   echo "matrix=${versions}" >> "$GITHUB_OUTPUT"
 
-
     operational-procedure:
         needs:
             - dynamic-matrix
@@ -92,7 +91,6 @@ jobs:
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
             clusterName: camunda-ci-eks
-            labels: janitor/ttl=1h camunda.cloud/ephemeral=true
             cluster: camunda.teleport.sh-camunda-ci-eks
             backupBucket: tests-c8-multi-region-es-eu-central-1
             helmReleaseName: camunda
@@ -106,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@41da8a5db70e58aa011502504f82901bb95bf0b0 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@128beef322b89d51a416832f3e26e6b17451c8a9 # main
               with:
                   error-messages: |
                       PendingPodsError: Found
