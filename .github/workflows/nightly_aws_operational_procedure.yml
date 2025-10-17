@@ -1,8 +1,9 @@
 ---
 name: Nightly AWS EKS Operational Procedure Test
 on:
-    schedule:
-        - cron: 0 2 * * 1-5
+    # Schedule is disabled as this version is no longer maintained
+    # schedule:
+    #     - cron: 0 2 * * 1-5
     workflow_dispatch:
     pull_request:
         # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
