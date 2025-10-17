@@ -1,5 +1,7 @@
 # Camunda Platform - Multi-Region
 
+> **⚠️ Note:** This version is no longer maintained. Please refer to the [Camunda release announcements](https://docs.camunda.io/docs/reference/announcements-release-notes/overview/) for current supported versions.
+
 This repository contains configuration files for setting up a multi-region Kubernetes cluster in AWS and running the Camunda Platform in multi-region mode. The current focus is on a dual-region setup.
 
 Additionally, nightly tests are included and executed to ensure that the failover and fallback behaviour don't break.
