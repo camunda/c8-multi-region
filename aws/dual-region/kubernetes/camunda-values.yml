@@ -38,7 +38,6 @@ connectors:
     enabled: true
 
 orchestration:
-    image:
     clusterSize: '8'
     partitionCount: '8'
     replicationFactor: '4'
