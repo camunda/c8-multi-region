@@ -48,9 +48,9 @@ jobs:
               id: generate-matrix
               run: |
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.10.1
+                  c86=11.10.2
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c87=12.6.2
+                  c87=12.6.3
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c88=13.0.0
 
@@ -104,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@d3658083e21dd8784695638b34100f413310dbba # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@ad3fd49c6526b19c2fe15f2d279e68dea2da278f # main
               with:
                   error-messages: |
                       PendingPodsError: Found
