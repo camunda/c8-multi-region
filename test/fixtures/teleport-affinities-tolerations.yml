@@ -22,6 +22,11 @@ orchestration:
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
 
+    migration:
+        affinity:
+            podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution: []
+
 identity:
     tolerations:
         - key: t-core-8-unstable
@@ -40,10 +45,6 @@ identity:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Override podAntiAffinity to disable hard anti-affinity constraints
-        # This prevents scheduling conflicts in teleport test environments with limited nodes
-        podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution: []
 
 connectors:
     tolerations:
@@ -63,10 +64,6 @@ connectors:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Override podAntiAffinity to disable hard anti-affinity constraints
-        # This prevents scheduling conflicts in teleport test environments with limited nodes
-        podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution: []
 
 optimize:
     tolerations:
@@ -86,10 +83,6 @@ optimize:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Override podAntiAffinity to disable hard anti-affinity constraints
-        # This prevents scheduling conflicts in teleport test environments with limited nodes
-        podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution: []
 
 elasticsearch:
     master:
@@ -110,7 +103,3 @@ elasticsearch:
                                 values:
                                     - t-core-8-unstable
                                     - t-core-16-unstable
-        # Override podAntiAffinity to disable hard anti-affinity constraints
-        # This prevents scheduling conflicts in teleport test environments with limited nodes
-        podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution: []
