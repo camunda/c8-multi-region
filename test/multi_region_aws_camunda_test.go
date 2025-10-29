@@ -387,7 +387,7 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	region := 0
 
 	// assumption: eu-west-2 = 0 and eu-west-3 = 1
-w	if cluster.Region == "eu-west-3" {
+	if cluster.Region == "eu-west-3" {
 		region = 1
 	}
 
