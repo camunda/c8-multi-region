@@ -33,7 +33,7 @@ const (
 var (
 	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.0.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.1.0")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
@@ -387,7 +387,7 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 	region := 0
 
 	// assumption: eu-west-2 = 0 and eu-west-3 = 1
-	if cluster.Region == "eu-west-3" {
+w	if cluster.Region == "eu-west-3" {
 		region = 1
 	}
 
@@ -396,8 +396,8 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
-		// Note: podAntiAffinity is not set in teleport-affinities-tolerations.yml
-		// This allows the default chart podAntiAffinity to be used without merge conflicts
+		// podAntiAffinity is explicitly set to null in teleport-affinities-tolerations.yml
+		// to disable the default chart podAntiAffinity rules
 	}
 
 	// We have to disable Operate and Tasklist due to better UX + risk of data loss in case of local actions

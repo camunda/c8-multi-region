@@ -17,6 +17,9 @@ orchestration:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        # Explicitly set podAntiAffinity to null to disable the default chart value
+        # This prevents scheduling conflicts in teleport test environments
+        podAntiAffinity:
 
 identity:
     tolerations:
