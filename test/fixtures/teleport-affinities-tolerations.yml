@@ -19,7 +19,7 @@ orchestration:
                                 - t-core-16-unstable
         # Explicitly set podAntiAffinity to null to disable the default chart value
         # This prevents scheduling conflicts in teleport test environments
-        podAntiAffinity:
+        podAntiAffinity: null
 
 identity:
     tolerations:
@@ -39,6 +39,9 @@ identity:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        # Explicitly set podAntiAffinity to null to disable the default chart value
+        # This prevents scheduling conflicts in teleport test environments
+        podAntiAffinity: null
 
 connectors:
     tolerations:
@@ -58,6 +61,9 @@ connectors:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        # Explicitly set podAntiAffinity to null to disable the default chart value
+        # This prevents scheduling conflicts in teleport test environments
+        podAntiAffinity: null
 
 optimize:
     tolerations:
@@ -77,6 +83,9 @@ optimize:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
+        # Explicitly set podAntiAffinity to null to disable the default chart value
+        # This prevents scheduling conflicts in teleport test environments
+        podAntiAffinity: null
 
 elasticsearch:
     master:
@@ -97,3 +106,6 @@ elasticsearch:
                                 values:
                                     - t-core-8-unstable
                                     - t-core-16-unstable
+        # Explicitly set podAntiAffinity to null to disable the default chart value
+        # This prevents scheduling conflicts in teleport test environments
+        podAntiAffinity: null
