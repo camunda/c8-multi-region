@@ -17,8 +17,8 @@ orchestration:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Explicitly set podAntiAffinity to empty object to disable the default chart value
-        # This prevents scheduling conflicts in teleport test environments
+        # Override podAntiAffinity to disable hard anti-affinity constraints
+        # This prevents scheduling conflicts in teleport test environments with limited nodes
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
 
@@ -40,8 +40,8 @@ identity:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Explicitly set podAntiAffinity to empty object to disable the default chart value
-        # This prevents scheduling conflicts in teleport test environments
+        # Override podAntiAffinity to disable hard anti-affinity constraints
+        # This prevents scheduling conflicts in teleport test environments with limited nodes
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
 
@@ -63,8 +63,8 @@ connectors:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Explicitly set podAntiAffinity to empty object to disable the default chart value
-        # This prevents scheduling conflicts in teleport test environments
+        # Override podAntiAffinity to disable hard anti-affinity constraints
+        # This prevents scheduling conflicts in teleport test environments with limited nodes
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
 
@@ -86,8 +86,8 @@ optimize:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-        # Explicitly set podAntiAffinity to empty object to disable the default chart value
-        # This prevents scheduling conflicts in teleport test environments
+        # Override podAntiAffinity to disable hard anti-affinity constraints
+        # This prevents scheduling conflicts in teleport test environments with limited nodes
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
 
@@ -110,7 +110,7 @@ elasticsearch:
                                 values:
                                     - t-core-8-unstable
                                     - t-core-16-unstable
-        # Explicitly set podAntiAffinity to empty object to disable the default chart value
-        # This prevents scheduling conflicts in teleport test environments
+        # Override podAntiAffinity to disable hard anti-affinity constraints
+        # This prevents scheduling conflicts in teleport test environments with limited nodes
         podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution: []
