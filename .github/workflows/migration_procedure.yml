@@ -82,9 +82,9 @@ jobs:
             cluster_0_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_0_NAMESPACE }}
             cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}
             backup_name: ${{ needs.deploy_previous_release.outputs.BACKUP_NAME }}
-            keepAlive: ${{ github.event.inputs.keep-alive || false }}
-            skipFailover: ${{ github.event.inputs.skip-failover || false }}
-            skipFailback: ${{ github.event.inputs.skip-failback || false }}
+            keepAlive: ${{ github.event.inputs.keep-alive == 'true' }}
+            skipFailover: ${{ github.event.inputs.skip-failover == 'true' }}
+            skipFailback: ${{ github.event.inputs.skip-failback == 'true' }}
         secrets: inherit
 
     report-failure:
