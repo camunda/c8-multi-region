@@ -17,10 +17,6 @@ orchestration:
                             values:
                                 - t-core-8-unstable
                                 - t-core-16-unstable
-    migration:
-        affinity:
-            podAntiAffinity: null
-
 identity:
     tolerations:
         - key: t-core-8-unstable
