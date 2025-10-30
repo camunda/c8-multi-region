@@ -19,13 +19,11 @@ orchestration:
                                 - t-core-16-unstable
         # Override podAntiAffinity to disable hard anti-affinity constraints
         # This prevents scheduling conflicts in teleport test environments with limited nodes
-        podAntiAffinity:
-            requiredDuringSchedulingIgnoredDuringExecution: []
+        podAntiAffinity: null
 
     migration:
         affinity:
-            podAntiAffinity:
-                preferredDuringSchedulingIgnoredDuringExecution: []
+            podAntiAffinity: null
 
 identity:
     tolerations:
