@@ -252,8 +252,7 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
-		// Note: podAntiAffinity is not set in teleport-affinities-tolerations.yml
-		// This allows the default chart podAntiAffinity to be used without merge conflicts
+		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
@@ -396,8 +395,7 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
-		// podAntiAffinity is explicitly set to null in teleport-affinities-tolerations.yml
-		// to disable the default chart podAntiAffinity rules
+		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 	}
 
 	// We have to disable Operate and Tasklist due to better UX + risk of data loss in case of local actions
