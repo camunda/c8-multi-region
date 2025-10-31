@@ -369,26 +369,26 @@ jobs:
 
                   mkdir -p ./migration_logs
 
-                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \
                     --all-containers=true \
                     -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
-                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \
                     --all-containers=true \
                     -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
 
-                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-migration \
+                  kubectl logs -l app.kubernetes.io/component=orchestration-migration \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \
                     --all-containers=true \
                     -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
-                  kubectl logs -l app.kubernetes.io/component=zeebe-broker-importer \
+                  kubectl logs -l app.kubernetes.io/component=orchestration-migration \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \

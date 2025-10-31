@@ -691,8 +691,8 @@ func checkMigrationSucceed(t *testing.T) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
 	// Waiting for the importer to be ready
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
 
 	// If the Job succeeds, then the migration was successfully completed
 	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
