@@ -85,6 +85,7 @@ jobs:
             keepAlive: ${{ github.event.inputs.keep-alive == 'true' }}
             skipFailover: ${{ github.event.inputs.skip-failover == 'true' }}
             skipFailback: ${{ github.event.inputs.skip-failback == 'true' }}
+            overwriteBranch: ${{ github.head_ref || github.ref_name }}
         secrets: inherit
 
     report-failure:
