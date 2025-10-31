@@ -32,7 +32,7 @@ const (
 
 var (
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.0.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.1.1")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
@@ -252,6 +252,10 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 		timeout = "1800s"
 		retries = 100
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
+
+		if valuesYaml == migrationValuesYaml {
+			baseHelmVars["orchestration.migration.affinity.podAntiAffinity"] = "null"
+		}
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
@@ -686,8 +690,8 @@ func checkMigrationSucceed(t *testing.T) {
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
 	// Waiting for the importer to be ready
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
-	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
+	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
 
 	// If the Job succeeds, then the migration was successfully completed
 	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
