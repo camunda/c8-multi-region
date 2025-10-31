@@ -33,7 +33,7 @@ const (
 var (
 	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.0.0")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.1.1")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
@@ -253,6 +253,10 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 		timeout = "1800s"
 		retries = 100
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
+
+		if valuesYaml == migrationValuesYaml {
+			baseHelmVars["orchestration.migration.affinity.podAntiAffinity"] = "null"
+		}
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
