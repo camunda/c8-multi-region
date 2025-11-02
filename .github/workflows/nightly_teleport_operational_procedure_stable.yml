@@ -104,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@ad3fd49c6526b19c2fe15f2d279e68dea2da278f # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@fc80933ffe69fd186048d40d39f25f28fa63cb72 # main
               with:
                   error-messages: |
                       PendingPodsError: Found
