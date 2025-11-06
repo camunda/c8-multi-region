@@ -481,7 +481,7 @@ jobs:
               timeout-minutes: 21
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 20 -run TestMultiTenancyDualReg
+                  go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
 
             - name: Delete namespaces
               if: always() && inputs.deployOnly == false && inputs.keepAlive == false
