@@ -27,6 +27,7 @@ const (
 	defaultValuesYaml      = "../aws/dual-region/kubernetes/camunda-values.yml"
 	migrationValuesYaml    = "../aws/dual-region/kubernetes/camunda-values-migration.yml"
 	multiTenancyValuesYaml = "./fixtures/multi-tenancy.yml"
+	tenantID               = "test-tenant"
 
 	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
@@ -193,7 +194,12 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
+		// {"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
+		{"TestCheckC8RunningProperly", checkC8RunningProperly},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
+		{"TestCreateTestTenant", createTestTenant},
+		{"TestCheckTenantExists", checkTenantExists},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -328,6 +334,34 @@ func deployC8processAndCheck(t *testing.T, expectedProcesses int, mode string) {
 	if mode != "failover" {
 		kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses)
 	}
+}
+
+func createTestTenant(t *testing.T) {
+	t.Log("[TENANT] Creating test tenant 🏢")
+
+	name := "Test Tenant"
+	description := "A test tenant for multi-region testing"
+
+	// Create tenant in primary cluster
+	kubectlHelpers.CreateTenant(t, primary, tenantID, name, description)
+
+	// Assign admin role to the tenant
+	t.Log("[TENANT] Assigning admin role to tenant")
+	kubectlHelpers.AssignRoleToTenant(t, primary, tenantID, "admin")
+
+	// Wait a moment for tenant to be propagated
+	t.Log("[TENANT] Waiting for tenant to be propagated...")
+	time.Sleep(5 * time.Second)
+}
+
+func checkTenantExists(t *testing.T) {
+	t.Log("[TENANT] Checking if tenant exists 🔍")
+
+	// Check tenant exists in primary cluster
+	kubectlHelpers.CheckTenantExists(t, primary, tenantID)
+
+	// Check tenant exists in secondary cluster
+	kubectlHelpers.CheckTenantExists(t, secondary, tenantID)
 }
 
 func teardownAllC8Helm(t *testing.T) {

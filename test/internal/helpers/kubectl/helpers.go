@@ -754,3 +754,139 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 		}
 	}
 }
+
+// CreateTenant creates a tenant via the Camunda API
+func CreateTenant(t *testing.T, cluster helpers.Cluster, tenantID, name, description string) {
+	t.Logf("[TENANT] Creating tenant '%s' in cluster %s", tenantID, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	// Prepare request body
+	requestBody := fmt.Sprintf(`{
+  "tenantId": "%s",
+  "name": "%s",
+  "description": "%s"
+}`, tenantID, name, description)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/tenants", endpoint), strings.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create tenant: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 && res.StatusCode != 201 {
+		t.Fatalf("[TENANT] Failed to create tenant (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	t.Logf("[TENANT] Successfully created tenant: %s", string(body))
+	require.Contains(t, string(body), tenantID)
+}
+
+// AssignRoleToTenant assigns a role to a tenant via the Camunda API
+func AssignRoleToTenant(t *testing.T, cluster helpers.Cluster, tenantID, roleID string) {
+	t.Logf("[TENANT] Assigning role '%s' to tenant '%s' in cluster %s", roleID, tenantID, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/v2/tenants/%s/roles/%s", endpoint, tenantID, roleID), nil)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to assign role: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 && res.StatusCode != 204 {
+		t.Fatalf("[TENANT] Failed to assign role (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	t.Logf("[TENANT] Successfully assigned role '%s' to tenant '%s'", roleID, tenantID)
+}
+
+// CheckTenantExists verifies that a tenant exists via the Camunda API
+func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantID string) {
+	t.Logf("[TENANT] Checking if tenant '%s' exists in cluster %s", tenantID, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/v2/tenants/%s", endpoint, tenantID), nil)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to check tenant: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 {
+		t.Fatalf("[TENANT] Tenant not found (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	bodyString := string(body)
+	t.Logf("[TENANT] Tenant exists: %s", bodyString)
+	require.Contains(t, bodyString, tenantID)
+}
