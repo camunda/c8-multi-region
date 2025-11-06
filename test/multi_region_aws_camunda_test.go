@@ -19,13 +19,14 @@ import (
 const (
 	remoteChartSource = "https://helm.camunda.io"
 
-	resourceDir         = "../aws/dual-region"
-	terraformDir        = "../aws/dual-region/terraform"
-	kubeConfigPrimary   = "./kubeconfig-london"
-	kubeConfigSecondary = "./kubeconfig-paris"
-	k8sManifests        = "../aws/dual-region/kubernetes"
-	defaultValuesYaml   = "camunda-values.yml"
-	migrationValuesYaml = "camunda-values-migration.yml"
+	resourceDir            = "../aws/dual-region"
+	terraformDir           = "../aws/dual-region/terraform"
+	kubeConfigPrimary      = "./kubeconfig-london"
+	kubeConfigSecondary    = "./kubeconfig-paris"
+	k8sManifests           = "../aws/dual-region/kubernetes"
+	defaultValuesYaml      = "../aws/dual-region/kubernetes/camunda-values.yml"
+	migrationValuesYaml    = "../aws/dual-region/kubernetes/camunda-values-migration.yml"
+	multiTenancyValuesYaml = "./fixtures/multi-tenancy.yml"
 
 	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
@@ -73,7 +74,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
 		{"TestCheckTheMath", checkTheMath},
@@ -98,7 +99,7 @@ func TestMigrationDualReg(t *testing.T) {
 	}{
 		// Camunda 8 Deployment
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, migrationValuesYaml) }},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{migrationValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestCheckMigrationSucceed", checkMigrationSucceed},
 		{"TestPostMigrationCleanup", postMigrationCleanup},
@@ -168,10 +169,31 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
-		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, defaultValuesYaml) }},
+		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default") }},
 		{"TestCheckTheMath", checkTheMath},
+	} {
+		t.Run(testFuncs.name, testFuncs.tfunc)
+	}
+}
+
+func TestMultiTenancyDualReg(t *testing.T) {
+	t.Log("[2 REGION TEST] Testing Multi-Tenancy in multi region mode 🚀")
+
+	if globalImageTag != "" {
+		t.Log("[GLOBAL IMAGE TAG] Overwriting image tag for all Camunda images with " + globalImageTag)
+		// global.image.tag does not overwrite the image tag for all images
+		baseHelmVars = helpers.OverwriteImageTag(baseHelmVars, globalImageTag)
+	}
+
+	// Runs the tests sequentially
+	for _, testFuncs := range []struct {
+		name  string
+		tfunc func(*testing.T)
+	}{
+		{"TestInitKubernetesHelpers", initKubernetesHelpers},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -244,7 +266,7 @@ func initKubernetesHelpers(t *testing.T) {
 	}
 }
 
-func deployC8Helm(t *testing.T, valuesYaml string) {
+func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	t.Log("[C8 HELM] Deploying Camunda Platform Helm Chart 🚀")
 
 	setStringValues := map[string]string{}
@@ -254,15 +276,15 @@ func deployC8Helm(t *testing.T, valuesYaml string) {
 		retries = 100
 		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
-		if valuesYaml == migrationValuesYaml {
+		if len(valuesYamlFiles) > 0 && valuesYamlFiles[0] == migrationValuesYaml {
 			baseHelmVars["orchestration.migration.affinity.podAntiAffinity"] = "null"
 		}
 	}
 
 	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYaml, 0, baseHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, 0, baseHelmVars, setStringValues)
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYaml, 1, baseHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, 1, baseHelmVars, setStringValues)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -412,7 +434,7 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 		setStringValues["orchestration.env[15].value"] = "false"
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, defaultValuesYaml, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, []string{defaultValuesYaml}, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
 	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 
