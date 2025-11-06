@@ -199,6 +199,7 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // asumes previous tests to be executed
 		{"TestCreateTestTenant", createTestTenant},
 		{"TestCheckTenantExists", checkTenantExists},
+		{"ResetMigrationOffset", func(t *testing.T) { migrationOffset = 0 }}, // in case the migration job runs this, the tenant has no previous history
 		{"TestDeployC8processAndCheckWithTenant", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", tenantId) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
