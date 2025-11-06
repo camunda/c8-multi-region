@@ -194,10 +194,10 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		// {"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
+		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "<default>") }},
-		// {"TestCreateTestTenant", createTestTenant},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // asumes previous tests to be executed
+		{"TestCreateTestTenant", createTestTenant},
 		{"TestCheckTenantExists", checkTenantExists},
 		{"TestDeployC8processAndCheckWithTenant", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", tenantId) }},
 	} {

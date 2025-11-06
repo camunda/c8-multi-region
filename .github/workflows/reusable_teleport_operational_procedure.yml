@@ -100,6 +100,10 @@ on:
                 description: Whether to skip the tests after deployment
                 type: boolean
                 default: false
+            skipMultiTenancy:
+                description: Whether to skip multi-tenancy tests after deployment
+                type: boolean
+                default: false
         outputs:
             CLUSTER_0_NAMESPACE:
                 description: Namespace for cluster 0
@@ -164,16 +168,18 @@ jobs:
                     echo "HELM_CHART_NAME=${{ inputs.helmChartName }}" >> "$GITHUB_ENV"
                   fi
                   if [ -n "${{ inputs.globalImageTag }}" ]; then
-                    # With 8.7 and 8.8 being developed concurrently, the helm chart is 8.7 while the images are 8.8
-                    # Therefore fallback atm on the helm chart defined image tags
-                    # echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
-                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}"
+                    echo "GLOBAL_IMAGE_TAG=${{ inputs.globalImageTag }}" >> "$GITHUB_ENV"
                   fi
 
             - name: Map Helm version to branch
               id: helm-version
               run: |
                   version=${{ inputs.helmChartVersion }}
+
+                  major_version=$(echo "$version" | cut -d '.' -f 1)
+
+                  # export major version for test purposes to target specific versions
+                  echo "MAJOR_VERSION=$major_version" >> "$GITHUB_ENV"
 
                   if [[ $version == "SNAPSHOT" ]]; then
                     # we use the snapshot alpha chart of the Helm Chart
@@ -182,6 +188,7 @@ jobs:
                         echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
                         echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
                         echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
+                        echo "MAJOR_VERSION=99"
                     } >> "$GITHUB_ENV"
                     if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
                       echo "branch=$GITHUB_HEAD_REF" >> "$GITHUB_ENV"
@@ -467,6 +474,14 @@ jobs:
                   if [ "$duration" -gt "1500" ]; then
                   echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
                   fi
+
+            - name: Test multi-tenancy
+              if: inputs.deployOnly == false && inputs.skipMultiTenancy == false && env.MAJOR_VERSION >= 13
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20 -run TestMultiTenancyDualReg
 
             - name: Delete namespaces
               if: always() && inputs.deployOnly == false && inputs.keepAlive == false
