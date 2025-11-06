@@ -27,7 +27,7 @@ const (
 	defaultValuesYaml      = "../aws/dual-region/kubernetes/camunda-values.yml"
 	migrationValuesYaml    = "../aws/dual-region/kubernetes/camunda-values-migration.yml"
 	multiTenancyValuesYaml = "./fixtures/multi-tenancy.yml"
-	tenantID               = "test-tenant"
+	tenantId               = "test-tenant"
 
 	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
@@ -77,7 +77,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -104,7 +104,7 @@ func TestMigrationDualReg(t *testing.T) {
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestCheckMigrationSucceed", checkMigrationSucceed},
 		{"TestPostMigrationCleanup", postMigrationCleanup},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7, "migration") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7, "migration", "") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -133,7 +133,7 @@ func TestAWSDualRegFailover_8_6_plus(t *testing.T) {
 		{"TestRemoveSecondaryBrokers", removeSecondaryBrokers},
 		{"TestDisableElasticExportersToSecondary", disableElasticExportersToSecondary},
 		{"TestCheckTheMathFailover", checkTheMathFailover_8_6_plus},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 12, "failover") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 12, "failover", "") }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -172,7 +172,7 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default", "") }},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -196,10 +196,10 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		// {"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
-		{"TestCreateTestTenant", createTestTenant},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "") }},
+		// {"TestCreateTestTenant", createTestTenant},
 		{"TestCheckTenantExists", checkTenantExists},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default") }},
+		{"TestDeployC8processAndCheckWithTenant", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", tenantId) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -316,23 +316,23 @@ func checkC8RunningProperly(t *testing.T) {
 	kubectlHelpers.CheckC8RunningProperly(t, primary, primaryNamespace, secondaryNamespace)
 }
 
-func deployC8processAndCheck(t *testing.T, expectedProcesses int, mode string) {
+func deployC8processAndCheck(t *testing.T, expectedProcesses int, mode, tenantId string) {
 	t.Log("[C8 PROCESS] Deploying a process and checking if it's running 🚀")
 
 	tmpExpectedProcesses := expectedProcesses + migrationOffset
 
-	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir)
+	kubectlHelpers.DeployC8processAndCheck(t, primary, resourceDir, tenantId)
 
-	kubectlHelpers.CheckOperateForProcesses(t, primary)
+	kubectlHelpers.CheckOperateForProcesses(t, primary, tenantId)
 
 	if mode != "failover" {
-		kubectlHelpers.CheckOperateForProcesses(t, secondary)
+		kubectlHelpers.CheckOperateForProcesses(t, secondary, tenantId)
 	}
 
-	kubectlHelpers.CheckOperateForProcessInstances(t, primary, tmpExpectedProcesses)
+	kubectlHelpers.CheckOperateForProcessInstances(t, primary, tmpExpectedProcesses, tenantId)
 
 	if mode != "failover" {
-		kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses)
+		kubectlHelpers.CheckOperateForProcessInstances(t, secondary, tmpExpectedProcesses, tenantId)
 	}
 }
 
@@ -343,11 +343,11 @@ func createTestTenant(t *testing.T) {
 	description := "A test tenant for multi-region testing"
 
 	// Create tenant in primary cluster
-	kubectlHelpers.CreateTenant(t, primary, tenantID, name, description)
+	kubectlHelpers.CreateTenant(t, primary, tenantId, name, description)
 
 	// Assign admin role to the tenant
 	t.Log("[TENANT] Assigning admin role to tenant")
-	kubectlHelpers.AssignRoleToTenant(t, primary, tenantID, "admin")
+	kubectlHelpers.AssignRoleToTenant(t, primary, tenantId, "admin")
 
 	// Wait a moment for tenant to be propagated
 	t.Log("[TENANT] Waiting for tenant to be propagated...")
@@ -358,10 +358,10 @@ func checkTenantExists(t *testing.T) {
 	t.Log("[TENANT] Checking if tenant exists 🔍")
 
 	// Check tenant exists in primary cluster
-	kubectlHelpers.CheckTenantExists(t, primary, tenantID)
+	kubectlHelpers.CheckTenantExists(t, primary, tenantId)
 
 	// Check tenant exists in secondary cluster
-	kubectlHelpers.CheckTenantExists(t, secondary, tenantID)
+	kubectlHelpers.CheckTenantExists(t, secondary, tenantId)
 }
 
 func teardownAllC8Helm(t *testing.T) {
