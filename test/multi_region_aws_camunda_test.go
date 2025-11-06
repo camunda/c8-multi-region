@@ -196,7 +196,7 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		// {"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "") }},
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "<default>") }},
 		// {"TestCreateTestTenant", createTestTenant},
 		{"TestCheckTenantExists", checkTenantExists},
 		{"TestDeployC8processAndCheckWithTenant", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", tenantId) }},
