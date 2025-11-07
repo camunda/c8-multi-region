@@ -476,7 +476,7 @@ jobs:
                   fi
 
             - name: Test multi-tenancy
-              if: inputs.deployOnly == false && inputs.skipMultiTenancy == false && env.MAJOR_VERSION >= 13
+              if: inputs.deployOnly == false && inputs.skipMultiTenancy == false && fromJSON(env.MAJOR_VERSION) >= 13
               working-directory: ./test
               timeout-minutes: 21
               run: |

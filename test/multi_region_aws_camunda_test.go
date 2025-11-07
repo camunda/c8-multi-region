@@ -196,7 +196,7 @@ func TestMultiTenancyDualReg(t *testing.T) {
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml, multiTenancyValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
-		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // asumes previous tests to be executed
+		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 24, "default", "<default>") }}, // assumes previous tests to be executed
 		{"TestCreateTestTenant", createTestTenant},
 		{"TestCheckTenantExists", checkTenantExists},
 		{"ResetMigrationOffset", func(t *testing.T) { migrationOffset = 0 }}, // in case the migration job runs this, the tenant has no previous history

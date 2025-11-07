@@ -195,7 +195,7 @@ jobs:
                   echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
                   fi
             - name: Test multi-tenancy - ${{ inputs.helm-version }}
-              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' && env.MAJOR_VERSION >= 13 }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' && fromJSON(env.MAJOR_VERSION) >= 13 }}
               working-directory: ./test
               timeout-minutes: 21
               run: |
