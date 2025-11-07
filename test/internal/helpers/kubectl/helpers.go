@@ -194,7 +194,7 @@ func TeardownC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 	}
 }
 
-func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
+func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster, tenantId string) {
 	t.Logf("[C8 PROCESS] Checking for Cluster %s whether Operate contains deployed processes", cluster.ClusterName)
 
 	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
@@ -203,10 +203,18 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	// create http client
 	client := &http.Client{}
 
+	// Prepare request body with tenantId if provided
+	var instanceRequestBody string
+	if tenantId != "" {
+		instanceRequestBody = fmt.Sprintf(`{"filter": { "tenantId":"%s" }}`, tenantId)
+	} else {
+		instanceRequestBody = `{}`
+	}
+
 	var bodyString string
 	for i := 0; i < 8; i++ {
 		// fresh request each iteration to avoid reusing consumed body
-		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(`{}`))
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-definitions/search", endpoint), strings.NewReader(instanceRequestBody))
 		if err != nil {
 			t.Fatalf("[C8 PROCESS] %s", err)
 			return
@@ -246,7 +254,7 @@ func CheckOperateForProcesses(t *testing.T, cluster helpers.Cluster) {
 	require.Contains(t, bodyString, "bigVarProcess")
 }
 
-func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size int) {
+func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size int, tenantId string) {
 
 	t.Logf("[C8 PROCESS INSTANCES] Checking for Cluster %s whether instances of bigVarProcess are created", cluster.ClusterName)
 
@@ -256,10 +264,18 @@ func CheckOperateForProcessInstances(t *testing.T, cluster helpers.Cluster, size
 	// create http client
 	client := &http.Client{}
 
+	// Prepare request body with tenantId if provided
+	var instanceRequestBody string
+	if tenantId != "" {
+		instanceRequestBody = fmt.Sprintf(`{"filter": { "tenantId":"%s" }}`, tenantId)
+	} else {
+		instanceRequestBody = `{}`
+	}
+
 	var bodyString string
 	for i := 0; i < 8; i++ {
 		// fresh request each iteration to avoid reusing consumed body
-		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(`{}`))
+		req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/process-instances/search", endpoint), strings.NewReader(instanceRequestBody))
 		if err != nil {
 			t.Fatalf("[C8 PROCESS INSTANCES] %s", err)
 			return
@@ -425,7 +441,7 @@ func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 str
 	return zeebeContactPoints
 }
 
-func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1, valuesYaml string, region int, setValues, setStringValues map[string]string) {
+func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1 string, valuesYamlFiles []string, region int, setValues, setStringValues map[string]string) {
 
 	if !helpers.IsTeleportEnabled() {
 		// Set environment variables for the script
@@ -455,14 +471,14 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	require.NotEmpty(t, elastic0, "Elasticsearch region 0 URL should not be empty")
 	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
 
-	valuesFiles := []string{fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)}
+	valuesFiles := valuesYamlFiles
 	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/%s", region, "camunda-values.yml")) // these are the region overlays and should change whether migration or not
 
 	if helpers.IsTeleportEnabled() {
 		valuesFiles = append(valuesFiles, "./fixtures/teleport-affinities-tolerations.yml")
 	}
 
-	filePath := fmt.Sprintf("../aws/dual-region/kubernetes/%s", valuesYaml)
+	filePath := valuesFiles[0]
 
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -616,7 +632,7 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 	require.Equal(t, 4, secondaryCount)
 }
 
-func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resourceDir string) {
+func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resourceDir, tenantId string) {
 	endpoint, closeFn := NewServiceTunnelWithRetry(t, &kubectlOptions.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
 	defer closeFn()
 
@@ -640,6 +656,15 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 	if err != nil {
 		t.Fatalf("[C8 PROCESS] can't copy file - %s", err)
 		return
+	}
+
+	// Add tenantId field if provided
+	if tenantId != "" {
+		err = writer.WriteField("tenantId", tenantId)
+		if err != nil {
+			t.Fatalf("[C8 PROCESS] can't write tenantId field - %s", err)
+			return
+		}
 	}
 
 	err = writer.Close()
@@ -676,10 +701,19 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 
 	for i := 1; i <= instancesToStart; i++ {
 		t.Logf("[C8 PROCESS] Starting Process instance %d/%d 🚀", i, instancesToStart)
+
+		// Prepare request body with tenantId if provided
+		var instanceRequestBody string
+		if tenantId != "" {
+			instanceRequestBody = fmt.Sprintf(`{"processDefinitionId":"bigVarProcess","tenantId":"%s"}`, tenantId)
+		} else {
+			instanceRequestBody = `{"processDefinitionId":"bigVarProcess"}`
+		}
+
 		code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 			Method: "POST",
 			Url:    fmt.Sprintf("http://%s/v2/process-instances", endpoint),
-			Body:   strings.NewReader("{\"processDefinitionId\":\"bigVarProcess\"}"),
+			Body:   strings.NewReader(instanceRequestBody),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
 				"Accept":        "application/json",
@@ -753,4 +787,140 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 			}
 		}
 	}
+}
+
+// CreateTenant creates a tenant via the Camunda API
+func CreateTenant(t *testing.T, cluster helpers.Cluster, tenantId, name, description string) {
+	t.Logf("[TENANT] Creating tenant '%s' in cluster %s", tenantId, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	// Prepare request body
+	requestBody := fmt.Sprintf(`{
+  "tenantId": "%s",
+  "name": "%s",
+  "description": "%s"
+}`, tenantId, name, description)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("POST", fmt.Sprintf("http://%s/v2/tenants", endpoint), strings.NewReader(requestBody))
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create tenant: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 && res.StatusCode != 201 {
+		t.Fatalf("[TENANT] Failed to create tenant (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	t.Logf("[TENANT] Successfully created tenant: %s", string(body))
+	require.Contains(t, string(body), tenantId)
+}
+
+// AssignRoleToTenant assigns a role to a tenant via the Camunda API
+func AssignRoleToTenant(t *testing.T, cluster helpers.Cluster, tenantId, roleID string) {
+	t.Logf("[TENANT] Assigning role '%s' to tenant '%s' in cluster %s", roleID, tenantId, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("PUT", fmt.Sprintf("http://%s/v2/tenants/%s/roles/%s", endpoint, tenantId, roleID), nil)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to assign role: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 && res.StatusCode != 204 {
+		t.Fatalf("[TENANT] Failed to assign role (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	t.Logf("[TENANT] Successfully assigned role '%s' to tenant '%s'", roleID, tenantId)
+}
+
+// CheckTenantExists verifies that a tenant exists via the Camunda API
+func CheckTenantExists(t *testing.T, cluster helpers.Cluster, tenantId string) {
+	t.Logf("[TENANT] Checking if tenant '%s' exists in cluster %s", tenantId, cluster.ClusterName)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &cluster.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s/v2/tenants/%s", endpoint, tenantId), nil)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to create request: %v", err)
+		return
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", basicAuthDemoHeader)
+
+	res, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to check tenant: %v", err)
+		return
+	}
+
+	body, err := io.ReadAll(res.Body)
+	closeErr := res.Body.Close()
+	if err != nil {
+		t.Fatalf("[TENANT] Failed to read response: %v", err)
+		return
+	}
+	if closeErr != nil {
+		t.Fatalf("[TENANT] Failed to close body: %v", closeErr)
+		return
+	}
+
+	if res.StatusCode != 200 {
+		t.Fatalf("[TENANT] Tenant not found (status %d): %s", res.StatusCode, string(body))
+		return
+	}
+
+	bodyString := string(body)
+	t.Logf("[TENANT] Tenant exists: %s", bodyString)
+	require.Contains(t, bodyString, tenantId)
 }

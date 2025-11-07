@@ -123,16 +123,21 @@ jobs:
                   # OLD - old procedure
                   # SNAPSHOT - new procedure
 
+                  # export major version for test purposes to target specific versions
+                  echo "MAJOR_VERSION=$major_version" >> "$GITHUB_ENV"
+
                   if (( major_version > 10 )); then
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
                   elif [[ $version == "OLD" ]]; then
-                  echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+                    echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+                    echo "MAJOR_VERSION=0" >> "$GITHUB_ENV"
                   elif [[ $version == "SNAPSHOT" ]]; then
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                    echo "MAJOR_VERSION=99" >> "$GITHUB_ENV"
                   elif (( major_version < 11 )); then
-                  echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
+                    echo "OPERATIONAL_PROCEDURE=old" >> "$GITHUB_ENV"
                   else
-                  echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
+                    echo "OPERATIONAL_PROCEDURE=new" >> "$GITHUB_ENV"
                   fi
     ########### Operational Procedure ############
     # Needs to cater old and new procedure as this workflow is used for all versions
@@ -189,6 +194,12 @@ jobs:
                   if [ "$duration" -gt "1500" ]; then
                   echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
                   fi
+            - name: Test multi-tenancy - ${{ inputs.helm-version }}
+              if: ${{ env.OPERATIONAL_PROCEDURE == 'new' && fromJSON(env.MAJOR_VERSION) >= 13 }}
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
             - name: Debug Step
               working-directory: ./test
               if: failure()

@@ -104,6 +104,12 @@ go test --count=1 -v -timeout 120m -run TestAWSDualRegFailover_8_6_plus
 go test --count=1 -v -timeout 120m -run TestAWSDualRegFailback_8_6_plus
 ```
 
+- Check MultiTenancy mode on Multi-Region
+
+```bash
+go test --count=1 -v -timeout 120m -run TestMultiTenancyDualReg
+```
+
 ### Cleanup
 
 ```bash

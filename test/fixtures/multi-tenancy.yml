@@ -1,0 +1,7 @@
+---
+orchestration:
+    multitenancy:
+        checks:
+            enabled: true
+        api:
+            enabled: true

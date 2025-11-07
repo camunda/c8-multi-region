@@ -28,6 +28,9 @@ on:
             skip-failback:
                 description: Skip the failback part of the procedure (default false)
                 type: boolean
+            skip-multi-tenancy:
+                description: Skip the multi-tenancy tests after migration (default false)
+                type: boolean
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
@@ -85,6 +88,7 @@ jobs:
             keepAlive: ${{ github.event.inputs.keep-alive == 'true' }}
             skipFailover: ${{ github.event.inputs.skip-failover == 'true' }}
             skipFailback: ${{ github.event.inputs.skip-failback == 'true' }}
+            skipMultiTenancy: ${{ github.event.inputs.skip-multi-tenancy == 'true' }}
             overwriteBranch: ${{ github.head_ref || github.ref_name }}
         secrets: inherit
 
