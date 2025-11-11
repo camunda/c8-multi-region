@@ -20,7 +20,7 @@ on:
             awsProfile:
                 description: AWS profile to use
                 type: string
-                default: infex
+                default: infraex
 
             testsTfBinaryName:
                 description: Terraform binary name for tests

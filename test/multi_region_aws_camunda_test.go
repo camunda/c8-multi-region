@@ -19,15 +19,12 @@ import (
 const (
 	remoteChartSource = "https://helm.camunda.io"
 
-	resourceDir            = "../aws/dual-region"
-	terraformDir           = "../aws/dual-region/terraform"
-	kubeConfigPrimary      = "./kubeconfig-london"
-	kubeConfigSecondary    = "./kubeconfig-paris"
-	k8sManifests           = "../aws/dual-region/kubernetes"
-	defaultValuesYaml      = "../aws/dual-region/kubernetes/camunda-values.yml"
-	migrationValuesYaml    = "../aws/dual-region/kubernetes/camunda-values-migration.yml"
-	multiTenancyValuesYaml = "./fixtures/multi-tenancy.yml"
-	tenantId               = "test-tenant"
+	resourceDir         = "../aws/dual-region"
+	terraformDir        = "../aws/dual-region/terraform"
+	kubeConfigPrimary   = "./kubeconfig-london"
+	kubeConfigSecondary = "./kubeconfig-paris"
+	k8sManifests        = "../aws/dual-region/kubernetes"
+	tenantId            = "test-tenant"
 
 	teleportCluster = "camunda.teleport.sh-camunda-ci-eks"
 )
@@ -40,7 +37,7 @@ var (
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
 	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                      // allows supplying random backup name via GHA
-	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infex")
+	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infraex")
 	migrationOffset, _ = strconv.Atoi(helpers.GetEnv("MIGRATION_OFFSET", "0")) // Offset for process instances started before migration
 
 	primary   helpers.Cluster
@@ -55,6 +52,14 @@ var (
 	baseHelmVars = map[string]string{}
 	timeout      = "600s"
 	retries      = 20
+
+	// Manifest management
+	defaultValuesYaml      = helpers.GetEnv("DEFAULT_VALUES_YAML", "../aws/dual-region/kubernetes/camunda-values.yml")
+	region0ValuesYaml      = helpers.GetEnv("REGION0_VALUES_YAML", "../aws/dual-region/kubernetes/region0/camunda-values.yml")
+	region1ValuesYaml      = helpers.GetEnv("REGION1_VALUES_YAML", "../aws/dual-region/kubernetes/region1/camunda-values.yml")
+	migrationValuesYaml    = helpers.GetEnv("MIGRATION_VALUES_YAML", "../aws/dual-region/kubernetes/camunda-values-migration.yml")
+	multiTenancyValuesYaml = helpers.GetEnv("MULTI_TENANCY_VALUES_YAML", "./fixtures/multi-tenancy.yml")
+	extraValuesYaml        = helpers.GetEnv("EXTRA_VALUES_YAML", "")
 )
 
 // AWS EKS Multi-Region Tests
@@ -288,10 +293,15 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 		}
 	}
 
-	// We have to install both at the same time as otherwise zeebe will not become ready
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, 0, baseHelmVars, setStringValues)
+	if extraValuesYaml != "" {
+		extraValuesYamls := strings.Split(extraValuesYaml, ",")
+		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
+	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, 1, baseHelmVars, setStringValues)
+	// We have to install both at the same time as otherwise zeebe will not become ready
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesYamlFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesYamlFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
 
 	// Check that all deployments and Statefulsets are available
 	// Terratest has no direct function for Statefulsets, therefore defaulting to pods directly
@@ -469,7 +479,20 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 		setStringValues["orchestration.env[15].value"] = "false"
 	}
 
-	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, []string{defaultValuesYaml}, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
+	valuesYamlFiles := []string{defaultValuesYaml}
+
+	if extraValuesYaml != "" {
+		extraValuesYamls := strings.Split(extraValuesYaml, ",")
+		valuesYamlFiles = append(valuesYamlFiles, extraValuesYamls...)
+	}
+
+	if region == 0 {
+		valuesYamlFiles = append(valuesYamlFiles, region0ValuesYaml)
+	} else {
+		valuesYamlFiles = append(valuesYamlFiles, region1ValuesYaml)
+	}
+
+	kubectlHelpers.InstallUpgradeC8Helm(t, &cluster.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, valuesYamlFiles, region, helpers.CombineMaps(baseHelmVars, setValues), setStringValues)
 
 	k8s.RunKubectl(t, &cluster.KubectlNamespace, "rollout", "status", "--watch", "--timeout="+timeout, "statefulset/camunda-elasticsearch-master")
 

@@ -16,7 +16,7 @@ on:
                 description: The AWS profile to use
                 type: string
                 required: false
-                default: infex
+                default: infraex
     workflow_call:
         inputs:
             cluster-name:
@@ -31,7 +31,7 @@ on:
                 description: The AWS profile to use
                 type: string
                 required: false
-                default: infex
+                default: infraex
 
 jobs:
     deploy:

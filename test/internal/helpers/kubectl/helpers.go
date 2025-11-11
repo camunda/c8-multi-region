@@ -472,7 +472,6 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	require.NotEmpty(t, elastic1, "Elasticsearch region 1 URL should not be empty")
 
 	valuesFiles := valuesYamlFiles
-	valuesFiles = append(valuesFiles, fmt.Sprintf("../aws/dual-region/kubernetes/region%d/%s", region, "camunda-values.yml")) // these are the region overlays and should change whether migration or not
 
 	if helpers.IsTeleportEnabled() {
 		valuesFiles = append(valuesFiles, "./fixtures/teleport-affinities-tolerations.yml")
