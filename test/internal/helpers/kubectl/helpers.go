@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -324,30 +323,17 @@ func RunSensitiveKubectlCommand(t *testing.T, kubectlOptions *k8s.KubectlOptions
 	k8s.RunKubectl(t, kubectlOptions, command...)
 }
 
-func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, inputVersion string) {
+func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, backupBucket, inputVersion string) {
 	t.Logf("[ELASTICSEARCH] Configuring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
 	// Replace dots with dashes in the version string.
 	version := strings.ReplaceAll(inputVersion, ".", "-")
 
-	var output string
-	var err error
-
-	if helpers.IsTeleportEnabled() {
-		// Teleport mode: use BACKUP_BUCKET and BACKUP_NAME from the environment.
-		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
-			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
-			"-H", "Content-Type: application/json",
-			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
-				os.Getenv("BACKUP_BUCKET"), os.Getenv("BACKUP_NAME"), version))
-	} else {
-		// Default mode: use the provided clusterName and version.
-		output, err = k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
-			"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
-			"-H", "Content-Type: application/json",
-			"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s-elastic-backup\", \"client\": \"camunda\", \"base_path\": \"%s-backups\"}}",
-				clusterName, version))
-	}
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--",
+		"curl", "-XPUT", "http://localhost:9200/_snapshot/camunda_backup",
+		"-H", "Content-Type: application/json",
+		"-d", fmt.Sprintf("{\"type\": \"s3\", \"settings\": {\"bucket\": \"%s\", \"client\": \"camunda\", \"base_path\": \"%s/%s-backups\"}}",
+			backupBucket, backupBucket, version))
 
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH] Error: %s", err)
@@ -376,7 +362,7 @@ func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName strin
 	t.Logf("[ELASTICSEARCH BACKUP] Created backup: %s", output)
 }
 
-func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, backupName, clusterName, remoteChartVersion string) {
+func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, backupName, backupBucket, remoteChartVersion string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Checking that Elasticsearch backup is present for cluster %s", cluster.ClusterName)
 
 	output := ""
@@ -389,7 +375,7 @@ func CheckThatElasticBackupIsPresent(t *testing.T, cluster helpers.Cluster, back
 		}
 		removeElasticBackup(t, cluster)
 		time.Sleep(5 * time.Second)
-		ConfigureElasticBackup(t, cluster, clusterName, remoteChartVersion)
+		ConfigureElasticBackup(t, cluster, backupBucket, remoteChartVersion)
 		time.Sleep(5 * time.Second)
 	}
 
@@ -425,20 +411,6 @@ func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName stri
 	require.Contains(t, output, "\"failed\":0")
 	t.Logf("[ELASTICSEARCH BACKUP] Restored backup: %s", output)
 
-}
-
-func createZeebeContactPoints(t *testing.T, size int, namespace0, namespace1 string) string {
-	zeebeContactPoints := ""
-
-	for i := 0; i < size; i++ {
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace0)
-		zeebeContactPoints += fmt.Sprintf("camunda-zeebe-%s.camunda-zeebe.%s.svc.cluster.local:26502,", strconv.Itoa((i)), namespace1)
-	}
-
-	// Cut the last character "," from the string
-	zeebeContactPoints = zeebeContactPoints[:len(zeebeContactPoints)-1]
-
-	return zeebeContactPoints
 }
 
 func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remoteChartVersion, remoteChartName, remoteChartSource, namespace0, namespace1 string, valuesYamlFiles []string, region int, setValues, setStringValues map[string]string) {

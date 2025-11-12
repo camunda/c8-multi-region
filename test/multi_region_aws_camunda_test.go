@@ -33,10 +33,11 @@ var (
 	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
 	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.1.1")
-	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform") // allows using OCI registries
-	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                        // allows overwriting the image tag via GHA of every Camunda image
-	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                     // allows supplying random cluster name via GHA
-	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                      // allows supplying random backup name via GHA
+	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")                  // allows using OCI registries
+	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                         // allows overwriting the image tag via GHA of every Camunda image
+	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                      // allows supplying random cluster name via GHA
+	backupName         = helpers.GetEnv("BACKUP_NAME", "nightly")                                       // allows supplying random backup name via GHA
+	backupBucket       = helpers.GetEnv("BACKUP_BUCKET", fmt.Sprintf("%s-elastic-backup", clusterName)) // allows supplying backup bucket name via GHA
 	awsProfile         = helpers.GetEnv("AWS_PROFILE", "infraex")
 	migrationOffset, _ = strconv.Atoi(helpers.GetEnv("MIGRATION_OFFSET", "0")) // Offset for process instances started before migration
 
@@ -410,7 +411,7 @@ func debugStep(t *testing.T) {
 func createElasticBackupRepoPrimary(t *testing.T) {
 	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
 
-	kubectlHelpers.ConfigureElasticBackup(t, primary, clusterName, remoteChartVersion)
+	kubectlHelpers.ConfigureElasticBackup(t, primary, backupBucket, remoteChartVersion)
 }
 
 func createElasticBackupPrimary(t *testing.T) {
@@ -422,19 +423,19 @@ func createElasticBackupPrimary(t *testing.T) {
 func checkThatElasticBackupIsPresentPrimary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Checking if Elasticsearch Backup is present 🚀")
 
-	kubectlHelpers.CheckThatElasticBackupIsPresent(t, primary, backupName, clusterName, remoteChartVersion)
+	kubectlHelpers.CheckThatElasticBackupIsPresent(t, primary, backupName, backupBucket, remoteChartVersion)
 }
 
 func createElasticBackupRepoSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH] Creating Elasticsearch Backup Repository 🚀")
 
-	kubectlHelpers.ConfigureElasticBackup(t, secondary, clusterName, remoteChartVersion)
+	kubectlHelpers.ConfigureElasticBackup(t, secondary, backupBucket, remoteChartVersion)
 }
 
 func checkThatElasticBackupIsPresentSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Checking if Elasticsearch Backup is present 🚀")
 
-	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName, clusterName, remoteChartVersion)
+	kubectlHelpers.CheckThatElasticBackupIsPresent(t, secondary, backupName, backupBucket, remoteChartVersion)
 }
 
 func restoreElasticBackupSecondary(t *testing.T) {
@@ -611,7 +612,7 @@ func removeSecondaryBrokers(t *testing.T) {
 	time.Sleep(5 * time.Second)
 
 	// Check that the removal of obsolete brokers was completed
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILOVER] Failed to create request")
@@ -652,7 +653,7 @@ func disableElasticExportersToSecondary(t *testing.T) {
 	require.Contains(t, body, "PARTITION_DISABLE_EXPORTER")
 
 	// Check that the exporter was disabled
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 5; i++ {
 		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/exporters", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILOVER] Failed to create request")
