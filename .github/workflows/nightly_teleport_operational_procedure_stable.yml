@@ -87,7 +87,7 @@ jobs:
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
             helmChartVersion: ${{ matrix.helmChartVersion }}
-            awsProfile: infex
+            awsProfile: infraex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-
             clusterName: camunda-ci-eks

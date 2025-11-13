@@ -14,7 +14,7 @@ _Note: Please keep this document updated with any changes in maintenance procedu
     - When releasing an update containing breaking changes, it should be accompanied by a migration guide in this repository to guide the user.
 
 - Make internal announcements on Slack regarding upcoming releases.
-    - `#infex-internal`
+    - `#infraex-internal`
     - `#engineering` if relevant
 
 - Refer to `DEVELOPER.md` to see the release process.

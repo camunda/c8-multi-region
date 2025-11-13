@@ -29,7 +29,7 @@ Please pin GitHub action, if you need you can use [pin-github-action](https://gi
 
 ### Cluster Setup
 
-1. Ensure AWS is setup with the profile `infex`. Otherwise overwrite with `AWS_PROFILE` to e.g. `default`.
+1. Ensure AWS is setup with the profile `infraex`. Otherwise overwrite with `AWS_PROFILE` to e.g. `default`.
 2. Export `TESTS_TF_BINARY_NAME` to `terraform` if you don't want to use Tofu.
 3. Adjust the AWS regions in `aws/dual-region/terraform/variables.tf`. The defaults are cleaned up nightly in InfraEx.
 4. Ensure to export `CLUSTER_NAME` and `BACKUP_NAME` with custom values as the default `nightly` is cleaned up in InfraEx.
