@@ -16,6 +16,6 @@ jobs:
               uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
             - name: Check for Todos
-              uses: phntmxyz/pr_todo_checker@5d17d239637854388b338cc010d08c4f50093c4e # v1
+              uses: phntmxyz/pr_todo_checker@6e7cb2676f0d60615d796e43d0ff270e59911bb9 # v1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
