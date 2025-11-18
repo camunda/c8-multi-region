@@ -13,9 +13,9 @@ jobs:
 
         steps:
             - name: Checkout code
-              uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
             - name: Check for Todos
-              uses: phntmxyz/pr_todo_checker@5d17d239637854388b338cc010d08c4f50093c4e # v1
+              uses: phntmxyz/pr_todo_checker@2c2e2f22f56b74b01d69a81eb56d1f61bcc4d82a # v1
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
