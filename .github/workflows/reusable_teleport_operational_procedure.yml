@@ -184,6 +184,7 @@ jobs:
                   proxy: camunda.teleport.sh:443
                   token: infra-ci-prod-github-action-infraex
                   kubernetes-cluster: camunda-ci-eks
+                  certificate-ttl: 3h # Set a TTL for the certificate matching the job duration (worst case)
 
             - name: Write kubeconfig file
               id: write-kubeconfig
