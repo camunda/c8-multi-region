@@ -1,21 +1,20 @@
 ---
 name: Internal - Global - Pull Request TODO checker
 
+# This workflow triggers a scan of TODOs in the current pull request.
+# For each TODO that is not marked to be ignored, it posts a comment.
+# It helps ensure that no TODOs are accidentally left behind in merged PRs.
+
 on:
-    pull_request_review_comment:
-        types: [edited, deleted]
+
     pull_request:
         types: [opened, synchronize, reopened]
 
+concurrency:
+    group: ${{ github.workflow }}-${{ github.ref }}
+    cancel-in-progress: false
+
 jobs:
-    find_todos:
-        runs-on: ubuntu-latest
-
-        steps:
-            - name: Checkout code
-              uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
-
-            - name: Check for Todos
-              uses: phntmxyz/pr_todo_checker@2c2e2f22f56b74b01d69a81eb56d1f61bcc4d82a # v1
-              with:
-                  token: ${{ secrets.GITHUB_TOKEN }}
+    call-todo-checker:
+        uses: camunda/infraex-common-config/.github/workflows/todo-checker-global.yml@eb9d51b4dc89deeda7fc160166f378725ee0f06a # 1.5.3
+        secrets: inherit
