@@ -20,7 +20,7 @@ awscli 2.31.38
 
 golang 1.25.4
 
-helm 3.19.2
+helm 4.0.0
 
 just 1.43.1
 
