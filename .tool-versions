@@ -20,7 +20,8 @@ awscli 2.31.38
 
 golang 1.25.4
 
-helm 3.19.2
+# datasource=custom.helm-camunda depName=helm
+helm 3.19.0
 
 just 1.43.1
 
