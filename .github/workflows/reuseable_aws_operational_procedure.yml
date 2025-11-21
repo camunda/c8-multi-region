@@ -97,7 +97,6 @@ jobs:
                   # ALPHA chart = future minor version
                   if [ "$version" == "snapshot" ]; then
                   {
-                  echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
                   echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
                   echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                   } >> "$GITHUB_ENV"
