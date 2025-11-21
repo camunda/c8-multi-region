@@ -83,7 +83,6 @@ jobs:
         with:
             helmChartVersion: ${{ matrix.helmChartVersion }}
             helmChartName: oci://ghcr.io/camunda/helm/camunda-platform
-            globalImageTag: 8.8-SNAPSHOT # it's the latest changes of the stable/8.8 camunda/camunda branch
             awsProfile: infex
             testsTfBinaryName: terraform
             namespacePrefix: infraex-

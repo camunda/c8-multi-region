@@ -53,6 +53,12 @@ type ClusterInfo struct {
 	GatewayVersion    string   `json:"gatewayVersion"`
 }
 
+type ElasticsearchClusterHealth struct {
+	ClusterName string `json:"cluster_name"`
+	Status      string `json:"status"`
+	TimedOut    bool   `json:"timed_out"`
+}
+
 // NewServiceTunnelWithRetry establishes a port-forward tunnel to a Kubernetes Service with retry logic.
 // Parameters:
 //
@@ -350,7 +356,7 @@ func ConfigureElasticBackup(t *testing.T, cluster helpers.Cluster, clusterName, 
 func CreateElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Creating Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName))
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-X", "PUT", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -400,7 +406,7 @@ func getAllElasticBackups(t *testing.T, cluster helpers.Cluster) (string, error)
 func RestoreElasticBackup(t *testing.T, cluster helpers.Cluster, backupName string) {
 	t.Logf("[ELASTICSEARCH BACKUP] Restoring Elasticsearch backup for cluster %s", cluster.ClusterName)
 
-	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName))
+	output, err := k8s.RunKubectlAndGetOutputE(t, &cluster.KubectlNamespace, "exec", "camunda-elasticsearch-master-0", "--", "curl", "-XPOST", fmt.Sprintf("localhost:9200/_snapshot/camunda_backup/%s/_restore?wait_for_completion=true", backupName), "-H", "Content-Type: application/json", "-d", `{"include_global_state":true}`)
 	if err != nil {
 		t.Fatalf("[ELASTICSEARCH BACKUP] %s", err)
 		return
@@ -753,4 +759,66 @@ func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
 			}
 		}
 	}
+}
+
+// CheckElasticsearchClusterHealth verifies that the Elasticsearch cluster health is green
+func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
+	t.Logf("[ELASTICSEARCH HEALTH] Checking cluster health for %s", cluster.ClusterName)
+
+	var output string
+	var err error
+
+	// Retry up to 10 times with 15 second intervals to allow for cluster stabilization
+	for i := 0; i < 10; i++ {
+		output, err = k8s.RunKubectlAndGetOutputE(
+			t,
+			&cluster.KubectlNamespace,
+			"exec",
+			"camunda-elasticsearch-master-0",
+			"-c",
+			"elasticsearch",
+			"--",
+			"curl",
+			"-s",
+			"localhost:9200/_cluster/health",
+		)
+
+		if err != nil {
+			t.Logf("[ELASTICSEARCH HEALTH] Attempt %d/10: Error executing command: %v", i+1, err)
+			if i < 9 {
+				time.Sleep(15 * time.Second)
+				continue
+			}
+			t.Fatalf("[ELASTICSEARCH HEALTH] Failed to get cluster health after 10 attempts: %v", err)
+			return
+		}
+
+		// Parse the JSON response
+		var health ElasticsearchClusterHealth
+		if err := json.Unmarshal([]byte(output), &health); err != nil {
+			t.Logf("[ELASTICSEARCH HEALTH] Attempt %d/10: Failed to parse response: %v", i+1, err)
+			if i < 9 {
+				time.Sleep(15 * time.Second)
+				continue
+			}
+			t.Fatalf("[ELASTICSEARCH HEALTH] Failed to parse health response after 10 attempts: %v", err)
+			return
+		}
+
+		t.Logf("[ELASTICSEARCH HEALTH] Attempt %d/10: Status = %s", i+1, health.Status)
+
+		// Check if status is green (case-insensitive)
+		if strings.ToLower(health.Status) == "green" {
+			t.Logf("[ELASTICSEARCH HEALTH] Cluster health is green for %s", cluster.ClusterName)
+			require.False(t, health.TimedOut, "Health check should not time out")
+			return
+		}
+
+		if i < 9 {
+			t.Logf("[ELASTICSEARCH HEALTH] Status is %s, waiting for green status...", health.Status)
+			time.Sleep(15 * time.Second)
+		}
+	}
+
+	t.Fatalf("[ELASTICSEARCH HEALTH] Cluster did not reach green status after 10 attempts. Last output: %s", output)
 }
