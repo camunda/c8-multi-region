@@ -185,7 +185,6 @@ jobs:
                     # we use the snapshot alpha chart of the Helm Chart
                     # We use the snapshot image of camunda/camunda
                     {
-                        echo "GLOBAL_IMAGE_TAG=8.8-SNAPSHOT"
                         echo "HELM_CHART_VERSION=0.0.0-snapshot-alpha"
                         echo "HELM_CHART_NAME=oci://ghcr.io/camunda/helm/camunda-platform"
                         echo "MAJOR_VERSION=99"

@@ -84,6 +84,7 @@ func TestAWSDeployDualRegCamunda(t *testing.T) {
 		{"TestDeployC8Helm", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 6, "default", "") }},
+		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -111,6 +112,7 @@ func TestMigrationDualReg(t *testing.T) {
 		{"TestCheckMigrationSucceed", checkMigrationSucceed},
 		{"TestPostMigrationCleanup", postMigrationCleanup},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 7, "migration", "") }},
+		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -173,12 +175,14 @@ func TestAWSDualRegFailback_8_6_plus(t *testing.T) {
 		{"TestCreateElasticBackupRepoSecondary", createElasticBackupRepoSecondary},
 		{"TestCheckThatElasticBackupIsPresentSecondary", checkThatElasticBackupIsPresentSecondary},
 		{"TestRestoreElasticBackupSecondary", restoreElasticBackupSecondary},
+		{"TestCheckElasticsearchClusterHealthAfterRestore", checkElasticsearchClusterHealth},
 		{"TestEnableElasticExportersToSecondary", enableElasticExportersToSecondary},
 		{"TestStartZeebeExporters", startZeebeExporters},
 		{"TestAddSecondaryBrokers", addSecondaryBrokers},
 		{"TestRedeployC8ToEnableOperateTasklist", func(t *testing.T) { deployC8Helm(t, []string{defaultValuesYaml}) }},
 		{"TestCheckC8RunningProperly", checkC8RunningProperly},
 		{"TestDeployC8processAndCheck", func(t *testing.T) { deployC8processAndCheck(t, 18, "default", "") }},
+		{"TestCheckElasticsearchClusterHealthAfterProcessDeploy", checkElasticsearchClusterHealth},
 		{"TestCheckTheMath", checkTheMath},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -442,6 +446,13 @@ func restoreElasticBackupSecondary(t *testing.T) {
 	t.Log("[ELASTICSEARCH BACKUP] Restoring Elasticsearch Backup 🚀")
 
 	kubectlHelpers.RestoreElasticBackup(t, secondary, backupName)
+}
+
+func checkElasticsearchClusterHealth(t *testing.T) {
+	t.Log("[ELASTICSEARCH HEALTH] Checking cluster health in both regions 🚀")
+
+	kubectlHelpers.CheckElasticsearchClusterHealth(t, primary)
+	kubectlHelpers.CheckElasticsearchClusterHealth(t, secondary)
 }
 
 func deleteSecondaryRegion(t *testing.T) {
