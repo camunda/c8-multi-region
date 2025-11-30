@@ -48,11 +48,11 @@ jobs:
               id: generate-matrix
               run: |
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86=11.10.3
+                  c86=11.11.1
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c87=12.7.0
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c88=13.1.2
+                  c88=13.2.1
 
                   # TODO: [release-duty] before the release, update this!
 
