@@ -23,7 +23,7 @@ golang 1.25.5
 # datasource=custom.helm-camunda depName=helm
 helm 3.19.2
 
-just 1.43.1
+just 1.44.1
 
 kubectl 1.34.2
 
