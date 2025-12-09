@@ -468,14 +468,6 @@ jobs:
                   echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
                   fi
 
-            - name: Delete namespaces
-              if: always() && inputs.deployOnly == false && inputs.keepAlive == false
-              run: |
-                  set -euxo pipefail
-
-                  kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
-                  kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
-
             - name: Get failed Pods info - ${{ env.CLUSTER_0_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
@@ -506,6 +498,14 @@ jobs:
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
                   done
+
+            - name: Delete namespaces
+              if: always() && inputs.deployOnly == false && inputs.keepAlive == false
+              run: |
+                  set -euxo pipefail
+
+                  kubectl delete namespace "${CLUSTER_0_NAMESPACE}" || true
+                  kubectl delete namespace "${CLUSTER_1_NAMESPACE}" || true
 
             - name: Upload migration logs
               if: always() && inputs.migrationEnabled == true
