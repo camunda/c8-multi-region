@@ -380,7 +380,7 @@ If partitions aren't properly distributed:
 
 4. **StatefulSet Scale Down**: When scaling down brokers, Kubernetes terminates pods with the highest ordinals first (e.g., `camunda-zeebe-5`, `camunda-zeebe-4`). Always scale down the Zeebe cluster logically before scaling down StatefulSets.
 
-5. **Production Considerations**: 
+5. **Production Considerations**:
    - Always take backups before scaling operations
    - Test scaling in non-production environments first
    - Monitor cluster health during and after scaling
