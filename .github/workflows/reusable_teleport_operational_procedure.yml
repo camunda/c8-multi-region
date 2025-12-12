@@ -301,6 +301,11 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
+            - name: Setup tmate session
+              uses: mxschmitt/action-tmate@v3
+              with:
+                  detached: true
+
             - name: Create namespaces and secrets
               if: inputs.migrationEnabled == false
               id: create-namespaces
