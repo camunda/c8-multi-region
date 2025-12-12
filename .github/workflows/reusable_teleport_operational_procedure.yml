@@ -301,11 +301,6 @@ jobs:
                       secret/data/products/infrastructure-experience/ci/common AWS_ACCESS_KEY | S3_BACKUP_ACCESS_KEY;
                       secret/data/products/infrastructure-experience/ci/common AWS_SECRET_KEY | S3_BACKUP_SECRET_KEY;
 
-            - name: Setup tmate session
-              uses: mxschmitt/action-tmate@v3
-              with:
-                  detached: true
-
             - name: Create namespaces and secrets
               if: inputs.migrationEnabled == false
               id: create-namespaces
@@ -357,6 +352,97 @@ jobs:
                   for namespace in "${ALL_NAMESPACES[@]}"; do
                     apply_labels_and_annotations "$namespace"
                   done
+
+            - name: Debug - Check cluster and node information
+              if: inputs.migrationEnabled == false
+              run: |
+                  set -euxo pipefail
+                  echo "=== DEBUG: Cluster Info ==="
+                  kubectl cluster-info
+
+                  echo "=== DEBUG: Node List and Status ==="
+                  kubectl get nodes -o wide
+
+                  echo "=== DEBUG: Node Labels (for scheduling) ==="
+                  kubectl get nodes --show-labels | head -20
+
+                  echo "=== DEBUG: Node Taints ==="
+                  kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
+
+                  echo "=== DEBUG: Available node groups ==="
+                  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels.nodegroup}{"\n"}{end}'
+
+            - name: Debug - Check NetworkPolicies
+              if: inputs.migrationEnabled == false
+              run: |
+                  set -euxo pipefail
+                  echo "=== DEBUG: NetworkPolicies in all namespaces ==="
+                  kubectl get networkpolicies -A || echo "No NetworkPolicies found"
+
+                  echo "=== DEBUG: NetworkPolicies in cluster-0 namespace ==="
+                  kubectl get networkpolicies -n "${CLUSTER_0_NAMESPACE}" -o yaml || echo "No NetworkPolicies in ${CLUSTER_0_NAMESPACE}"
+
+                  echo "=== DEBUG: NetworkPolicies in cluster-1 namespace ==="
+                  kubectl get networkpolicies -n "${CLUSTER_1_NAMESPACE}" -o yaml || echo "No NetworkPolicies in ${CLUSTER_1_NAMESPACE}"
+
+            - name: Debug - Test cross-namespace DNS resolution
+              if: inputs.migrationEnabled == false
+              run: |
+                  set -euxo pipefail
+                  echo "=== DEBUG: Creating DNS test pods ==="
+
+                  # Create test pods in each namespace
+                  kubectl run dns-test-0 --namespace="${CLUSTER_0_NAMESPACE}" --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
+                  kubectl run dns-test-1 --namespace="${CLUSTER_1_NAMESPACE}" --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
+
+                  # Wait for pods to be ready
+                  echo "=== DEBUG: Waiting for test pods to be ready ==="
+                  kubectl wait --for=condition=ready pod/dns-test-0 -n "${CLUSTER_0_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-0 not ready"
+                  kubectl wait --for=condition=ready pod/dns-test-1 -n "${CLUSTER_1_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-1 not ready"
+
+                  echo "=== DEBUG: Test pods status ==="
+                  kubectl get pod dns-test-0 -n "${CLUSTER_0_NAMESPACE}" -o wide || true
+                  kubectl get pod dns-test-1 -n "${CLUSTER_1_NAMESPACE}" -o wide || true
+
+                  echo "=== DEBUG: CoreDNS configuration ==="
+                  kubectl get configmap coredns -n kube-system -o yaml || echo "CoreDNS configmap not found"
+
+                  echo "=== DEBUG: Test DNS resolution from cluster-0 to cluster-1 namespace ==="
+                  kubectl exec -n "${CLUSTER_0_NAMESPACE}" dns-test-0 -- \
+                    nslookup kubernetes.default.svc.cluster.local || echo "Basic DNS failed"
+                  kubectl exec -n "${CLUSTER_0_NAMESPACE}" dns-test-0 -- \
+                    nslookup "${CLUSTER_1_NAMESPACE}.svc.cluster.local" || \
+                    echo "Cross-namespace DNS resolution failed"
+
+                  echo "=== DEBUG: Test DNS resolution from cluster-1 to cluster-0 namespace ==="
+                  kubectl exec -n "${CLUSTER_1_NAMESPACE}" dns-test-1 -- \
+                    nslookup kubernetes.default.svc.cluster.local || echo "Basic DNS failed"
+                  kubectl exec -n "${CLUSTER_1_NAMESPACE}" dns-test-1 -- \
+                    nslookup "${CLUSTER_0_NAMESPACE}.svc.cluster.local" || \
+                    echo "Cross-namespace DNS resolution failed"
+
+                  echo "=== DEBUG: Cleanup test pods ==="
+                  kubectl delete pod dns-test-0 -n "${CLUSTER_0_NAMESPACE}" --ignore-not-found --wait=false
+                  kubectl delete pod dns-test-1 -n "${CLUSTER_1_NAMESPACE}" --ignore-not-found --wait=false
+
+            - name: Debug - Check namespace and service configuration
+              if: inputs.migrationEnabled == false
+              run: |
+                  set -euxo pipefail
+                  echo "=== DEBUG: Namespaces ==="
+                  kubectl get namespaces | grep -E "${CLUSTER_0_NAMESPACE}|${CLUSTER_1_NAMESPACE}" || echo "Namespaces not found"
+
+                  echo "=== DEBUG: Services in cluster-0 namespace ==="
+                  kubectl get services -n "${CLUSTER_0_NAMESPACE}" -o wide || echo "No services in ${CLUSTER_0_NAMESPACE}"
+
+                  echo "=== DEBUG: Services in cluster-1 namespace ==="
+                  kubectl get services -n "${CLUSTER_1_NAMESPACE}" -o wide || echo "No services in ${CLUSTER_1_NAMESPACE}"
+
+                  echo "=== DEBUG: Endpoints in cluster-0 namespace ==="
+                  kubectl get endpoints -n "${CLUSTER_0_NAMESPACE}" || echo "No endpoints in ${CLUSTER_0_NAMESPACE}"
+
+                  echo "=== DEBUG: Endpoints in cluster-1 namespace ==="
+                  kubectl get endpoints -n "${CLUSTER_1_NAMESPACE}" || echo "No endpoints in ${CLUSTER_1_NAMESPACE}"
 
             - name: Deploy dual region Camunda - ${{ inputs.helmChartVersion }}
               if: inputs.migrationEnabled == false
@@ -519,6 +605,143 @@ jobs:
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
                   done
 
+            - name: Debug - Zeebe cluster formation analysis on failure
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "=== DEBUG: Zeebe pods detailed status ==="
+                  echo "--- Cluster 0 Zeebe pods ---"
+                  kubectl get pods -n "${{ env.CLUSTER_0_NAMESPACE }}" -l app.kubernetes.io/component=zeebe-broker -o wide || true
+
+                  echo "--- Cluster 1 Zeebe pods ---"
+                  kubectl get pods -n "${{ env.CLUSTER_1_NAMESPACE }}" -l app.kubernetes.io/component=zeebe-broker -o wide || true
+
+                  echo "=== DEBUG: Zeebe services ==="
+                  echo "--- Cluster 0 services ---"
+                  kubectl get svc -n "${{ env.CLUSTER_0_NAMESPACE }}" | grep -E "zeebe|camunda" || true
+
+                  echo "--- Cluster 1 services ---"
+                  kubectl get svc -n "${{ env.CLUSTER_1_NAMESPACE }}" | grep -E "zeebe|camunda" || true
+
+                  echo "=== DEBUG: Zeebe endpoints ==="
+                  echo "--- Cluster 0 endpoints ---"
+                  kubectl get endpoints -n "${{ env.CLUSTER_0_NAMESPACE }}" | grep -E "zeebe|camunda" || true
+
+                  echo "--- Cluster 1 endpoints ---"
+                  kubectl get endpoints -n "${{ env.CLUSTER_1_NAMESPACE }}" | grep -E "zeebe|camunda" || true
+
+                  echo "=== DEBUG: Zeebe StatefulSet details ==="
+                  echo "--- Cluster 0 StatefulSet ---"
+                  kubectl describe statefulset camunda-zeebe -n "${{ env.CLUSTER_0_NAMESPACE }}" || true
+
+                  echo "--- Cluster 1 StatefulSet ---"
+                  kubectl describe statefulset camunda-zeebe -n "${{ env.CLUSTER_1_NAMESPACE }}" || true
+
+            - name: Debug - Cross-namespace connectivity test on failure
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "=== DEBUG: Testing cross-namespace connectivity after failure ==="
+
+                  # Get a running pod from each namespace to test connectivity
+                  POD_0=$(kubectl get pods -n "${{ env.CLUSTER_0_NAMESPACE }}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+                  POD_1=$(kubectl get pods -n "${{ env.CLUSTER_1_NAMESPACE }}" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+
+                  if [ -n "$POD_0" ]; then
+                    echo "--- Testing from pod $POD_0 in cluster-0 ---"
+                    echo "DNS resolution test to cluster-1 namespace:"
+                    kubectl exec -n "${{ env.CLUSTER_0_NAMESPACE }}" "$POD_0" -- \
+                      cat /etc/resolv.conf 2>/dev/null || echo "Cannot read resolv.conf"
+                    kubectl exec -n "${{ env.CLUSTER_0_NAMESPACE }}" "$POD_0" -- \
+                      nslookup camunda-zeebe.${{ env.CLUSTER_1_NAMESPACE }}.svc.cluster.local \
+                      2>/dev/null || echo "DNS lookup failed"
+
+                    echo "Network connectivity test:"
+                    kubectl exec -n "${{ env.CLUSTER_0_NAMESPACE }}" "$POD_0" -- \
+                      nc -zv -w 5 camunda-zeebe.${{ env.CLUSTER_1_NAMESPACE }}.svc.cluster.local 26502 \
+                      2>&1 || echo "Connection test failed"
+                  else
+                    echo "No pods found in ${{ env.CLUSTER_0_NAMESPACE }}"
+                  fi
+
+                  if [ -n "$POD_1" ]; then
+                    echo "--- Testing from pod $POD_1 in cluster-1 ---"
+                    echo "DNS resolution test to cluster-0 namespace:"
+                    kubectl exec -n "${{ env.CLUSTER_1_NAMESPACE }}" "$POD_1" -- \
+                      cat /etc/resolv.conf 2>/dev/null || echo "Cannot read resolv.conf"
+                    kubectl exec -n "${{ env.CLUSTER_1_NAMESPACE }}" "$POD_1" -- \
+                      nslookup camunda-zeebe.${{ env.CLUSTER_0_NAMESPACE }}.svc.cluster.local \
+                      2>/dev/null || echo "DNS lookup failed"
+
+                    echo "Network connectivity test:"
+                    kubectl exec -n "${{ env.CLUSTER_1_NAMESPACE }}" "$POD_1" -- \
+                      nc -zv -w 5 camunda-zeebe.${{ env.CLUSTER_0_NAMESPACE }}.svc.cluster.local 26502 \
+                      2>&1 || echo "Connection test failed"
+                  else
+                    echo "No pods found in ${{ env.CLUSTER_1_NAMESPACE }}"
+                  fi
+
+            - name: Debug - Collect Zeebe logs on failure
+              timeout-minutes: 10
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  mkdir -p ./test/logs/zeebe
+
+                  echo "=== DEBUG: Collecting Zeebe broker logs ==="
+
+                  # Collect logs from all Zeebe pods in cluster-0
+                  for i in 0 1 2 3; do
+                    echo "--- Collecting logs from camunda-zeebe-$i in cluster-0 ---"
+                    kubectl logs "camunda-zeebe-$i" -n "${{ env.CLUSTER_0_NAMESPACE }}" --tail=500 \
+                      > "./test/logs/zeebe/zeebe-${i}-cluster0.log" 2>&1 || \
+                      echo "Failed to get logs for camunda-zeebe-$i in cluster-0"
+                  done
+
+                  # Collect logs from all Zeebe pods in cluster-1
+                  for i in 0 1 2 3; do
+                    echo "--- Collecting logs from camunda-zeebe-$i in cluster-1 ---"
+                    kubectl logs "camunda-zeebe-$i" -n "${{ env.CLUSTER_1_NAMESPACE }}" --tail=500 \
+                      > "./test/logs/zeebe/zeebe-${i}-cluster1.log" 2>&1 || \
+                      echo "Failed to get logs for camunda-zeebe-$i in cluster-1"
+                  done
+
+                  echo "=== DEBUG: Collecting Elasticsearch logs ==="
+                  for i in 0 1; do
+                    kubectl logs "camunda-elasticsearch-master-$i" \
+                      -n "${{ env.CLUSTER_0_NAMESPACE }}" --tail=200 \
+                      > "./test/logs/zeebe/es-${i}-cluster0.log" 2>&1 || \
+                      echo "Failed to get ES logs in cluster-0"
+                    kubectl logs "camunda-elasticsearch-master-$i" \
+                      -n "${{ env.CLUSTER_1_NAMESPACE }}" --tail=200 \
+                      > "./test/logs/zeebe/es-${i}-cluster1.log" 2>&1 || \
+                      echo "Failed to get ES logs in cluster-1"
+                  done
+
+                  echo "=== DEBUG: Log files collected ==="
+                  ls -la ./test/logs/zeebe/ || true
+
+            - name: Debug - Check events on failure
+              timeout-minutes: 5
+              if: failure()
+              run: |
+                  set -euo pipefail
+
+                  echo "=== DEBUG: Kubernetes Events in cluster-0 namespace ==="
+                  kubectl get events -n "${{ env.CLUSTER_0_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -50 || true
+
+                  echo "=== DEBUG: Kubernetes Events in cluster-1 namespace ==="
+                  kubectl get events -n "${{ env.CLUSTER_1_NAMESPACE }}" --sort-by='.lastTimestamp' | tail -50 || true
+
+                  echo "=== DEBUG: Warning events only ==="
+                  kubectl get events -n "${{ env.CLUSTER_0_NAMESPACE }}" --field-selector type=Warning || true
+                  kubectl get events -n "${{ env.CLUSTER_1_NAMESPACE }}" --field-selector type=Warning || true
+
             - name: Delete namespaces
               if: always() && inputs.deployOnly == false && inputs.keepAlive == false
               run: |
@@ -542,3 +765,4 @@ jobs:
                   name: failure-logs
                   path: |
                       ./test/logs/
+                      ./test/logs/zeebe/
