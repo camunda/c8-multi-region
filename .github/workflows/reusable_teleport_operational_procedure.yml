@@ -356,56 +356,51 @@ jobs:
             - name: Debug - Check cluster and node information
               if: inputs.migrationEnabled == false
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
                   echo "=== DEBUG: Cluster Info ==="
-                  kubectl cluster-info
+                  kubectl cluster-info 2>&1 || echo "Cannot get cluster-info (permission issue)"
 
                   echo "=== DEBUG: Node List and Status ==="
-                  kubectl get nodes -o wide
+                  kubectl get nodes -o wide 2>&1 || echo "Cannot list nodes (permission issue)"
 
-                  echo "=== DEBUG: Node Labels (for scheduling) ==="
-                  kubectl get nodes --show-labels | head -20
-
-                  echo "=== DEBUG: Node Taints ==="
-                  kubectl get nodes -o custom-columns=NAME:.metadata.name,TAINTS:.spec.taints
-
-                  echo "=== DEBUG: Available node groups ==="
-                  kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.metadata.labels.nodegroup}{"\n"}{end}'
+                  echo "=== DEBUG: Check permissions ==="
+                  kubectl auth can-i list pods -n "${CLUSTER_0_NAMESPACE}" || true
+                  kubectl auth can-i list services -n "${CLUSTER_0_NAMESPACE}" || true
 
             - name: Debug - Check NetworkPolicies
               if: inputs.migrationEnabled == false
               run: |
-                  set -euxo pipefail
-                  echo "=== DEBUG: NetworkPolicies in all namespaces ==="
-                  kubectl get networkpolicies -A || echo "No NetworkPolicies found"
-
+                  set -euo pipefail
                   echo "=== DEBUG: NetworkPolicies in cluster-0 namespace ==="
-                  kubectl get networkpolicies -n "${CLUSTER_0_NAMESPACE}" -o yaml || echo "No NetworkPolicies in ${CLUSTER_0_NAMESPACE}"
+                  kubectl get networkpolicies -n "${CLUSTER_0_NAMESPACE}" -o yaml 2>&1 || \
+                    echo "No NetworkPolicies in ${CLUSTER_0_NAMESPACE}"
 
                   echo "=== DEBUG: NetworkPolicies in cluster-1 namespace ==="
-                  kubectl get networkpolicies -n "${CLUSTER_1_NAMESPACE}" -o yaml || echo "No NetworkPolicies in ${CLUSTER_1_NAMESPACE}"
+                  kubectl get networkpolicies -n "${CLUSTER_1_NAMESPACE}" -o yaml 2>&1 || \
+                    echo "No NetworkPolicies in ${CLUSTER_1_NAMESPACE}"
 
             - name: Debug - Test cross-namespace DNS resolution
               if: inputs.migrationEnabled == false
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
                   echo "=== DEBUG: Creating DNS test pods ==="
 
                   # Create test pods in each namespace
-                  kubectl run dns-test-0 --namespace="${CLUSTER_0_NAMESPACE}" --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
-                  kubectl run dns-test-1 --namespace="${CLUSTER_1_NAMESPACE}" --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
+                  kubectl run dns-test-0 --namespace="${CLUSTER_0_NAMESPACE}" \
+                    --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
+                  kubectl run dns-test-1 --namespace="${CLUSTER_1_NAMESPACE}" \
+                    --image=busybox:1.36 --restart=Never --command -- sleep 300 || true
 
                   # Wait for pods to be ready
                   echo "=== DEBUG: Waiting for test pods to be ready ==="
-                  kubectl wait --for=condition=ready pod/dns-test-0 -n "${CLUSTER_0_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-0 not ready"
-                  kubectl wait --for=condition=ready pod/dns-test-1 -n "${CLUSTER_1_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-1 not ready"
+                  kubectl wait --for=condition=ready pod/dns-test-0 \
+                    -n "${CLUSTER_0_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-0 not ready"
+                  kubectl wait --for=condition=ready pod/dns-test-1 \
+                    -n "${CLUSTER_1_NAMESPACE}" --timeout=120s || echo "WARNING: dns-test-1 not ready"
 
                   echo "=== DEBUG: Test pods status ==="
                   kubectl get pod dns-test-0 -n "${CLUSTER_0_NAMESPACE}" -o wide || true
                   kubectl get pod dns-test-1 -n "${CLUSTER_1_NAMESPACE}" -o wide || true
-
-                  echo "=== DEBUG: CoreDNS configuration ==="
-                  kubectl get configmap coredns -n kube-system -o yaml || echo "CoreDNS configmap not found"
 
                   echo "=== DEBUG: Test DNS resolution from cluster-0 to cluster-1 namespace ==="
                   kubectl exec -n "${CLUSTER_0_NAMESPACE}" dns-test-0 -- \
@@ -428,21 +423,26 @@ jobs:
             - name: Debug - Check namespace and service configuration
               if: inputs.migrationEnabled == false
               run: |
-                  set -euxo pipefail
+                  set -euo pipefail
                   echo "=== DEBUG: Namespaces ==="
-                  kubectl get namespaces | grep -E "${CLUSTER_0_NAMESPACE}|${CLUSTER_1_NAMESPACE}" || echo "Namespaces not found"
+                  kubectl get namespaces | grep -E "${CLUSTER_0_NAMESPACE}|${CLUSTER_1_NAMESPACE}" || \
+                    echo "Namespaces not found"
 
                   echo "=== DEBUG: Services in cluster-0 namespace ==="
-                  kubectl get services -n "${CLUSTER_0_NAMESPACE}" -o wide || echo "No services in ${CLUSTER_0_NAMESPACE}"
+                  kubectl get services -n "${CLUSTER_0_NAMESPACE}" -o wide || \
+                    echo "No services in ${CLUSTER_0_NAMESPACE}"
 
                   echo "=== DEBUG: Services in cluster-1 namespace ==="
-                  kubectl get services -n "${CLUSTER_1_NAMESPACE}" -o wide || echo "No services in ${CLUSTER_1_NAMESPACE}"
+                  kubectl get services -n "${CLUSTER_1_NAMESPACE}" -o wide || \
+                    echo "No services in ${CLUSTER_1_NAMESPACE}"
 
                   echo "=== DEBUG: Endpoints in cluster-0 namespace ==="
-                  kubectl get endpoints -n "${CLUSTER_0_NAMESPACE}" || echo "No endpoints in ${CLUSTER_0_NAMESPACE}"
+                  kubectl get endpoints -n "${CLUSTER_0_NAMESPACE}" || \
+                    echo "No endpoints in ${CLUSTER_0_NAMESPACE}"
 
                   echo "=== DEBUG: Endpoints in cluster-1 namespace ==="
-                  kubectl get endpoints -n "${CLUSTER_1_NAMESPACE}" || echo "No endpoints in ${CLUSTER_1_NAMESPACE}"
+                  kubectl get endpoints -n "${CLUSTER_1_NAMESPACE}" || \
+                    echo "No endpoints in ${CLUSTER_1_NAMESPACE}"
 
             - name: Deploy dual region Camunda - ${{ inputs.helmChartVersion }}
               if: inputs.migrationEnabled == false
