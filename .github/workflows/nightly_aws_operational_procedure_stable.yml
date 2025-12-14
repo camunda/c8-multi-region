@@ -158,7 +158,7 @@ jobs:
                   # TODO: [release-duty] before the release, update this!
 
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c87=12.7.3
+                  c87=12.7.4
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
                     versions='{"helm-version":["'${c87}'"]}'
