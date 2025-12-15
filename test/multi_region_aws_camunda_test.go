@@ -487,8 +487,8 @@ func redeployWithoutOperateTasklist(t *testing.T, cluster helpers.Cluster, disab
 
 	// Disable schema creation if requested (needed for secondary during DB restore)
 	if disableSchemaCreation {
-		setStringValues["orchestration.env[15].name"] = "CAMUNDA_DATABASE_SCHEMAMANAGER_CREATESCHEMA"
-		setStringValues["orchestration.env[15].value"] = "false"
+		setStringValues["orchestration.env[12].name"] = "CAMUNDA_DATABASE_SCHEMAMANAGER_CREATESCHEMA"
+		setStringValues["orchestration.env[12].value"] = "false"
 	}
 
 	valuesYamlFiles := []string{defaultValuesYaml}
