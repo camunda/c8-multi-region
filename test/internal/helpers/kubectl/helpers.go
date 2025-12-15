@@ -441,7 +441,7 @@ func InstallUpgradeC8Helm(t *testing.T, kubectlOptions *k8s.KubectlOptions, remo
 	scriptOutput := string(output)
 
 	// Extract the replacement text for the initial contact points and Elasticsearch URLs
-	initialContact := extractReplacementText(scriptOutput, "ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS")
+	initialContact := extractReplacementText(scriptOutput, "CAMUNDA_CLUSTER_INITIALCONTACTPOINTS")
 	elastic0 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL")
 	elastic1 := extractReplacementText(scriptOutput, "ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL")
 

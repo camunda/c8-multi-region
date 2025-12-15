@@ -55,10 +55,6 @@ orchestration:
         zeebe:
             enabled: false
     env:
-        # Need this for the importer since it's a standalone Gateway
-        # While Orchestration Cluster is now embedded Gateway (ZEEBE_BROKER_GATEWAY vs ZEEBE_GATEWAY)
-        - name: ZEEBE_GATEWAY_CLUSTER_MESSAGECOMPRESSION
-          value: GZIP
         # Old Exporter
         - name: ZEEBE_BROKER_EXPORTERS_ELASTICSEARCHREGION0_CLASSNAME
           value: io.camunda.zeebe.exporter.ElasticsearchExporter
@@ -74,7 +70,7 @@ orchestration:
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
-        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
+        - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
           value: PLACEHOLDER
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
@@ -89,20 +85,14 @@ orchestration:
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
-        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBETIMEOUT
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBETIMEOUT
           value: 500ms
-        - name: ZEEBE_BROKER_CLUSTER_MEMBERSHIP_PROBEINTERVAL
+        - name: CAMUNDA_CLUSTER_MEMBERSHIP_PROBEINTERVAL
           value: 2s
-        - name: ZEEBE_BROKER_EXPERIMENTAL_RAFT_SNAPSHOTREQUESTTIMEOUT
+        - name: CAMUNDA_CLUSTER_RAFT_SNAPSHOTREQUESTTIMEOUT
           value: 10s
-        - name: ZEEBE_BROKER_CLUSTER_MESSAGECOMPRESSION
+        - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
           value: GZIP
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MESSAGECOMPRESSION
-          value: GZIP
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBETIMEOUT
-          value: 500ms
-        - name: ZEEBE_BROKER_GATEWAY_CLUSTER_MEMBERSHIP_PROBEINTERVAL
-          value: 2s
     pvcSize: 32Gi
     logLevel: ERROR
 
