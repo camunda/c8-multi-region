@@ -29,6 +29,26 @@ namespace_1=${CAMUNDA_NAMESPACE_1:-""}
 helm_release_name=${CAMUNDA_RELEASE_NAME:-""}
 cluster_size=${ZEEBE_CLUSTER_SIZE:-""}
 
+# Check for deprecated ZEEBE_* environment variables
+if [ -n "${ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS:-}" ]; then
+    echo "WARNING: The environment variable ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS is deprecated."
+    echo "         It was migrated in version 8.9 to CAMUNDA_CLUSTER_INITIALCONTACTPOINTS."
+    echo "         The Helm Chart needs CAMUNDA_CLUSTER_INITIALCONTACTPOINTS to configure multi-region setups."
+fi
+
+zeebe_vars=$(env | grep '^ZEEBE_' || true)
+if [ -n "$zeebe_vars" ]; then
+    echo "WARNING: Detected ZEEBE_* environment variables which may be deprecated."
+    echo "         As of version 8.9, many ZEEBE_* variables have been migrated to CAMUNDA_* equivalents."
+    echo "         Please review and update your environment variables accordingly."
+    echo
+    echo "Detected variables:"
+    while IFS= read -r line; do
+        echo "  $line"
+    done <<< "$zeebe_vars"
+    echo
+fi
+
 target_text="in the base Camunda Helm chart values file 'camunda-values.yml'"
 
 # Taking inputs from the user
