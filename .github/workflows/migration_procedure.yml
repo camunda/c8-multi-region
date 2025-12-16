@@ -62,6 +62,32 @@ jobs:
                     echo "MIGRATION_HELM_CHART=${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}"
                   } >> "$GITHUB_OUTPUT"
 
+    set_target_branch:
+        name: Set target branch for migration
+        runs-on: ubuntu-latest
+        outputs:
+            TARGET_BRANCH: ${{ steps.set-target-branch.outputs.TARGET_BRANCH }}
+        env:
+            # https://docs.github.com/en/actions/reference/security/secure-use#good-practices-for-mitigating-script-injection-attacks
+            GITHUB_EVENT_NAME: ${{ github.event_name }}
+            GITHUB_BASE_REF: ${{ github.base_ref }}
+            GITHUB_HEAD_REF: ${{ github.head_ref }}
+        steps:
+            - name: Determine target branch
+              id: set-target-branch
+              run: |
+                  set -euo pipefail
+
+                  TARGET_BRANCH="stable/8.8"
+
+                  if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+                      if [[ "$GITHUB_BASE_REF" == "$TARGET_BRANCH" ]]; then
+                          TARGET_BRANCH="$GITHUB_HEAD_REF"
+                      fi
+                  fi
+
+                  echo "TARGET_BRANCH=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+
     deploy_previous_release:
         name: Deploy previous release only
         needs:
@@ -78,6 +104,7 @@ jobs:
         needs:
             - deploy_previous_release
             - convert_env_to_output
+            - set_target_branch
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
             helmChartVersion: ${{ needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART }}
@@ -89,7 +116,7 @@ jobs:
             skipFailover: ${{ github.event.inputs.skip-failover == 'true' }}
             skipFailback: ${{ github.event.inputs.skip-failback == 'true' }}
             skipMultiTenancy: ${{ github.event.inputs.skip-multi-tenancy == 'true' }}
-            overwriteBranch: ${{ github.head_ref || github.ref_name }}
+            overwriteBranch: ${{ needs.set_target_branch.outputs.TARGET_BRANCH }}
         secrets: inherit
 
     report-failure:
