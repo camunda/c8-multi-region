@@ -367,33 +367,65 @@ jobs:
                   # 8.7 process instance created during deploy offset
                   echo "MIGRATION_OFFSET=1" >> "$GITHUB_ENV"
 
-                  mkdir -p ./migration_logs
+            - name: Collect migration logs
+              if: always() && inputs.migrationEnabled == true
+              continue-on-error: true
+              run: |
+                  echo "===== Collecting migration job logs ====="
+                  mkdir -p ./test/migration_logs
 
-                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
-                    --tail=-1 \
-                    --timestamps=true \
-                    --prefix=true \
-                    --all-containers=true \
-                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
-                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
-                    --tail=-1 \
-                    --timestamps=true \
-                    --prefix=true \
-                    --all-containers=true \
-                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt"
+                  # Get migration job status
+                  echo "--- Migration job status in cluster 0 ---"
+                  kubectl get jobs -l app.kubernetes.io/component=orchestration-migration -n ${{ env.CLUSTER_0_NAMESPACE }} || true
+                  echo "--- Migration job status in cluster 1 ---"
+                  kubectl get jobs -l app.kubernetes.io/component=orchestration-migration -n ${{ env.CLUSTER_1_NAMESPACE }} || true
 
+                  # Get migration pods status
+                  echo "--- Migration pods in cluster 0 ---"
+                  kubectl get pods -l app.kubernetes.io/component=orchestration-migration -n ${{ env.CLUSTER_0_NAMESPACE }} || true
+                  echo "--- Migration pods in cluster 1 ---"
+                  kubectl get pods -l app.kubernetes.io/component=orchestration-migration -n ${{ env.CLUSTER_1_NAMESPACE }} || true
+
+                  # Collect migration job logs from cluster 0
                   kubectl logs -l app.kubernetes.io/component=orchestration-migration \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \
                     --all-containers=true \
-                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/migration_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./test/migration_logs/migration_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt" || echo "No migration logs in cluster 0"
+
+                  # Collect migration job logs from cluster 1
                   kubectl logs -l app.kubernetes.io/component=orchestration-migration \
                     --tail=-1 \
                     --timestamps=true \
                     --prefix=true \
                     --all-containers=true \
-                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./migration_logs/importer_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt"
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./test/migration_logs/migration_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt" || echo "No migration logs in cluster 1"
+
+                  # Collect importer logs from cluster 0
+                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./test/migration_logs/importer_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt" || echo "No importer logs in cluster 0"
+
+                  # Collect importer logs from cluster 1
+                  kubectl logs -l app.kubernetes.io/component=orchestration-importer \
+                    --tail=-1 \
+                    --timestamps=true \
+                    --prefix=true \
+                    --all-containers=true \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./test/migration_logs/importer_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt" || echo "No importer logs in cluster 1"
+
+                  # Describe migration jobs for debugging
+                  kubectl describe jobs -l app.kubernetes.io/component=orchestration-migration \
+                    -n ${{ env.CLUSTER_0_NAMESPACE }} > "./test/migration_logs/migration_job_describe_cluster0.txt" || true
+                  kubectl describe jobs -l app.kubernetes.io/component=orchestration-migration \
+                    -n ${{ env.CLUSTER_1_NAMESPACE }} > "./test/migration_logs/migration_job_describe_cluster1.txt" || true
+
+                  echo "===== Migration logs collected ====="
+                  ls -la ./test/migration_logs/ || true
 
             - name: Show pending pod count in each namespace after initial deployment
               id: pending-check-1
@@ -481,12 +513,13 @@ jobs:
                   kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
                     kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name";
-                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}logs.txt";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
             - name: Get failed Pods info - ${{ env.CLUSTER_1_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
+              working-directory: ./test
               run: |
                   set -euo pipefail
 
@@ -496,7 +529,7 @@ jobs:
                   kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
-                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
             - name: Delete namespaces
