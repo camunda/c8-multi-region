@@ -5,7 +5,6 @@ on:
     schedule:
         - cron: 0 3 * * 1-5   # At 03:00 on every day-of-week from Monday through Friday.
     pull_request:
-        # in current form is very limited to 8.7 to 8.8 migration only
         branches-ignore:
             - stable/**
         paths:
@@ -34,6 +33,7 @@ on:
 
 env:
     IS_SCHEDULE: ${{ contains(github.head_ref, 'schedules/') || github.event_name == 'schedule' && 'true' || 'false' }}
+    IS_PR: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
 
     # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
     PREVIOUS_HELM_CHART: 12.7.4
@@ -53,6 +53,7 @@ jobs:
         outputs:
             PREVIOUS_HELM_CHART: ${{ steps.set-outputs.outputs.PREVIOUS_HELM_CHART }}
             MIGRATION_HELM_CHART: ${{ steps.set-outputs.outputs.MIGRATION_HELM_CHART }}
+            IS_PR: ${{ steps.set-outputs.outputs.IS_PR }}
         steps:
             - name: Set outputs
               id: set-outputs
@@ -60,6 +61,7 @@ jobs:
                   {
                     echo "PREVIOUS_HELM_CHART=${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}"
                     echo "MIGRATION_HELM_CHART=${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}"
+                    echo "IS_PR=${{ env.IS_PR }}"
                   } >> "$GITHUB_OUTPUT"
 
     set_target_branch:
@@ -107,7 +109,8 @@ jobs:
             - set_target_branch
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: ${{ needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART }}
+            helmChartVersion: ${{ needs.convert_env_to_output.outputs.IS_PR == 'true' && 'SNAPSHOT' || needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART
+                }}
             migrationEnabled: true
             cluster_0_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_0_NAMESPACE }}
             cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}
