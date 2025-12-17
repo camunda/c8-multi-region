@@ -528,12 +528,13 @@ jobs:
                   kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
                     kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name";
-                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}logs.txt";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
             - name: Get failed Pods info - ${{ env.CLUSTER_1_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
+              working-directory: ./test
               run: |
                   set -euo pipefail
 
@@ -543,7 +544,7 @@ jobs:
                   kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
                     echo -e "\n###Failed Pod: ${pod_name}###\n";
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
-                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
             - name: Delete namespaces
