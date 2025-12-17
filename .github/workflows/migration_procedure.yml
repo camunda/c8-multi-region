@@ -109,8 +109,7 @@ jobs:
             - set_target_branch
         uses: ./.github/workflows/reusable_teleport_operational_procedure.yml
         with:
-            helmChartVersion: ${{ needs.convert_env_to_output.outputs.IS_PR == 'true' && 'SNAPSHOT' || needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART
-                }}
+            helmChartVersion: ${{ needs.convert_env_to_output.outputs.MIGRATION_HELM_CHART }}
             migrationEnabled: true
             cluster_0_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_0_NAMESPACE }}
             cluster_1_namespace: ${{ needs.deploy_previous_release.outputs.CLUSTER_1_NAMESPACE }}
