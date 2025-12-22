@@ -16,24 +16,24 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.9
 
-awscli 2.32.16
+awscli 2.32.21
 
 golang 1.25.5
 
 # datasource=custom.helm-camunda depName=helm
-helm 3.19.3
+helm 3.19.4
 
 just 1.45.0
 
 kubectl 1.35.0
 
-pre-commit 4.5.0
+pre-commit 4.5.1
 
 python 3.14.2
 
 shellcheck 0.11.0
 
-terraform 1.14.2
+terraform 1.14.3
 
 tflint 0.60.0
 
