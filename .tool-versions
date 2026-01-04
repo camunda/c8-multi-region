@@ -12,7 +12,7 @@
 awscli 2.25.11
 
 # renovate: datasource=github-tags depName=rhysd/actionlint
-actionlint 1.7.9
+actionlint 1.7.10
 
 golang 1.24.6
 
