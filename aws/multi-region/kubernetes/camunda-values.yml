@@ -71,7 +71,7 @@ orchestration:
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
           value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
-        # Region 1 exporter config
+        # Region 2 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION2_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION2_ARGS_CONNECT_URL
