@@ -53,10 +53,14 @@ orchestration:
           value: camunda_backup
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
-        - name: ZEEBE_GATEWAY_CLUSTER_INITIALCONTACTPOINTS
-          value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
-        - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
+        # Multi-region contact points for 8.8
+        # - name: ZEEBE_GATEWAY_CLUSTER_INITIALCONTACTPOINTS
+        #   value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
+        # - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
+        #   value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
+        # Multi-region contact points for 8.9+
+        # - name: CAMUNDA_CLUSTER_INITIALCONTACTPOINTS
+        #   value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
