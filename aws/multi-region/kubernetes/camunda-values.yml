@@ -35,12 +35,12 @@ optimize:
     enabled: false
 
 connectors:
-    enabled: false
+    enabled: true
 
 orchestration:
     clusterSize: '3'
     partitionCount: '3'
-    replicationFactor: '3'
+    replicationFactor: '1'
     # Disable the Camunda and Zeebe exporters as we use region specific ones below
     exporters:
         camunda:
@@ -54,23 +54,24 @@ orchestration:
         - name: CAMUNDA_PERSISTENT_SESSIONS_ENABLED
           value: 'true'
         - name: ZEEBE_GATEWAY_CLUSTER_INITIALCONTACTPOINTS
-          value: camunda-zeebe-0.camunda-zeebe.camunda-tokyo.svc.cluster.local:26502,camunda-zeebe-0.camunda-zeebe.camunda-seoul.svc.cluster.local:26502,camunda-zeebe-0.camunda-zeebe.camunda-osaka.svc.cluster.local:26502
+          value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
         - name: ZEEBE_BROKER_CLUSTER_INITIALCONTACTPOINTS
-          value: camunda-zeebe-0.camunda-zeebe.camunda-tokyo.svc.cluster.local:26502,camunda-zeebe-0.camunda-zeebe.camunda-seoul.svc.cluster.local:26502,camunda-zeebe-0.camunda-zeebe.camunda-osaka.svc.cluster.local:26502
+          value: PLACEHOLDER_FOR_MULTI_REGION_CONTACT_POINTS
         # Region 0 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION0_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-tokyo.svc.cluster.local:9200
+          value: http://camunda-elasticsearch-master-hl.camunda-primary.svc.cluster.local:9200
         # Region 1 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION1_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-seoul.svc.cluster.local:9200
+          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
+        # Region 1 exporter config
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION2_CLASSNAME
           value: io.camunda.exporter.CamundaExporter
         - name: ZEEBE_BROKER_EXPORTERS_CAMUNDAREGION2_ARGS_CONNECT_URL
-          value: http://camunda-elasticsearch-master-hl.camunda-osaka.svc.cluster.local:9200
+          value: http://camunda-elasticsearch-master-hl.camunda-secondary.svc.cluster.local:9200
         # Zeebe cluster tuning
         - name: CAMUNDA_DATA_SNAPSHOTPERIOD
           value: 5m
@@ -83,7 +84,7 @@ orchestration:
         - name: CAMUNDA_CLUSTER_COMPRESSIONALGORITHM
           value: GZIP
     pvcSize: 10Gi
-    logLevel: INFO
+    logLevel: ERROR
 
     resources:
         requests:
@@ -106,3 +107,14 @@ elasticsearch:
                 memory: 2Gi
         persistence:
             size: 15Gi
+    initScripts:
+        init-keystore.sh: |
+            #!/bin/bash
+            set -e
+
+            echo "Adding S3 access keys to Elasticsearch keystore..."
+
+            # Add S3 client camunda keys to the keystore
+            echo "$S3_SECRET_KEY" | elasticsearch-keystore add -x s3.client.camunda.secret_key
+            echo "$S3_ACCESS_KEY" | elasticsearch-keystore add -x s3.client.camunda.access_key
+    extraEnvVarsSecret: elasticsearch-env-secret

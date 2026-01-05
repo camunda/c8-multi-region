@@ -1,3 +1,14 @@
+# Multi Region Camunda >=8.8
+
+![Multi Region Across 3 Clusters](docs/high_level.png)
+
+All prerequisites and theories based on [Camunda Dual Region Setups](https://docs.camunda.io/docs/self-managed/deployment/helm/cloud-providers/amazon/amazon-eks/dual-region/), but we need one cluster and one DNS chain more.
+
+The calculation of the clustersize will change from `x % 2 = 0` to `x % 3 = 0`.
+
+Instead of the `clustersize = 4 || 8` we can use `clustersize = 6 || 9`
+
+
 ## Install Instructions
 
 ### Region 1
