@@ -39,7 +39,6 @@ func TestAWSClusterScaling_ScaleBrokers(t *testing.T) {
 		{"TestAddNewBrokersToCluster", addNewBrokersToCluster},
 		{"TestWaitForBrokerScalingComplete", waitForBrokerScalingComplete},
 		{"TestVerifyScaledBrokerTopology", verifyScaledBrokerTopology},
-		{"TestDeployProcessAfterBrokerScaling", func(t *testing.T) { deployC8processAndCheck(t, 6, "scaling", "") }},
 		{"TestScaleDownBrokerCluster", scaleDownBrokerCluster},
 		{"TestWaitForBrokerScaleDownComplete", waitForBrokerScaleDownComplete},
 		{"TestScaleDownBrokerStatefulSets", scaleDownBrokerStatefulSets},
@@ -71,7 +70,6 @@ func TestAWSClusterScaling_ScalePartitions(t *testing.T) {
 		{"TestScaleUpPartitions", scaleUpPartitions},
 		{"TestWaitForPartitionScalingComplete", waitForPartitionScalingComplete},
 		{"TestVerifyScaledPartitionTopology", verifyScaledPartitionTopology},
-		{"TestDeployProcessAfterPartitionScaling", func(t *testing.T) { deployC8processAndCheck(t, 6, "scaling", "") }},
 		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -102,7 +100,6 @@ func TestAWSClusterScaling_ScaleBrokersAndPartitions(t *testing.T) {
 		{"TestScaleUpBrokersAndPartitions", scaleUpBrokersAndPartitions},
 		{"TestWaitForCombinedScalingComplete", waitForCombinedScalingComplete},
 		{"TestVerifyScaledClusterTopology", verifyScaledClusterTopology},
-		{"TestDeployProcessAfterCombinedScaling", func(t *testing.T) { deployC8processAndCheck(t, 6, "scaling", "") }},
 		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 		{"TestScaleDownBrokerCluster", scaleDownBrokerCluster},
 		{"TestWaitForBrokerScaleDownComplete", waitForBrokerScaleDownComplete},

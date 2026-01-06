@@ -515,6 +515,14 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
 
+            - name: Test scaling zeebe brokers in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestAWSClusterScaling_ScaleBrokers
+
             - name: Get failed Pods info - ${{ env.CLUSTER_0_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
