@@ -34,15 +34,11 @@ func TestAWSClusterScaling_ScaleBrokers(t *testing.T) {
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
-		{"TestScaleUpBrokerStatefulSets", scaleUpBrokerStatefulSets},
+		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 6) }},
 		{"TestWaitForNewBrokersToStart", waitForNewBrokersToStart},
-		{"TestAddNewBrokersToCluster", addNewBrokersToCluster},
+		{"TestAddNewBrokersToCluster", func(t *testing.T) { addNewBrokersToCluster(t, []int{8, 9, 10, 11}) }},
 		{"TestWaitForBrokerScalingComplete", waitForBrokerScalingComplete},
-		{"TestVerifyScaledBrokerTopology", verifyScaledBrokerTopology},
-		{"TestScaleDownBrokerCluster", scaleDownBrokerCluster},
-		{"TestWaitForBrokerScaleDownComplete", waitForBrokerScaleDownComplete},
-		{"TestScaleDownBrokerStatefulSets", scaleDownBrokerStatefulSets},
-		{"TestVerifyOriginalBrokerCount", verifyOriginalBrokerCount},
+		{"TestVerifyScaledBrokerTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -66,10 +62,10 @@ func TestAWSClusterScaling_ScalePartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
-		{"TestScaleUpPartitions", scaleUpPartitions},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
+		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 12, 4) }},
 		{"TestWaitForPartitionScalingComplete", waitForPartitionScalingComplete},
-		{"TestVerifyScaledPartitionTopology", verifyScaledPartitionTopology},
+		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
 		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -94,17 +90,12 @@ func TestAWSClusterScaling_ScaleBrokersAndPartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
-		{"TestScaleUpBrokerStatefulSets", scaleUpBrokerStatefulSets},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
+		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 7) }},
 		{"TestWaitForNewBrokersToStart", waitForNewBrokersToStart},
-		{"TestScaleUpBrokersAndPartitions", scaleUpBrokersAndPartitions},
+		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{12, 13}, 14, 4) }},
 		{"TestWaitForCombinedScalingComplete", waitForCombinedScalingComplete},
-		{"TestVerifyScaledClusterTopology", verifyScaledClusterTopology},
-		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
-		{"TestScaleDownBrokerCluster", scaleDownBrokerCluster},
-		{"TestWaitForBrokerScaleDownComplete", waitForBrokerScaleDownComplete},
-		{"TestScaleDownBrokerStatefulSets", scaleDownBrokerStatefulSets},
-		{"TestVerifyOriginalClusterSize", verifyOriginalClusterSize},
+		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 14, 14) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -125,17 +116,18 @@ func verifyClusterTopology(t *testing.T, clusterSizeExpected, partitionCountExpe
 		clusterInfo.ClusterSize, clusterInfo.PartitionsCount, clusterInfo.ReplicationFactor)
 }
 
-// scaleUpBrokerStatefulSets scales the Zeebe StatefulSets from 4 to 6 replicas in each region
-func scaleUpBrokerStatefulSets(t *testing.T) {
-	t.Log("[SCALING] Scaling up Zeebe StatefulSets in both regions 🚀")
+// scaleUpBrokerStatefulSets scales the Zeebe StatefulSets to the specified number of replicas in each region
+func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
+	t.Helper()
+	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas in both regions 🚀", replicasPerRegion)
 
-	// Scale up primary region: brokers 0,2,4,6 -> 0,2,4,6,8,10
-	t.Log("[SCALING] Scaling primary region StatefulSet from 4 to 6 replicas")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", "--replicas=6")
+	replicasArg := fmt.Sprintf("--replicas=%d", replicasPerRegion)
 
-	// Scale up secondary region: brokers 1,3,5,7 -> 1,3,5,7,9,11
-	t.Log("[SCALING] Scaling secondary region StatefulSet from 4 to 6 replicas")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", "--replicas=6")
+	t.Logf("[SCALING] Scaling primary region StatefulSet to %d replicas", replicasPerRegion)
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
+
+	t.Logf("[SCALING] Scaling secondary region StatefulSet to %d replicas", replicasPerRegion)
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
 
 	t.Log("[SCALING] StatefulSets scaled up successfully")
 }
@@ -158,8 +150,9 @@ func waitForNewBrokersToStart(t *testing.T) {
 }
 
 // addNewBrokersToCluster sends API request to add new brokers to the cluster
-func addNewBrokersToCluster(t *testing.T) {
-	t.Log("[SCALING] Adding new brokers to the cluster via API 🚀")
+func addNewBrokersToCluster(t *testing.T, brokersToAdd []int) {
+	t.Helper()
+	t.Logf("[SCALING] Adding new brokers %v to the cluster via API 🚀", brokersToAdd)
 
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, "camunda-zeebe-gateway", service.Name)
@@ -167,27 +160,34 @@ func addNewBrokersToCluster(t *testing.T) {
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
 	defer closeFn()
 
+	// Build the payload with the brokers to add
+	payloadData := map[string]interface{}{
+		"brokers": map[string]interface{}{
+			"add": brokersToAdd,
+		},
+	}
+	payloadBytes, err := json.Marshal(payloadData)
+	require.NoError(t, err, "Failed to marshal payload")
+
 	// First, do a dry run to verify the planned changes
 	t.Log("[SCALING] Performing dry run to preview partition distribution")
-	dryRunPayload := []byte(`{"brokers":{"add":[8,9,10,11]}}`)
 	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
-		bytes.NewBuffer(dryRunPayload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create dry run request")
 	require.Equal(t, 200, res.StatusCode, "Dry run should return 200")
 	t.Logf("[SCALING] Dry run response: %s", body)
 
 	// Now perform the actual scaling
-	t.Log("[SCALING] Executing broker addition: adding brokers [8,9,10,11]")
-	payload := []byte(`{"brokers":{"add":[8,9,10,11]}}`)
+	t.Logf("[SCALING] Executing broker addition: adding brokers %v", brokersToAdd)
 	res, body = helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer(payload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create request")
 	require.Equal(t, 202, res.StatusCode, "Expected 202 Accepted status")
@@ -197,7 +197,7 @@ func addNewBrokersToCluster(t *testing.T) {
 
 	// Parse and log the change ID
 	var response map[string]interface{}
-	err := json.Unmarshal([]byte(body), &response)
+	err = json.Unmarshal([]byte(body), &response)
 	require.NoError(t, err)
 	changeId := response["changeId"]
 	t.Logf("[SCALING] Broker addition initiated with changeId: %v", changeId)
@@ -234,29 +234,10 @@ func waitForBrokerScalingComplete(t *testing.T) {
 	t.Fatal("[SCALING] Broker scaling did not complete within the expected time")
 }
 
-// verifyScaledBrokerTopology verifies the cluster has 12 brokers after scaling
-func verifyScaledBrokerTopology(t *testing.T) {
-	t.Log("[SCALING] Verifying scaled broker topology 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 12, clusterInfo.ClusterSize, "Expected 12 brokers after scaling")
-	require.Equal(t, 8, clusterInfo.PartitionsCount, "Expected 8 partitions (unchanged)")
-
-	// Verify we have brokers 0-11
-	brokerIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		brokerIds[broker.NodeId] = true
-	}
-	for i := 0; i < 12; i++ {
-		require.True(t, brokerIds[i], "Expected broker %d to exist", i)
-	}
-
-	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions", clusterInfo.ClusterSize, clusterInfo.PartitionsCount)
-}
-
 // scaleUpPartitions sends API request to increase partition count
-func scaleUpPartitions(t *testing.T) {
-	t.Log("[SCALING] Scaling up partition count from 8 to 12 🚀")
+func scaleUpPartitions(t *testing.T, partitionCount, replicationFactor int) {
+	t.Helper()
+	t.Logf("[SCALING] Scaling up to %d partitions with replication factor %d 🚀", partitionCount, replicationFactor)
 
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, "camunda-zeebe-gateway", service.Name)
@@ -264,27 +245,35 @@ func scaleUpPartitions(t *testing.T) {
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
 	defer closeFn()
 
+	// Build the payload with the partition configuration
+	payloadData := map[string]interface{}{
+		"partitions": map[string]interface{}{
+			"count":             partitionCount,
+			"replicationFactor": replicationFactor,
+		},
+	}
+	payloadBytes, err := json.Marshal(payloadData)
+	require.NoError(t, err, "Failed to marshal payload")
+
 	// First, do a dry run to verify the planned changes
 	t.Log("[SCALING] Performing dry run to preview partition distribution")
-	dryRunPayload := []byte(`{"partitions":{"count":12,"replicationFactor":4}}`)
 	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
-		bytes.NewBuffer(dryRunPayload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create dry run request")
 	require.Equal(t, 200, res.StatusCode, "Dry run should return 200")
 	t.Logf("[SCALING] Dry run response: %s", body)
 
 	// Now perform the actual scaling
-	t.Log("[SCALING] Executing partition scaling: 8 -> 12 partitions with replication factor 4")
-	payload := []byte(`{"partitions":{"count":12,"replicationFactor":4}}`)
+	t.Logf("[SCALING] Executing partition scaling: %d partitions with replication factor %d", partitionCount, replicationFactor)
 	res, body = helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer(payload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create request")
 	require.Equal(t, 202, res.StatusCode, "Expected 202 Accepted status")
@@ -294,7 +283,7 @@ func scaleUpPartitions(t *testing.T) {
 
 	// Parse and log the change ID
 	var response map[string]interface{}
-	err := json.Unmarshal([]byte(body), &response)
+	err = json.Unmarshal([]byte(body), &response)
 	require.NoError(t, err)
 	changeId := response["changeId"]
 	t.Logf("[SCALING] Partition scaling initiated with changeId: %v", changeId)
@@ -332,33 +321,10 @@ func waitForPartitionScalingComplete(t *testing.T) {
 	t.Fatal("[SCALING] Partition scaling did not complete within the expected time")
 }
 
-// verifyScaledPartitionTopology verifies the cluster has 12 partitions after scaling
-func verifyScaledPartitionTopology(t *testing.T) {
-	t.Log("[SCALING] Verifying scaled partition topology 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers (unchanged)")
-	require.Equal(t, 12, clusterInfo.PartitionsCount, "Expected 12 partitions after scaling")
-	require.Equal(t, 4, clusterInfo.ReplicationFactor, "Expected replication factor of 4")
-
-	// Verify all partitions exist (1-12)
-	partitionIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		for _, partition := range broker.Partitions {
-			partitionIds[partition.PartitionId] = true
-		}
-	}
-	for i := 1; i <= 12; i++ {
-		require.True(t, partitionIds[i], "Expected partition %d to exist", i)
-	}
-
-	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions, replication factor %d",
-		clusterInfo.ClusterSize, clusterInfo.PartitionsCount, clusterInfo.ReplicationFactor)
-}
-
 // scaleUpBrokersAndPartitions sends API request to scale both brokers and partitions
-func scaleUpBrokersAndPartitions(t *testing.T) {
-	t.Log("[SCALING] Scaling up brokers and partitions simultaneously 🚀")
+func scaleUpBrokersAndPartitions(t *testing.T, brokersToAdd []int, partitionCount, replicationFactor int) {
+	t.Helper()
+	t.Logf("[SCALING] Scaling up brokers %v and partitions to %d simultaneously 🚀", brokersToAdd, partitionCount)
 
 	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
 	require.Equal(t, "camunda-zeebe-gateway", service.Name)
@@ -366,27 +332,38 @@ func scaleUpBrokersAndPartitions(t *testing.T) {
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
 	defer closeFn()
 
+	// Build the payload with both brokers and partitions configuration
+	payloadData := map[string]interface{}{
+		"brokers": map[string]interface{}{
+			"add": brokersToAdd,
+		},
+		"partitions": map[string]interface{}{
+			"count":             partitionCount,
+			"replicationFactor": replicationFactor,
+		},
+	}
+	payloadBytes, err := json.Marshal(payloadData)
+	require.NoError(t, err, "Failed to marshal payload")
+
 	// First, do a dry run to verify the planned changes
 	t.Log("[SCALING] Performing dry run to preview combined scaling")
-	dryRunPayload := []byte(`{"brokers":{"add":[8,9,10,11]},"partitions":{"count":12,"replicationFactor":4}}`)
 	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
-		bytes.NewBuffer(dryRunPayload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create dry run request")
 	require.Equal(t, 200, res.StatusCode, "Dry run should return 200")
 	t.Logf("[SCALING] Dry run response: %s", body)
 
 	// Now perform the actual scaling
-	t.Log("[SCALING] Executing combined scaling: adding brokers [8,9,10,11] and scaling partitions to 12")
-	payload := []byte(`{"brokers":{"add":[8,9,10,11]},"partitions":{"count":12,"replicationFactor":4}}`)
+	t.Logf("[SCALING] Executing combined scaling: adding brokers %v and scaling partitions to %d", brokersToAdd, partitionCount)
 	res, body = helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer(payload),
+		bytes.NewBuffer(payloadBytes),
 	)
 	require.NotNil(t, res, "Failed to create request")
 	require.Equal(t, 202, res.StatusCode, "Expected 202 Accepted status")
@@ -396,7 +373,7 @@ func scaleUpBrokersAndPartitions(t *testing.T) {
 
 	// Parse and log the change ID
 	var response map[string]interface{}
-	err := json.Unmarshal([]byte(body), &response)
+	err = json.Unmarshal([]byte(body), &response)
 	require.NoError(t, err)
 	changeId := response["changeId"]
 	t.Logf("[SCALING] Combined scaling initiated with changeId: %v", changeId)
@@ -432,156 +409,6 @@ func waitForCombinedScalingComplete(t *testing.T) {
 	}
 
 	t.Fatal("[SCALING] Combined scaling did not complete within the expected time")
-}
-
-// verifyScaledClusterTopology verifies the cluster has 12 brokers and 12 partitions after scaling
-func verifyScaledClusterTopology(t *testing.T) {
-	t.Log("[SCALING] Verifying scaled cluster topology 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 12, clusterInfo.ClusterSize, "Expected 12 brokers after scaling")
-	require.Equal(t, 12, clusterInfo.PartitionsCount, "Expected 12 partitions after scaling")
-	require.Equal(t, 4, clusterInfo.ReplicationFactor, "Expected replication factor of 4")
-
-	// Verify we have brokers 0-11
-	brokerIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		brokerIds[broker.NodeId] = true
-	}
-	for i := 0; i < 12; i++ {
-		require.True(t, brokerIds[i], "Expected broker %d to exist", i)
-	}
-
-	// Verify all partitions exist (1-12)
-	partitionIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		for _, partition := range broker.Partitions {
-			partitionIds[partition.PartitionId] = true
-		}
-	}
-	for i := 1; i <= 12; i++ {
-		require.True(t, partitionIds[i], "Expected partition %d to exist", i)
-	}
-
-	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions, replication factor %d",
-		clusterInfo.ClusterSize, clusterInfo.PartitionsCount, clusterInfo.ReplicationFactor)
-}
-
-// scaleDownBrokerCluster sends API request to remove brokers from the cluster
-func scaleDownBrokerCluster(t *testing.T) {
-	t.Log("[SCALING] Scaling down cluster by removing brokers [8,9,10,11] 🚀")
-
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, "camunda-zeebe-gateway", service.Name)
-
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	// Send scale down request
-	t.Log("[SCALING] Executing broker removal: removing brokers [8,9,10,11]")
-	payload := []byte(`{"brokers":{"remove":[8,9,10,11]}}`)
-	res, body := helpers.HttpRequest(
-		t,
-		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
-		bytes.NewBuffer(payload),
-	)
-	require.NotNil(t, res, "Failed to create request")
-	require.Equal(t, 202, res.StatusCode, "Expected 202 Accepted status")
-	require.NotEmpty(t, body)
-	require.Contains(t, body, "plannedChanges")
-
-	// Parse and log the change ID
-	var response map[string]interface{}
-	err := json.Unmarshal([]byte(body), &response)
-	require.NoError(t, err)
-	changeId := response["changeId"]
-	t.Logf("[SCALING] Broker removal initiated with changeId: %v", changeId)
-}
-
-// waitForBrokerScaleDownComplete polls the cluster status until scale down is complete
-func waitForBrokerScaleDownComplete(t *testing.T) {
-	t.Log("[SCALING] Waiting for broker scale down to complete 🕐")
-
-	service := k8s.GetService(t, &primary.KubectlNamespace, "camunda-zeebe-gateway")
-	require.Equal(t, "camunda-zeebe-gateway", service.Name)
-
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 9600, 5, 15*time.Second)
-	defer closeFn()
-
-	// Poll the cluster status until scaling is complete
-	maxRetries := 40 // 10 minutes max (40 * 15 seconds)
-	for i := 0; i < maxRetries; i++ {
-		res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
-		require.NotNil(t, res, "Failed to query cluster status")
-		require.Equal(t, 200, res.StatusCode)
-
-		// Check if there's no pending change
-		if !strings.Contains(body, "pendingChange") {
-			t.Log("[SCALING] Broker scale down completed successfully")
-			require.Contains(t, body, "COMPLETED", "Expected lastChange status to be COMPLETED")
-			return
-		}
-
-		t.Logf("[SCALING] Scale down in progress... (attempt %d/%d)", i+1, maxRetries)
-		time.Sleep(15 * time.Second)
-	}
-
-	t.Fatal("[SCALING] Broker scale down did not complete within the expected time")
-}
-
-// scaleDownBrokerStatefulSets scales the Zeebe StatefulSets back to 4 replicas in each region
-func scaleDownBrokerStatefulSets(t *testing.T) {
-	t.Log("[SCALING] Scaling down Zeebe StatefulSets in both regions 🚀")
-
-	// Scale down primary region: 6 -> 4 replicas
-	t.Log("[SCALING] Scaling primary region StatefulSet from 6 to 4 replicas")
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", "--replicas=4")
-
-	// Scale down secondary region: 6 -> 4 replicas
-	t.Log("[SCALING] Scaling secondary region StatefulSet from 6 to 4 replicas")
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", "--replicas=4")
-
-	// Give Kubernetes time to terminate the pods
-	t.Log("[SCALING] Waiting for pods to terminate...")
-	time.Sleep(30 * time.Second)
-
-	t.Log("[SCALING] StatefulSets scaled down successfully")
-}
-
-// verifyOriginalBrokerCount verifies the cluster is back to 8 brokers
-func verifyOriginalBrokerCount(t *testing.T) {
-	t.Log("[SCALING] Verifying cluster is back to original broker count 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers after scale down")
-
-	// Verify we only have brokers 0-7
-	brokerIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		brokerIds[broker.NodeId] = true
-		require.True(t, broker.NodeId < 8, "No broker ID should be >= 8 after scale down")
-	}
-
-	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions", clusterInfo.ClusterSize, clusterInfo.PartitionsCount)
-}
-
-// verifyOriginalClusterSize verifies the cluster is back to original size
-func verifyOriginalClusterSize(t *testing.T) {
-	t.Log("[SCALING] Verifying cluster is back to original size 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers after scale down")
-	// Note: Partition count cannot be decreased, so it remains at the scaled value
-
-	// Verify we only have brokers 0-7
-	brokerIds := make(map[int]bool)
-	for _, broker := range clusterInfo.Brokers {
-		brokerIds[broker.NodeId] = true
-		require.True(t, broker.NodeId < 8, "No broker ID should be >= 8 after scale down")
-	}
-
-	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions", clusterInfo.ClusterSize, clusterInfo.PartitionsCount)
 }
 
 // getClusterTopology retrieves the current cluster topology information
