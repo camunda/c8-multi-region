@@ -33,7 +33,7 @@ func TestAWSClusterScaling_ScaleBrokers(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyInitialBrokerCount", verifyInitialBrokerCount},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
 		{"TestScaleUpBrokerStatefulSets", scaleUpBrokerStatefulSets},
 		{"TestWaitForNewBrokersToStart", waitForNewBrokersToStart},
 		{"TestAddNewBrokersToCluster", addNewBrokersToCluster},
@@ -66,7 +66,7 @@ func TestAWSClusterScaling_ScalePartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyInitialPartitionCount", verifyInitialPartitionCount},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
 		{"TestScaleUpPartitions", scaleUpPartitions},
 		{"TestWaitForPartitionScalingComplete", waitForPartitionScalingComplete},
 		{"TestVerifyScaledPartitionTopology", verifyScaledPartitionTopology},
@@ -94,7 +94,7 @@ func TestAWSClusterScaling_ScaleBrokersAndPartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyInitialClusterSize", verifyInitialClusterSize},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
 		{"TestScaleUpBrokerStatefulSets", scaleUpBrokerStatefulSets},
 		{"TestWaitForNewBrokersToStart", waitForNewBrokersToStart},
 		{"TestScaleUpBrokersAndPartitions", scaleUpBrokersAndPartitions},
@@ -112,37 +112,16 @@ func TestAWSClusterScaling_ScaleBrokersAndPartitions(t *testing.T) {
 
 // Helper functions for cluster scaling tests
 
-// verifyInitialBrokerCount verifies the cluster has the expected 8 brokers (4 per region)
-func verifyInitialBrokerCount(t *testing.T) {
-	t.Log("[SCALING] Verifying initial broker count 🔍")
+// verifyClusterTopology verifies the cluster has the expected broker and partition counts
+func verifyClusterTopology(t *testing.T, clusterSizeExpected, partitionCountExpected int) {
+	t.Helper()
+	t.Logf("[SCALING] Verifying cluster topology: expecting %d brokers and %d partitions 🔍", clusterSizeExpected, partitionCountExpected)
 
 	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers initially")
-	require.Equal(t, 8, clusterInfo.PartitionsCount, "Expected 8 partitions initially")
+	require.Equal(t, clusterSizeExpected, clusterInfo.ClusterSize, "Expected %d brokers", clusterSizeExpected)
+	require.Equal(t, partitionCountExpected, clusterInfo.PartitionsCount, "Expected %d partitions", partitionCountExpected)
 
-	t.Logf("[SCALING] Initial state confirmed: %d brokers, %d partitions", clusterInfo.ClusterSize, clusterInfo.PartitionsCount)
-}
-
-// verifyInitialPartitionCount verifies the cluster has the expected 8 partitions
-func verifyInitialPartitionCount(t *testing.T) {
-	t.Log("[SCALING] Verifying initial partition count 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.PartitionsCount, "Expected 8 partitions initially")
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers initially")
-
-	t.Logf("[SCALING] Initial state confirmed: %d brokers, %d partitions", clusterInfo.ClusterSize, clusterInfo.PartitionsCount)
-}
-
-// verifyInitialClusterSize verifies the initial cluster configuration
-func verifyInitialClusterSize(t *testing.T) {
-	t.Log("[SCALING] Verifying initial cluster size 🔍")
-
-	clusterInfo := getClusterTopology(t)
-	require.Equal(t, 8, clusterInfo.ClusterSize, "Expected 8 brokers initially")
-	require.Equal(t, 8, clusterInfo.PartitionsCount, "Expected 8 partitions initially")
-
-	t.Logf("[SCALING] Initial state confirmed: %d brokers, %d partitions, replication factor %d",
+	t.Logf("[SCALING] Topology verified: %d brokers, %d partitions, replication factor %d",
 		clusterInfo.ClusterSize, clusterInfo.PartitionsCount, clusterInfo.ReplicationFactor)
 }
 
