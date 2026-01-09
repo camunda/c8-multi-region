@@ -563,32 +563,7 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	endpoint, closeFn := NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
-	defer closeFn()
-
-	// Get the topology of the Zeebe cluster
-	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method: "GET",
-		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
-		Headers: map[string]string{
-			"Authorization": basicAuthDemoHeader,
-			"Accept":        "application/json",
-		},
-		TlsConfig: nil,
-		Timeout:   30,
-	})
-	if code != 200 {
-		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
-		return
-	}
-
-	var topology ClusterInfo
-
-	err := json.Unmarshal([]byte(body), &topology)
-	if err != nil {
-		t.Fatalf("[C8 CHECK] Error unmarshalling JSON: %v", err)
-		return
-	}
+	topology := GetClusterTopology(t, &primary.KubectlNamespace)
 
 	require.Equal(t, 8, len(topology.Brokers))
 
@@ -962,4 +937,28 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	}
 
 	t.Fatalf("[ELASTICSEARCH HEALTH] Cluster did not reach green status after 10 attempts. Last output: %s", output)
+}
+
+// GetClusterTopology retrieves the current cluster topology information from the Zeebe gateway
+func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) ClusterInfo {
+	t.Helper()
+
+	service := k8s.GetService(t, kubectlOptions, "camunda-zeebe-gateway")
+	require.Equal(t, "camunda-zeebe-gateway", service.Name)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
+
+	// Get topology from v2/topology endpoint
+	res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/v2/topology", endpoint), nil)
+	require.NotNil(t, res, "Failed to query topology")
+	require.Equal(t, 200, res.StatusCode)
+	require.NotEmpty(t, body)
+
+	// Parse the topology response
+	var clusterInfo ClusterInfo
+	err := json.Unmarshal([]byte(body), &clusterInfo)
+	require.NoError(t, err, "Failed to parse topology response")
+
+	return clusterInfo
 }
