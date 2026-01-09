@@ -25,7 +25,7 @@ global:
             # it will fall back to basic-auth: demo/demo as default user
             enabled: false
     elasticsearch:
-      enabled: true
+        enabled: true
 
 identity:
     enabled: false
