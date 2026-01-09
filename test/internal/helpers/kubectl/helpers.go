@@ -563,7 +563,32 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	topology := GetClusterTopology(t, &primary.KubectlNamespace)
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	// Get the topology of the Zeebe cluster
+	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method: "GET",
+		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
+		Headers: map[string]string{
+			"Authorization": basicAuthDemoHeader,
+			"Accept":        "application/json",
+		},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
+	if code != 200 {
+		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
+		return
+	}
+
+	var topology ClusterInfo
+
+	err := json.Unmarshal([]byte(body), &topology)
+	if err != nil {
+		t.Fatalf("[C8 CHECK] Error unmarshalling JSON: %v", err)
+		return
+	}
 
 	require.Equal(t, 8, len(topology.Brokers))
 
