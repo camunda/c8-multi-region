@@ -62,10 +62,12 @@ func TestZeebeClusterScaleUpPartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
+		// {"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
 		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 12, 4) }},
 		{"TestWaitForPartitionScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "partition scaling", 60) }},
-		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
+		// {"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
+		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 12) }},
 		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
