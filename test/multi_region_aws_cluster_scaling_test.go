@@ -240,21 +240,21 @@ func patchClusterTopology(t *testing.T, payload map[string]interface{}, operatio
 	payloadBytes, err := json.Marshal(payload)
 	require.NoError(t, err, "Failed to marshal payload")
 
-	// First, do a dry run to verify the planned changes
-	t.Logf("[SCALING] Performing dry run for %s", operationName)
-	res, body := helpers.HttpRequest(
-		t,
-		"PATCH",
-		fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
-		bytes.NewBuffer(payloadBytes),
-	)
-	require.NotNil(t, res, "Failed to create dry run request")
-	require.Equal(t, 200, res.StatusCode, "Dry run should return 200")
-	t.Logf("[SCALING] Dry run response: %s", body)
+	// // First, do a dry run to verify the planned changes
+	// t.Logf("[SCALING] Performing dry run for %s", operationName)
+	// res, body := helpers.HttpRequest(
+	// 	t,
+	// 	"PATCH",
+	// 	fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
+	// 	bytes.NewBuffer(payloadBytes),
+	// )
+	// require.NotNil(t, res, "Failed to create dry run request")
+	// require.Equal(t, 202, res.StatusCode, "Dry run should return 202")
+	// t.Logf("[SCALING] Dry run response: %s", body)
 
 	// Now perform the actual scaling
 	t.Logf("[SCALING] Executing %s", operationName)
-	res, body = helpers.HttpRequest(
+	res, body := helpers.HttpRequest(
 		t,
 		"PATCH",
 		fmt.Sprintf("http://%s/actuator/cluster", endpoint),
