@@ -140,21 +140,41 @@ func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
 	t.Log("[SCALING] Helm upgrades completed, StatefulSets will scale up")
 }
 
-// waitForNewBrokersToStart waits for the new broker pods to be ready
+// waitForNewBrokersToStart waits for the new broker pods to have status=Running
 // startIndex is the first new pod index, count is how many new pods to wait for
 func waitForNewBrokersToStart(t *testing.T, startIndex, count int) {
 	t.Helper()
-	t.Logf("[SCALING] Waiting for %d new broker pods starting at index %d to start 🕐", count, startIndex)
+	t.Logf("[SCALING] Waiting for %d new broker pods starting at index %d to be Running 🕐", count, startIndex)
 
 	for i := startIndex; i < startIndex+count; i++ {
 		podName := fmt.Sprintf("camunda-zeebe-%d", i)
-		t.Logf("[SCALING] Waiting for primary region pod %s to be ready", podName)
-		k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, podName, 20, 15*time.Second)
-		t.Logf("[SCALING] Waiting for secondary region pod %s to be ready", podName)
-		k8s.WaitUntilPodAvailable(t, &secondary.KubectlNamespace, podName, 20, 15*time.Second)
+		waitForPodRunning(t, &primary.KubectlNamespace, podName, "primary")
+		waitForPodRunning(t, &secondary.KubectlNamespace, podName, "secondary")
 	}
 
-	t.Log("[SCALING] All new broker pods are ready")
+	t.Log("[SCALING] All new broker pods are Running")
+}
+
+// waitForPodRunning waits for a specific pod to reach Running status
+func waitForPodRunning(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName, regionName string) {
+	t.Helper()
+
+	maxRetries := 20
+	retryInterval := 15 * time.Second
+
+	t.Logf("[SCALING] Waiting for %s region pod %s to be Running", regionName, podName)
+	for retry := 0; retry < maxRetries; retry++ {
+		pod := k8s.GetPod(t, kubectlOptions, podName)
+		if pod.Status.Phase == "Running" {
+			t.Logf("[SCALING] %s region pod %s is Running", regionName, podName)
+			return
+		}
+		if retry == maxRetries-1 {
+			t.Fatalf("[SCALING] %s region pod %s did not reach Running status (current: %s)", regionName, podName, pod.Status.Phase)
+		}
+		t.Logf("[SCALING] %s region pod %s status: %s (attempt %d/%d)", regionName, podName, pod.Status.Phase, retry+1, maxRetries)
+		time.Sleep(retryInterval)
+	}
 }
 
 // addNewBrokersToCluster sends API request to add new brokers to the cluster
