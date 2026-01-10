@@ -78,7 +78,7 @@ func TestZeebeClusterScaleUpPartitions(t *testing.T) {
 // Initial state: 8 brokers (4 per region), 8 partitions
 // Target state: 12 brokers (6 per region), 12 partitions
 // Reference: https://docs.camunda.io/docs/self-managed/components/orchestration-cluster/zeebe/operations/cluster-scaling/
-func TestZeebeClusterScaleUpBrokersAndPartitions(t *testing.T) {
+func TestZeebeClusterScaleUpBothBrokersAndPartitions(t *testing.T) {
 	t.Log("[CLUSTER SCALING TEST] Testing Zeebe broker and partition scaling in multi-region mode 🚀")
 
 	if globalImageTag != "" {
