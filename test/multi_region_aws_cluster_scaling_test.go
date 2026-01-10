@@ -125,18 +125,17 @@ func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
 	totalClusterSize := replicasPerRegion * 2 // Total brokers across both regions
 	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas per region (%d total) via Helm upgrade 🚀", replicasPerRegion, totalClusterSize)
 
-	// Prepare Helm values with the new cluster size
-	scalingHelmVars := helpers.CombineMaps(baseHelmVars, map[string]string{
+	// Use SetStrValues for clusterSize since Helm expects a string value (e.g., '12' not 12)
+	setStringValues := map[string]string{
 		"orchestration.clusterSize": fmt.Sprintf("%d", totalClusterSize),
-	})
-	setStringValues := map[string]string{}
+	}
 	valuesFiles := []string{defaultValuesYaml}
 
 	t.Logf("[SCALING] Upgrading primary region Helm release with clusterSize=%d", totalClusterSize)
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, scalingHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
 
 	t.Logf("[SCALING] Upgrading secondary region Helm release with clusterSize=%d", totalClusterSize)
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, scalingHelmVars, setStringValues)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
 
 	t.Log("[SCALING] Helm upgrades completed, StatefulSets will scale up")
 }
