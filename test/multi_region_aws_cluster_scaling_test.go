@@ -118,20 +118,27 @@ func verifyClusterTopology(t *testing.T, clusterSizeExpected, partitionCountExpe
 		clusterInfo.ClusterSize, clusterInfo.PartitionsCount, clusterInfo.ReplicationFactor)
 }
 
-// scaleUpBrokerStatefulSets scales the Zeebe StatefulSets to the specified number of replicas in each region
+// scaleUpBrokerStatefulSets scales the Zeebe StatefulSets via Helm upgrade by setting orchestration.clusterSize
+// This approach is used when kubectl scale permissions are not available
 func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
 	t.Helper()
-	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas in both regions 🚀", replicasPerRegion)
+	totalClusterSize := replicasPerRegion * 2 // Total brokers across both regions
+	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas per region (%d total) via Helm upgrade 🚀", replicasPerRegion, totalClusterSize)
 
-	replicasArg := fmt.Sprintf("--replicas=%d", replicasPerRegion)
+	// Prepare Helm values with the new cluster size
+	scalingHelmVars := helpers.CombineMaps(baseHelmVars, map[string]string{
+		"orchestration.clusterSize": fmt.Sprintf("%d", totalClusterSize),
+	})
+	setStringValues := map[string]string{}
+	valuesFiles := []string{defaultValuesYaml}
 
-	t.Logf("[SCALING] Scaling primary region StatefulSet to %d replicas", replicasPerRegion)
-	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
+	t.Logf("[SCALING] Upgrading primary region Helm release with clusterSize=%d", totalClusterSize)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, scalingHelmVars, setStringValues)
 
-	t.Logf("[SCALING] Scaling secondary region StatefulSet to %d replicas", replicasPerRegion)
-	k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
+	t.Logf("[SCALING] Upgrading secondary region Helm release with clusterSize=%d", totalClusterSize)
+	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, scalingHelmVars, setStringValues)
 
-	t.Log("[SCALING] StatefulSets scaled up successfully")
+	t.Log("[SCALING] Helm upgrades completed, StatefulSets will scale up")
 }
 
 // waitForNewBrokersToStart waits for the new broker pods to be ready

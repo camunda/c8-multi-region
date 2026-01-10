@@ -291,12 +291,13 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
-		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
 		if len(valuesYamlFiles) > 0 && valuesYamlFiles[0] == migrationValuesYaml {
 			baseHelmVars["orchestration.migration.affinity.podAntiAffinity"] = "null"
 		}
 	}
+	// avoid pod anti-affinity limitations
+	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")
