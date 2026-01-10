@@ -219,7 +219,7 @@ jobs:
               timeout-minutes: 21
               run: |
                   set -euxo pipefail
-                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokersAndPartitions
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
             - name: Debug Step
               working-directory: ./test
