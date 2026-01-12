@@ -500,7 +500,7 @@ jobs:
                   echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
                   fi
 
-            - name: Get failed Pods info - ${{ env.CLUSTER_0_NAMESPACE }}
+            - name: Get Pods info in case of failure - ${{ env.CLUSTER_0_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
               working-directory: ./test
@@ -510,13 +510,13 @@ jobs:
                   mkdir -p ./logs
 
                   kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po
-                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name";
+                  kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" get po --no-headers | awk '{print $1}' | while read -r pod_name; do
+                    echo -e "\n### Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" describe po "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}_describe.txt" 2>&1 || true;
                     kubectl -n "${{ env.CLUSTER_0_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_0_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
-            - name: Get failed Pods info - ${{ env.CLUSTER_1_NAMESPACE }}
+            - name: Get Pods info in case of failure - ${{ env.CLUSTER_1_NAMESPACE }}
               timeout-minutes: 10
               if: failure()
               working-directory: ./test
@@ -526,9 +526,9 @@ jobs:
                   mkdir -p ./logs
 
                   kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po
-                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po | grep -v "Completed" | awk '/0\//{print $1}' | while read -r pod_name; do
-                    echo -e "\n###Failed Pod: ${pod_name}###\n";
-                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name";
+                  kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" get po --no-headers | awk '{print $1}' | while read -r pod_name; do
+                    echo -e "\n###Pod: ${pod_name}###\n";
+                    kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" describe po "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_describe.txt" 2>&1 || true;
                     kubectl -n "${{ env.CLUSTER_1_NAMESPACE }}" logs "$pod_name" > "./logs/${pod_name}_${{ env.CLUSTER_1_NAMESPACE }}_logs.txt" 2>&1 || true;
                   done
 
