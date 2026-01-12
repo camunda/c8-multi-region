@@ -63,20 +63,17 @@ func TestZeebeClusterScaleUpPartitions(t *testing.T) {
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
-		// {"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
 		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 12, 4) }},
 		{"TestWaitForPartitionScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "partition scaling", 60) }},
 		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
-		// {"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 12) }},
-		{"TestCheckElasticsearchClusterHealth", checkElasticsearchClusterHealth},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
 }
 
 // TestZeebeClusterScaleUpBrokersAndPartitions tests scaling both brokers and partitions simultaneously
-// Initial state: 8 brokers (4 per region), 8 partitions
-// Target state: 12 brokers (6 per region), 12 partitions
+// Initial state: 12 brokers (6 per region), 12 partitions
+// Target state: 16 brokers (8 per region), 16 partitions
 // Reference: https://docs.camunda.io/docs/self-managed/components/orchestration-cluster/zeebe/operations/cluster-scaling/
 func TestZeebeClusterScaleUpBothBrokersAndPartitions(t *testing.T) {
 	t.Log("[CLUSTER SCALING TEST] Testing Zeebe broker and partition scaling in multi-region mode 🚀")
@@ -93,11 +90,11 @@ func TestZeebeClusterScaleUpBothBrokersAndPartitions(t *testing.T) {
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
-		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 7) }},
-		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 6, 1) }},
-		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{12, 13}, 14, 4) }},
+		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 8) }},
+		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 6, 2) }},
+		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{12, 13, 14, 15}, 16, 4) }},
 		{"TestWaitForCombinedScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "combined broker and partition scaling", 60) }},
-		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 14, 14) }},
+		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 16, 16) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -177,19 +174,6 @@ func waitForPodRunning(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName
 	}
 }
 
-// addNewBrokersToCluster sends API request to add new brokers to the cluster
-func addNewBrokersToCluster(t *testing.T, brokersToAdd []int) {
-	t.Helper()
-	t.Logf("[SCALING] Adding new brokers %v to the cluster via API 🚀", brokersToAdd)
-
-	payload := map[string]interface{}{
-		"brokers": map[string]interface{}{
-			"add": brokersToAdd,
-		},
-	}
-	patchClusterTopology(t, payload, "broker addition")
-}
-
 // waitForScalingComplete polls the cluster status until scaling is complete
 // operationName is used for logging, maxRetries controls the timeout (each retry waits 15 seconds)
 func waitForScalingComplete(t *testing.T, operationName string, maxRetries int) {
@@ -219,6 +203,19 @@ func waitForScalingComplete(t *testing.T, operationName string, maxRetries int) 
 	}
 
 	t.Fatalf("[SCALING] %s did not complete within the expected time", operationName)
+}
+
+// addNewBrokersToCluster sends API request to add new brokers to the cluster
+func addNewBrokersToCluster(t *testing.T, brokersToAdd []int) {
+	t.Helper()
+	t.Logf("[SCALING] Adding new brokers %v to the cluster via API 🚀", brokersToAdd)
+
+	payload := map[string]interface{}{
+		"brokers": map[string]interface{}{
+			"add": brokersToAdd,
+		},
+	}
+	patchClusterTopology(t, payload, "broker addition")
 }
 
 // scaleUpPartitions sends API request to increase partition count
@@ -265,18 +262,6 @@ func patchClusterTopology(t *testing.T, payload map[string]interface{}, operatio
 
 	payloadBytes, err := json.Marshal(payload)
 	require.NoError(t, err, "Failed to marshal payload")
-
-	// // First, do a dry run to verify the planned changes
-	// t.Logf("[SCALING] Performing dry run for %s", operationName)
-	// res, body := helpers.HttpRequest(
-	// 	t,
-	// 	"PATCH",
-	// 	fmt.Sprintf("http://%s/actuator/cluster?dryRun=true", endpoint),
-	// 	bytes.NewBuffer(payloadBytes),
-	// )
-	// require.NotNil(t, res, "Failed to create dry run request")
-	// require.Equal(t, 202, res.StatusCode, "Dry run should return 202")
-	// t.Logf("[SCALING] Dry run response: %s", body)
 
 	// Now perform the actual scaling
 	t.Logf("[SCALING] Executing %s", operationName)
