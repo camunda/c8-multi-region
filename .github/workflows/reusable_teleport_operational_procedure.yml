@@ -454,68 +454,68 @@ jobs:
                    echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
                   fi
 
-            # - name: Failover New - ${{ inputs.helmChartVersion }}
-            #   if: inputs.deployOnly == false && inputs.skipFailover == false
-            #   working-directory: ./test
-            #   timeout-minutes: 21
-            #   run: |
-            #       set -euxo pipefail
-            #       go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
+            - name: Failover New - ${{ inputs.helmChartVersion }}
+              if: inputs.deployOnly == false && inputs.skipFailover == false
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
 
-            # - name: Set start timestamp for Failback
-            #   if: inputs.deployOnly == false && inputs.skipFailback == false
-            #   id: failback-start
-            #   run: |
-            #       set -euxo pipefail
-            #       printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+            - name: Set start timestamp for Failback
+              if: inputs.deployOnly == false && inputs.skipFailback == false
+              id: failback-start
+              run: |
+                  set -euxo pipefail
+                  printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
 
-            # - name: Failback New - ${{ inputs.helmChartVersion }}
-            #   if: inputs.deployOnly == false && inputs.skipFailback == false
-            #   working-directory: ./test
-            #   timeout-minutes: 46
-            #   run: |
-            #       set -euxo pipefail
-            #       go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
+            - name: Failback New - ${{ inputs.helmChartVersion }}
+              if: inputs.deployOnly == false && inputs.skipFailback == false
+              working-directory: ./test
+              timeout-minutes: 46
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
 
-            # - name: Show pending pod count in each namespace after failback-start
-            #   id: pending-check-2
-            #   if: always() && inputs.deployOnly == false && inputs.skipFailback == false
-            #   run: |
-            #       echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
-            #       # List all pods that are in Pending status, then count them.
-            #       kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending
-            #       num_pending_0=$(kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
-            #       echo "Number of pending pods in ${CLUSTER_0_NAMESPACE}: ${num_pending_0}"
+            - name: Show pending pod count in each namespace after failback-start
+              id: pending-check-2
+              if: always() && inputs.deployOnly == false && inputs.skipFailback == false
+              run: |
+                  echo "===== Checking pending pods in CLUSTER_0_NAMESPACE after Failback ====="
+                  # List all pods that are in Pending status, then count them.
+                  kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_0=$(kubectl get pods -n "${CLUSTER_0_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_0_NAMESPACE}: ${num_pending_0}"
 
-            #       echo "===== Checking pending pods in CLUSTER_1_NAMESPACE after Failback ====="
-            #       kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending
-            #       num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
-            #       echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
+                  echo "===== Checking pending pods in CLUSTER_1_NAMESPACE after Failback ====="
+                  kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending
+                  num_pending_1=$(kubectl get pods -n "${CLUSTER_1_NAMESPACE}" --field-selector=status.phase=Pending --no-headers | wc -l)
+                  echo "Number of pending pods in ${CLUSTER_1_NAMESPACE}: ${num_pending_1}"
 
-            #       total_pending=$((num_pending_0 + num_pending_1))
-            #       if [ "$total_pending" -gt 0 ]; then
-            #        echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
-            #       fi
+                  total_pending=$((num_pending_0 + num_pending_1))
+                  if [ "$total_pending" -gt 0 ]; then
+                   echo "::error ::PendingPodsError: Found $total_pending pending pods across namespaces."
+                  fi
 
-            # - name: Calculate Failback duration
-            #   if: inputs.deployOnly == false && inputs.skipFailback == false
-            #   run: |
-            #       set -euxo pipefail
-            #       printf -v now '%(%s)T'
-            #       duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
-            #       echo $duration
-            #       if [ "$duration" -gt "1500" ]; then
-            #       echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
-            #       fi
+            - name: Calculate Failback duration
+              if: inputs.deployOnly == false && inputs.skipFailback == false
+              run: |
+                  set -euxo pipefail
+                  printf -v now '%(%s)T'
+                  duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+                  echo $duration
+                  if [ "$duration" -gt "1500" ]; then
+                  echo "::error ::Failback of ${{ inputs.helmChartVersion }} is taking longer than 25 minutes"
+                  fi
 
-            # - name: Test multi-tenancy
-            #   if: inputs.deployOnly == false && inputs.skipMultiTenancy == false && fromJSON(env.MAJOR_VERSION) >= 13
-            #   working-directory: ./test
-            #   timeout-minutes: 21
-            #   run: |
-            #       set -euxo pipefail
-            #       go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
-            
+            - name: Test multi-tenancy
+              if: inputs.deployOnly == false && inputs.skipMultiTenancy == false && fromJSON(env.MAJOR_VERSION) >= 13
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
+
             - name: Test scaling zeebe brokers in multi-region setup
               if: inputs.deployOnly == false
               working-directory: ./test
