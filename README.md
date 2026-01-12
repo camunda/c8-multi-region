@@ -35,6 +35,7 @@ For greater details and explanations, conduct our [documentation](#documentation
 This repository includes comprehensive tests for multi-region operations:
 
 ### Deployment and Operational Procedures
+
 - **Deployment Tests**: `TestAWSDeployDualRegCamunda` - Deploy Camunda 8 in dual-region mode
 - **Failover Tests**: `TestAWSDualRegFailover_8_6_plus` - Validate failover procedure (8.6+)
 - **Failback Tests**: `TestAWSDualRegFailback_8_6_plus` - Validate failback procedure (8.6+)
@@ -42,10 +43,9 @@ This repository includes comprehensive tests for multi-region operations:
 - **Multi-Tenancy Tests**: `TestMultiTenancyDualReg` - Validate multi-tenant deployments
 
 ### Cluster Scaling Tests
+
 Three comprehensive test scenarios validate Zeebe cluster scaling operations in multi-region setups:
 
-- **Scale Brokers**: `TestAWSClusterScaling_ScaleBrokers` - Scale from 8 to 12 brokers (4→6 per region) and back
-- **Scale Partitions**: `TestAWSClusterScaling_ScalePartitions` - Scale from 8 to 12 partitions across existing brokers
-- **Scale Both**: `TestAWSClusterScaling_ScaleBrokersAndPartitions` - Simultaneously scale brokers and partitions
-
-For detailed information on cluster scaling tests, see [test/CLUSTER_SCALING_TESTS.md](test/CLUSTER_SCALING_TESTS.md).
+- **Scale Brokers**: `TestZeebeClusterScaleUpBrokers` - Scale from 8 to 12 brokers (4→6 per region) and back
+- **Scale Partitions**: `TestZeebeClusterScaleUpPartitions` - Scale from 8 to 12 partitions across existing brokers
+- **Scale Both**: `TestZeebeClusterScaleUpBothBrokersAndPartitions` - Simultaneously scale brokers to 16 and partitions to 16
