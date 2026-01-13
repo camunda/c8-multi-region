@@ -697,6 +697,12 @@ func addSecondaryBrokers(t *testing.T) {
 func checkMigrationSucceed(t *testing.T) {
 	t.Log("[MIGRATION CHECK] Checking if Camunda Platform Migration is running 🚦")
 
+	if helpers.IsTeleportEnabled() {
+		t.Log("[MIGRATION CHECK] Teleport enabled, lowering retries")
+		// Value of 100 is way too high for this purpose
+		retries = 20
+	}
+
 	k8s.RunKubectl(t, &primary.KubectlNamespace, "get", "pods")
 	k8s.RunKubectl(t, &secondary.KubectlNamespace, "get", "pods")
 
@@ -721,6 +727,11 @@ func checkMigrationSucceed(t *testing.T) {
 	// If the Job succeeds, then the migration was successfully completed
 	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
 	k8s.WaitUntilJobSucceed(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
+
+	if helpers.IsTeleportEnabled() {
+		t.Log("[MIGRATION CHECK] Teleport enabled, resetting global retries")
+		retries = 100
+	}
 }
 
 func postMigrationCleanup(t *testing.T) {
