@@ -704,6 +704,20 @@ func checkMigrationSucceed(t *testing.T) {
 	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
 	k8s.WaitUntilDeploymentAvailable(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-importer", retries, 15*time.Second)
 
+	// Allowing 20 * 9 seconds - 3 minutes for initial job completion check
+	// Afterwards we kill the importer pods to allow them to restart and redo the import where they left off
+	err := k8s.WaitUntilJobSucceedE(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 9*time.Second)
+	if err != nil {
+		t.Log("[MIGRATION CHECK] Data job in primary did not succeed, restarting importer pods")
+		k8s.RunKubectl(t, &primary.KubectlNamespace, "delete", "pod", "-l", "app.kubernetes.io/component=orchestration-importer")
+	}
+
+	err = k8s.WaitUntilJobSucceedE(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 9*time.Second)
+	if err != nil {
+		t.Log("[MIGRATION CHECK] Data job in secondary did not succeed, restarting importer pods")
+		k8s.RunKubectl(t, &secondary.KubectlNamespace, "delete", "pods", "-l", "app.kubernetes.io/component=orchestration-importer")
+	}
+
 	// If the Job succeeds, then the migration was successfully completed
 	k8s.WaitUntilJobSucceed(t, &primary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
 	k8s.WaitUntilJobSucceed(t, &secondary.KubectlNamespace, "camunda-zeebe-migration-data", retries, 30*time.Second)
