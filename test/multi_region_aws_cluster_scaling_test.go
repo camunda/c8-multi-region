@@ -120,29 +120,15 @@ func verifyClusterTopology(t *testing.T, clusterSizeExpected, partitionCountExpe
 func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
 	t.Helper()
 	totalClusterSize := replicasPerRegion * 2 // Total brokers across both regions
-	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas per region (%d total) via Helm upgrade 🚀", replicasPerRegion, totalClusterSize)
+	t.Logf("[SCALING] Scaling up Zeebe StatefulSets to %d replicas per region (%d total) via kubectl 🚀", replicasPerRegion, totalClusterSize)
 
-	// Use SetStrValues for clusterSize since Helm expects a string value (e.g., '12' not 12)
-	setStringValues := map[string]string{
-		"orchestration.clusterSize": fmt.Sprintf("%d", totalClusterSize),
-	}
-	valuesFiles := []string{defaultValuesYaml}
+	replicasArg := fmt.Sprintf("--replicas=%d", replicasPerRegion)
 
-	if helpers.IsTeleportEnabled() {
-		t.Logf("[SCALING] Upgrading primary region Helm release with clusterSize=%d", totalClusterSize)
-		kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
+	t.Logf("[SCALING] Scaling primary region StatefulSet to %d replicas", replicasPerRegion)
+	k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
 
-		t.Logf("[SCALING] Upgrading secondary region Helm release with clusterSize=%d", totalClusterSize)
-		kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
-	} else {
-		replicasArg := fmt.Sprintf("--replicas=%d", replicasPerRegion)
-
-		t.Logf("[SCALING] Scaling primary region StatefulSet to %d replicas", replicasPerRegion)
-		k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
-
-		t.Logf("[SCALING] Scaling secondary region StatefulSet to %d replicas", replicasPerRegion)
-		k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
-	}
+	t.Logf("[SCALING] Scaling secondary region StatefulSet to %d replicas", replicasPerRegion)
+	k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
 
 	t.Log("[SCALING] Helm upgrades completed, StatefulSets will scale up")
 }
