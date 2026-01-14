@@ -34,11 +34,11 @@ func TestZeebeClusterScaleUpBrokers(t *testing.T) {
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 8, 8) }},
-		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 6) }},
-		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 4, 2) }},
-		{"TestAddNewBrokersToCluster", func(t *testing.T) { addNewBrokersToCluster(t, []int{8, 9, 10, 11}) }},
-		{"TestWaitForBrokerScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "broker scaling", 40) }},
-		{"TestVerifyScaledBrokerTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
+		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 5) }},
+		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 4, 1) }},
+		{"TestAddNewBrokersToCluster", func(t *testing.T) { addNewBrokersToCluster(t, []int{8, 9}) }},
+		{"TestWaitForBrokerScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "broker scaling", 30) }},
+		{"TestVerifyScaledBrokerTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 8) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -62,10 +62,10 @@ func TestZeebeClusterScaleUpPartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 8) }},
-		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 12, 4) }},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 8) }},
+		{"TestScaleUpPartitions", func(t *testing.T) { scaleUpPartitions(t, 10, 4) }},
 		{"TestWaitForPartitionScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "partition scaling", 60) }},
-		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
+		{"TestVerifyScaledPartitionTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 10) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -89,12 +89,12 @@ func TestZeebeClusterScaleUpBothBrokersAndPartitions(t *testing.T) {
 		tfunc func(*testing.T)
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
-		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
-		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 8) }},
-		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 6, 2) }},
-		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{12, 13, 14, 15}, 16, 4) }},
+		{"TestVerifyClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 10, 10) }},
+		{"TestScaleUpBrokerStatefulSets", func(t *testing.T) { scaleUpBrokerStatefulSets(t, 6) }},
+		{"TestWaitForNewBrokersToStart", func(t *testing.T) { waitForNewBrokersToStart(t, 5, 1) }},
+		{"TestScaleUpBrokersAndPartitions", func(t *testing.T) { scaleUpBrokersAndPartitions(t, []int{10, 11}, 12, 4) }},
 		{"TestWaitForCombinedScalingComplete", func(t *testing.T) { waitForScalingComplete(t, "combined broker and partition scaling", 60) }},
-		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 16, 16) }},
+		{"TestVerifyScaledClusterTopology", func(t *testing.T) { verifyClusterTopology(t, 12, 12) }},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
 	}
@@ -128,11 +128,21 @@ func scaleUpBrokerStatefulSets(t *testing.T, replicasPerRegion int) {
 	}
 	valuesFiles := []string{defaultValuesYaml}
 
-	t.Logf("[SCALING] Upgrading primary region Helm release with clusterSize=%d", totalClusterSize)
-	kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
+	if helpers.IsTeleportEnabled() {
+		t.Logf("[SCALING] Upgrading primary region Helm release with clusterSize=%d", totalClusterSize)
+		kubectlHelpers.InstallUpgradeC8Helm(t, &primary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region0ValuesYaml), 0, baseHelmVars, setStringValues)
 
-	t.Logf("[SCALING] Upgrading secondary region Helm release with clusterSize=%d", totalClusterSize)
-	kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
+		t.Logf("[SCALING] Upgrading secondary region Helm release with clusterSize=%d", totalClusterSize)
+		kubectlHelpers.InstallUpgradeC8Helm(t, &secondary.KubectlNamespace, remoteChartVersion, remoteChartName, remoteChartSource, primaryNamespace, secondaryNamespace, append(valuesFiles, region1ValuesYaml), 1, baseHelmVars, setStringValues)
+	} else {
+		replicasArg := fmt.Sprintf("--replicas=%d", replicasPerRegion)
+
+		t.Logf("[SCALING] Scaling primary region StatefulSet to %d replicas", replicasPerRegion)
+		k8s.RunKubectl(t, &primary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
+
+		t.Logf("[SCALING] Scaling secondary region StatefulSet to %d replicas", replicasPerRegion)
+		k8s.RunKubectl(t, &secondary.KubectlNamespace, "scale", "statefulset/camunda-zeebe", replicasArg)
+	}
 
 	t.Log("[SCALING] Helm upgrades completed, StatefulSets will scale up")
 }
