@@ -21,10 +21,11 @@ import (
 )
 
 const (
-	mockServerManifest  = "./fixtures/mock-server/mock-api-server.yml"
-	connectorBpmnPath   = "./c8-multi-region-dummy-connector-flow.bpmn"
-	webhookTriggerCount = 10
-	basicAuthDemoHeader = "Basic ZGVtbzpkZW1v" // demo:demo base64 encoded
+	mockServerManifest         = "./fixtures/mock-server/mock-api-server.yml"
+	mockServerTeleportManifest = "./fixtures/mock-server/mock-api-server-teleport.yml"
+	connectorBpmnPath          = "./c8-multi-region-dummy-connector-flow.bpmn"
+	webhookTriggerCount        = 10
+	basicAuthDemoHeader        = "Basic ZGVtbzpkZW1v" // demo:demo base64 encoded
 )
 
 // TestConnectorWebhookFlow tests the end-to-end connector flow:
@@ -62,6 +63,13 @@ func deployMockApiServer(t *testing.T) {
 	t.Log("[MOCK SERVER] Deploying mock API server to primary region 🚀")
 
 	k8s.KubectlApply(t, &primary.KubectlNamespace, mockServerManifest)
+
+	// Apply Teleport tolerations and affinity patch if running on Teleport
+	if helpers.IsTeleportEnabled() {
+		t.Log("[MOCK SERVER] Applying Teleport tolerations and affinity patch")
+		k8s.RunKubectl(t, &primary.KubectlNamespace, "patch", "deployment", "mock-api-server",
+			"--patch-file", mockServerTeleportManifest, "--type=strategic")
+	}
 }
 
 // waitForMockApiServerReady waits for the mock API server to be ready
@@ -258,7 +266,7 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 	}
 }
 
-// cleanupMockApiServer removes the mock API serve
+// cleanupMockApiServer removes the mock API server
 func cleanupMockApiServer(t *testing.T) {
 	t.Log("[CLEANUP] Removing mock API server 🧹")
 
