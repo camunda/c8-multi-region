@@ -159,7 +159,7 @@ jobs:
                   c85=10.11.3
 
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c86_old=11.11.3
+                  c86_old=11.11.4
                   # for not messing up with renovate, we add the prefix "OLD" in the next step
 
                   # Snapshot is used for namespace setup to do the DNS chaining tests with a static namespace. It's not used for the matrix.
