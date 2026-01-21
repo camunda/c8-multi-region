@@ -52,7 +52,7 @@ jobs:
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^12(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c87=12.7.5
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c88=13.4.0
+                  c88=13.4.1
 
                   # TODO: [release-duty] before the release, update this!
 
@@ -104,7 +104,7 @@ jobs:
             - operational-procedure
         steps:
             - name: Retrigger job
-              uses: camunda/infra-global-github-actions/rerun-failed-run@48dbaf2ea712e072758550a25de0b877bf3e7070 # main
+              uses: camunda/infra-global-github-actions/rerun-failed-run@fff0b1f11fd8caf3e2a866fd2ecf113c671fab01 # main
               with:
                   error-messages: |
                       PendingPodsError: Found
