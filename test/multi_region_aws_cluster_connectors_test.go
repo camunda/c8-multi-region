@@ -69,7 +69,7 @@ func deployMockApiServer(t *testing.T) {
 	// Apply Teleport tolerations and affinity patch if running on Teleport
 	if helpers.IsTeleportEnabled() {
 		t.Log("[MOCK SERVER] Applying Teleport tolerations and affinity patch")
-		k8s.RunKubectl(t, &primary.KubectlNamespace, "patch", "deployment", "mock-api-server",
+		k8s.RunKubectl(t, &primary.KubectlNamespace, "patch", "statefulset", "mock-api-server",
 			"--patch-file", mockServerTeleportManifest, "--type=strategic")
 	}
 }
@@ -277,20 +277,28 @@ func verifyConnectorsProcessedJobs(t *testing.T) {
 	t.Log("[CONNECTORS CHECK] Verifying both connector deployments processed jobs 🔍")
 
 	// Check primary region connectors
-	primaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=500")
+	primaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
 	require.NoError(t, err, "Failed to get primary region connector logs")
-	primaryHasCompletingJob := strings.Contains(primaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Primary region connectors contain 'Completing job': %v", primaryHasCompletingJob)
+	primaryJobCount := strings.Count(primaryLogs, "Completing job")
+	t.Logf("[CONNECTORS CHECK] Primary region connectors completed %d jobs", primaryJobCount)
 
 	// Check secondary region connectors
-	secondaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=500")
+	secondaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=1000")
 	require.NoError(t, err, "Failed to get secondary region connector logs")
-	secondaryHasCompletingJob := strings.Contains(secondaryLogs, "Completing job")
-	t.Logf("[CONNECTORS CHECK] Secondary region connectors contain 'Completing job': %v", secondaryHasCompletingJob)
+	secondaryJobCount := strings.Count(secondaryLogs, "Completing job")
+	t.Logf("[CONNECTORS CHECK] Secondary region connectors completed %d jobs", secondaryJobCount)
 
 	// Both regions should have processed jobs
-	require.True(t, primaryHasCompletingJob, "Primary region connectors did not process any jobs (no 'Completing job' in logs)")
-	require.True(t, secondaryHasCompletingJob, "Secondary region connectors did not process any jobs (no 'Completing job' in logs)")
+	require.Greater(t, primaryJobCount, 0, "Primary region connectors did not process any jobs (no 'Completing job' in logs)")
+	require.Greater(t, secondaryJobCount, 0, "Secondary region connectors did not process any jobs (no 'Completing job' in logs)")
+
+	// Log total jobs processed
+	totalJobs := primaryJobCount + secondaryJobCount
+	t.Logf("[CONNECTORS CHECK] Total jobs completed: %d (primary: %d, secondary: %d)", totalJobs, primaryJobCount, secondaryJobCount)
+
+	// Verify total matches expected (each webhook triggers one REST connector job)
+	require.GreaterOrEqual(t, totalJobs, webhookTriggerCount,
+		"Expected at least %d jobs to be completed, but only %d were found", webhookTriggerCount, totalJobs)
 
 	t.Log("[CONNECTORS CHECK] ✅ Both connector deployments have processed jobs")
 }

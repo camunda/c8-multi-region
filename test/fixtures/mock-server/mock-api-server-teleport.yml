@@ -1,7 +1,7 @@
 ---
 # Teleport strategic merge patch for mock-api-server
 # Adds tolerations and affinity for Teleport node groups
-# Applied using: kubectl patch deployment mock-api-server --patch-file <this-file> --type=strategic
+# Applied using: kubectl patch statefulset mock-api-server --patch-file <this-file> --type=strategic
 spec:
     template:
         spec:
