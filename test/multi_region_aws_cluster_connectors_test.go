@@ -114,6 +114,10 @@ func deployConnectorBpmnProcess(t *testing.T) {
 	_, err = io.Copy(part, file)
 	require.NoError(t, err, "Failed to copy file content")
 
+	// Add default tenant ID for multi-tenancy support
+	err = writer.WriteField("tenantId", "<default>")
+	require.NoError(t, err, "Failed to write tenantId field")
+
 	err = writer.Close()
 	require.NoError(t, err, "Failed to close multipart writer")
 
