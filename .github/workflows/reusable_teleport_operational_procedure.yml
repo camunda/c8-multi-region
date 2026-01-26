@@ -540,6 +540,14 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
+            - name: Test connector webhook flow in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 11
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 10m -run TestConnectorWebhookFlow
+
             - name: Get Pods info in case of failure - ${{ env.CLUSTER_0_NAMESPACE }}
               timeout-minutes: 10
               if: failure()

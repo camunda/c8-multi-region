@@ -221,6 +221,13 @@ jobs:
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
 
+            - name: Test connector webhook flow in multi-region setup
+              working-directory: ./test
+              timeout-minutes: 11
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 10m -run TestConnectorWebhookFlow
+
             - name: Debug Step
               working-directory: ./test
               if: failure()
