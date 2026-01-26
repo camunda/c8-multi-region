@@ -2,12 +2,13 @@
 # Mock API Server for testing arbitrary POST requests
 # Can be used to test webhooks, callbacks, and HTTP integrations with Camunda
 apiVersion: apps/v1
-kind: Deployment
+kind: StatefulSet
 metadata:
     name: mock-api-server
     labels:
         app: mock-api-server
 spec:
+    serviceName: mock-api-server-peer
     replicas: 1
     selector:
         matchLabels:

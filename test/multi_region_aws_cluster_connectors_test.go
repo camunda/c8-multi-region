@@ -76,8 +76,8 @@ func deployMockApiServer(t *testing.T) {
 func waitForMockApiServerReady(t *testing.T) {
 	t.Log("[MOCK SERVER] Waiting for mock API server to be ready 🕐")
 
-	// Wait for the deployment to be available in primary region
-	k8s.WaitUntilDeploymentAvailable(t, &primary.KubectlNamespace, "mock-api-server", 20, 10*time.Second)
+	// Wait for the StatefulSet pod to be available in primary region
+	k8s.WaitUntilPodAvailable(t, &primary.KubectlNamespace, "mock-api-server-0", 20, 10*time.Second)
 	t.Log("[MOCK SERVER] Mock API server ready in primary region")
 
 	// Verify the service is accessible by checking the health endpoint
@@ -156,8 +156,9 @@ func triggerWebhookWorkflow(t *testing.T) {
 	defer connectorsCloseFn()
 
 	// The mock server URL that the connector will call (using Kubernetes internal DNS)
-	// The connector runs inside the cluster, so it needs to use the internal service URL
-	mockServerInternalUrl := fmt.Sprintf("http://mock-api-server.%s.svc.cluster.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
+	// The connector runs inside the cluster, so it needs to use the StatefulSet pod DNS name
+	// Format: <pod-name>.<headless-service>.<namespace>.svc.cluster.local
+	mockServerInternalUrl := fmt.Sprintf("http://mock-api-server-0.mock-api-server-peer.%s.svc.cluster.local:8080/webhook-callback", primary.KubectlNamespace.Namespace)
 
 	for i := 1; i <= webhookTriggerCount; i++ {
 		t.Logf("[WEBHOOK TRIGGER] Triggering workflow %d/%d", i, webhookTriggerCount)
@@ -172,9 +173,12 @@ func triggerWebhookWorkflow(t *testing.T) {
 		// Trigger the webhook - the context path is "trigger-random-number" as defined in the BPMN
 		webhookUrl := fmt.Sprintf("http://%s/inbound/trigger-random-number", connectorsEndpoint)
 
+		t.Logf("[WEBHOOK TRIGGER] Sending payload: %s", string(payloadBytes))
+
 		req, err := http.NewRequest("POST", webhookUrl, bytes.NewBuffer(payloadBytes))
 		require.NoError(t, err, "Failed to create webhook request")
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		req.Header.Set("Accept", "application/json")
 
 		client := &http.Client{Timeout: 30 * time.Second}
 		resp, err := client.Do(req)
