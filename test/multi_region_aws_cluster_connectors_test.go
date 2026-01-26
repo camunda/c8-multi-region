@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -52,6 +53,7 @@ func TestConnectorWebhookFlow(t *testing.T) {
 		{"TestDeployConnectorBpmnProcess", deployConnectorBpmnProcess},
 		{"TestTriggerWebhookWorkflow", triggerWebhookWorkflow},
 		{"TestVerifyMockServerReceivedRequests", verifyMockServerReceivedRequests},
+		{"TestVerifyConnectorsProcessedJobs", verifyConnectorsProcessedJobs},
 		{"TestCleanupMockApiServer", cleanupMockApiServer},
 	} {
 		t.Run(testFuncs.name, testFuncs.tfunc)
@@ -268,6 +270,29 @@ func verifyMockServerReceivedRequests(t *testing.T) {
 			}
 		}
 	}
+}
+
+// verifyConnectorsProcessedJobs checks that both connector deployments have processed jobs
+func verifyConnectorsProcessedJobs(t *testing.T) {
+	t.Log("[CONNECTORS CHECK] Verifying both connector deployments processed jobs 🔍")
+
+	// Check primary region connectors
+	primaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &primary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=500")
+	require.NoError(t, err, "Failed to get primary region connector logs")
+	primaryHasCompletingJob := strings.Contains(primaryLogs, "Completing job")
+	t.Logf("[CONNECTORS CHECK] Primary region connectors contain 'Completing job': %v", primaryHasCompletingJob)
+
+	// Check secondary region connectors
+	secondaryLogs, err := k8s.RunKubectlAndGetOutputE(t, &secondary.KubectlNamespace, "logs", "deployment/camunda-connectors", "--tail=500")
+	require.NoError(t, err, "Failed to get secondary region connector logs")
+	secondaryHasCompletingJob := strings.Contains(secondaryLogs, "Completing job")
+	t.Logf("[CONNECTORS CHECK] Secondary region connectors contain 'Completing job': %v", secondaryHasCompletingJob)
+
+	// Both regions should have processed jobs
+	require.True(t, primaryHasCompletingJob, "Primary region connectors did not process any jobs (no 'Completing job' in logs)")
+	require.True(t, secondaryHasCompletingJob, "Secondary region connectors did not process any jobs (no 'Completing job' in logs)")
+
+	t.Log("[CONNECTORS CHECK] ✅ Both connector deployments have processed jobs")
 }
 
 // cleanupMockApiServer removes the mock API server
