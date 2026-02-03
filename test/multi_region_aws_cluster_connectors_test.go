@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +13,6 @@ import (
 	"multiregiontests/internal/helpers"
 	kubectlHelpers "multiregiontests/internal/helpers/kubectl"
 
-	http_helper "github.com/gruntwork-io/terratest/modules/http-helper"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	"github.com/stretchr/testify/require"
 )
@@ -26,7 +22,6 @@ const (
 	mockServerTeleportManifest = "./fixtures/mock-server/mock-api-server-teleport.yml"
 	connectorBpmnPath          = "./c8-multi-region-dummy-connector-flow.bpmn"
 	webhookTriggerCount        = 10
-	basicAuthDemoHeader        = "Basic ZGVtbzpkZW1v" // demo:demo base64 encoded
 )
 
 // TestConnectorWebhookFlow tests the end-to-end connector flow:
@@ -98,46 +93,7 @@ func waitForMockApiServerReady(t *testing.T) {
 func deployConnectorBpmnProcess(t *testing.T) {
 	t.Log("[CONNECTOR PROCESS] Deploying connector BPMN process to Zeebe 🚀")
 
-	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
-	defer closeFn()
-
-	file, err := os.Open(connectorBpmnPath)
-	require.NoError(t, err, "Failed to open BPMN file")
-	defer file.Close()
-
-	reqBody := &bytes.Buffer{}
-	writer := multipart.NewWriter(reqBody)
-
-	part, err := writer.CreateFormFile("resources", filepath.Base(file.Name()))
-	require.NoError(t, err, "Failed to create form file")
-
-	_, err = io.Copy(part, file)
-	require.NoError(t, err, "Failed to copy file content")
-
-	// Add default tenant ID for multi-tenancy support
-	err = writer.WriteField("tenantId", "<default>")
-	require.NoError(t, err, "Failed to write tenantId field")
-
-	err = writer.Close()
-	require.NoError(t, err, "Failed to close multipart writer")
-
-	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method: "POST",
-		Url:    fmt.Sprintf("http://%s/v2/deployments", endpoint),
-		Body:   reqBody,
-		Headers: map[string]string{
-			"Content-Type":  writer.FormDataContentType(),
-			"Accept":        "application/json",
-			"Authorization": basicAuthDemoHeader,
-		},
-		TlsConfig: nil,
-		Timeout:   30,
-	})
-
-	require.Equal(t, 200, code, "Failed to deploy BPMN process: %s", resBody)
-	require.Contains(t, resBody, "c8-multi-region-dummy-connector-flow")
-
-	t.Logf("[CONNECTOR PROCESS] Deployed process: %s", resBody)
+	kubectlHelpers.DeployBpmnProcess(t, &primary.KubectlNamespace, connectorBpmnPath, "<default>", "c8-multi-region-dummy-connector-flow")
 
 	// Wait for process to be propagated
 	t.Log("[CONNECTOR PROCESS] Waiting for process to be propagated...")
