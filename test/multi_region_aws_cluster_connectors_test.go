@@ -44,8 +44,8 @@ func TestConnectorWebhookFlow(t *testing.T) {
 	}{
 		{"TestInitKubernetesHelpers", initKubernetesHelpers},
 		{"TestDeployMockApiServer", deployMockApiServer},
-		{"TestWaitForMockApiServerReady", waitForMockApiServerReady},
 		{"TestDeployConnectorBpmnProcess", deployConnectorBpmnProcess},
+		{"TestWaitForMockApiServerReady", waitForMockApiServerReady},
 		{"TestTriggerWebhookWorkflow", triggerWebhookWorkflow},
 		{"TestVerifyMockServerReceivedRequests", verifyMockServerReceivedRequests},
 		{"TestVerifyConnectorsProcessedJobs", verifyConnectorsProcessedJobs},
@@ -66,6 +66,8 @@ func deployMockApiServer(t *testing.T) {
 		t.Log("[MOCK SERVER] Applying Teleport tolerations and affinity patch")
 		k8s.RunKubectl(t, &primary.KubectlNamespace, "patch", "statefulset", "mock-api-server",
 			"--patch-file", mockServerTeleportManifest, "--type=strategic")
+
+		time.Sleep(15 * time.Second) // Give some time for the patch to take effect as it has to reschedule the pod
 	}
 }
 
@@ -81,8 +83,19 @@ func waitForMockApiServerReady(t *testing.T) {
 	endpoint, closeFn := kubectlHelpers.NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "mock-api-server", 0, 8080, 5, 10*time.Second)
 	defer closeFn()
 
-	res, body := helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/health", endpoint), nil)
-	require.NotNil(t, res, "Failed to query mock server health")
+	var res *http.Response
+	var body string
+	for i := 0; i < 5; i++ {
+		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/health", endpoint), nil)
+		if res != nil && res.StatusCode == 200 && strings.Contains(body, "healthy") {
+			break
+		}
+		if i < 4 {
+			t.Logf("[MOCK SERVER] Health check attempt %d/5 failed, retrying...", i+1)
+			time.Sleep(5 * time.Second)
+		}
+	}
+	require.NotNil(t, res, "Failed to query mock server health after 5 attempts")
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, body, "healthy")
 
