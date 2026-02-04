@@ -1,0 +1,24 @@
+---
+# Teleport strategic merge patch for mock-api-server
+# Adds tolerations and affinity for Teleport node groups
+# Applied using: kubectl patch statefulset mock-api-server --patch-file <this-file> --type=strategic
+spec:
+    template:
+        spec:
+            tolerations:
+                - key: t-core-8-unstable
+                  operator: Exists
+                  effect: NoSchedule
+                - key: t-core-16-unstable
+                  operator: Exists
+                  effect: NoSchedule
+            affinity:
+                nodeAffinity:
+                    requiredDuringSchedulingIgnoredDuringExecution:
+                        nodeSelectorTerms:
+                            - matchExpressions:
+                                  - key: nodegroup
+                                    operator: In
+                                    values:
+                                        - t-core-8-unstable
+                                        - t-core-16-unstable

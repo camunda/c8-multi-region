@@ -110,6 +110,30 @@ go test --count=1 -v -timeout 120m -run TestAWSDualRegFailback_8_6_plus
 go test --count=1 -v -timeout 120m -run TestMultiTenancyDualReg
 ```
 
+- Test scaling Zeebe brokers in multi-region setup
+
+```bash
+go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
+```
+
+- Test scaling Zeebe partitions in multi-region setup
+
+```bash
+go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
+```
+
+- Test scaling both Zeebe brokers and partitions in multi-region setup
+
+```bash
+go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+```
+
+- Test connector webhook flow in multi-region setup
+
+```bash
+go test --count=1 -v -timeout 10m -run TestConnectorWebhookFlow
+```
+
 ### Cleanup
 
 ```bash
