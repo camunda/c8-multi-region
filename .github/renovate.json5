@@ -1,11 +1,17 @@
 {
-  $schema: "https://docs.renovatebot.com/renovate-schema.json",
-  extends: ["github>camunda/infraex-common-config:default.json5"],
-  packageRules: [
-    // actively pinning k8s.io/apimachinery to 0.28.x as terratest is not compatible with > 0.28.x
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>camunda/infraex-common-config:default.json5"],
+  "packageRules": [
+    {"matchPackageNames": ["k8s.io/apimachinery"], "allowedVersions": "0.28.x"},
+    {"enabled": false, "matchPackageNames": ["*"]},
     {
-      matchPackageNames: ["k8s.io/apimachinery"],
-      allowedVersions: "0.28.x"
+      "description": "Allow patch and minor updates for Camunda Helm chart",
+      "matchPackageNames": [
+        "camunda-platform",
+        "camunda/camunda-platform-helm"
+      ],
+      "matchUpdateTypes": ["patch", "minor"],
+      "enabled": true
     }
   ]
 }

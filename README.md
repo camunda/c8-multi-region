@@ -1,5 +1,18 @@
 # Camunda Platform - Multi-Region
 
+> [!CAUTION]
+> ⚠️ **Repository Not Maintained Anymore**
+> This repository is no longer actively maintained. All related files have been moved to
+> [**camunda-deployment-references**](https://github.com/camunda/camunda-deployment-references/tree/main/aws/kubernetes/eks-dual-region).
+>
+> The decision behind this change is to consolidate all reference implementations into a single repository.
+> This makes it easier for us to maintain and for you as a user to find implementations for different cloud providers.
+>
+> We have not archived this repository yet in case backport changes are needed. However, all active maintenance will
+> be done in the new repository.
+>
+> **Important:** Please do not directly consume the Terraform module sources. Instead, maintain your own copy.
+
 This repository contains configuration files for setting up a multi-region Kubernetes cluster in AWS and running the Camunda Platform in multi-region mode. The current focus is on a dual-region setup.
 
 Additionally, nightly tests are included and executed to ensure that the failover and fallback behaviour don't break.
