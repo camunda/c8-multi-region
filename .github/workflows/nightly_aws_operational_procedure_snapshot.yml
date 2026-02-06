@@ -1,25 +1,14 @@
 ---
 name: Snapshot Nightly AWS EKS Operational Procedure Test
 
+# Was migrated to https://github.com/camunda/camunda-deployment-references/blob/main/.github/workflows/aws_kubernetes_eks_dual_region_tests.yml
+
 on:
-    schedule:
-        - cron: 0 2 * * 1 # 02:00 UTC on Monday
     workflow_dispatch:
         inputs:
             helm-versions:
                 description: The Helm versions to use as comma separated list
                 type: string
-    pull_request:
-        branches-ignore:
-            - stable/**
-        # For now limit automatic execution to a minimum, can always be done manually via workflow_dispatch for a branch
-        paths:
-            - .github/actions/setup-aws/action.yml
-            - .github/workflows/nightly_aws_operational_procedure_snapshot.yml
-            - .github/workflows/reuseable_aws_operational_procedure.yml
-            - aws/dual-region/terraform/**
-            - test/**
-            - .tools-versions
 
 # limit to a single execution per ref (branch) of this workflow
 concurrency:
