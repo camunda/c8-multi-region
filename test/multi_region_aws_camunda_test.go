@@ -32,7 +32,7 @@ const (
 var (
 	// TODO: [release-duty] before the release, update this!
 	// renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^13(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.3.2")
+	remoteChartVersion = helpers.GetEnv("HELM_CHART_VERSION", "13.4.1")
 	remoteChartName    = helpers.GetEnv("HELM_CHART_NAME", "camunda/camunda-platform")                  // allows using OCI registries
 	globalImageTag     = helpers.GetEnv("GLOBAL_IMAGE_TAG", "")                                         // allows overwriting the image tag via GHA of every Camunda image
 	clusterName        = helpers.GetEnv("CLUSTER_NAME", "nightly")                                      // allows supplying random cluster name via GHA
@@ -291,12 +291,13 @@ func deployC8Helm(t *testing.T, valuesYamlFiles []string) {
 	if helpers.IsTeleportEnabled() {
 		timeout = "1800s"
 		retries = 100
-		baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
 		if len(valuesYamlFiles) > 0 && valuesYamlFiles[0] == migrationValuesYaml {
 			baseHelmVars["orchestration.migration.affinity.podAntiAffinity"] = "null"
 		}
 	}
+	// avoid pod anti-affinity limitations
+	baseHelmVars["orchestration.affinity.podAntiAffinity"] = "null"
 
 	if extraValuesYaml != "" {
 		extraValuesYamls := strings.Split(extraValuesYaml, ",")

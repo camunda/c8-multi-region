@@ -16,9 +16,9 @@
 # renovate: datasource=github-tags depName=rhysd/actionlint
 actionlint 1.7.10
 
-awscli 2.32.28
+awscli 2.33.6
 
-golang 1.25.5
+golang 1.25.6
 
 # datasource=custom.helm-camunda depName=helm
 helm 3.19.4

@@ -199,6 +199,35 @@ jobs:
               timeout-minutes: 21
               run: |
                   go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
+
+            - name: Test scaling zeebe brokers in multi-region setup
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
+
+            - name: Test scaling zeebe partitions in multi-region setup
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
+
+            - name: Test scaling zeebe brokers and partitions in multi-region setup
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+
+            - name: Test connector webhook flow in multi-region setup
+              working-directory: ./test
+              timeout-minutes: 11
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 10m -run TestConnectorWebhookFlow
+
             - name: Debug Step
               working-directory: ./test
               if: failure()

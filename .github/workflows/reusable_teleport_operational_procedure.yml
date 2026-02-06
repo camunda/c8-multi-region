@@ -230,7 +230,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
 
             - name: Install extra Go and use inbuilt caching
-              uses: actions/setup-go@4dc6199c7b1a012772edbd06daecab0f50c9053c # v6
+              uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
               with:
                   go-version-file: ./test/go.mod
                   cache-dependency-path: ./test/go.sum
@@ -468,6 +468,7 @@ jobs:
               run: |
                   set -euxo pipefail
                   printf 'timestamp=%(%s)T\n' >> "$GITHUB_OUTPUT"
+
             - name: Failback New - ${{ inputs.helmChartVersion }}
               if: inputs.deployOnly == false && inputs.skipFailback == false
               working-directory: ./test
@@ -514,6 +515,38 @@ jobs:
               run: |
                   set -euxo pipefail
                   go test --count=1 -v -timeout 20m -run TestMultiTenancyDualReg
+
+            - name: Test scaling zeebe brokers in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBrokers
+
+            - name: Test scaling zeebe partitions in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpPartitions
+
+            - name: Test scaling zeebe brokers and partitions in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 21
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 20m -run TestZeebeClusterScaleUpBothBrokersAndPartitions
+
+            - name: Test connector webhook flow in multi-region setup
+              if: inputs.deployOnly == false
+              working-directory: ./test
+              timeout-minutes: 11
+              run: |
+                  set -euxo pipefail
+                  go test --count=1 -v -timeout 10m -run TestConnectorWebhookFlow
 
             - name: Get Pods info in case of failure - ${{ env.CLUSTER_0_NAMESPACE }}
               timeout-minutes: 10

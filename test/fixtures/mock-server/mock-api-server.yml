@@ -1,0 +1,157 @@
+---
+# Mock API Server for testing arbitrary POST requests
+# Can be used to test webhooks, callbacks, and HTTP integrations with Camunda
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+    name: mock-api-server
+    labels:
+        app: mock-api-server
+spec:
+    serviceName: mock-api-server-peer
+    replicas: 1
+    selector:
+        matchLabels:
+            app: mock-api-server
+    template:
+        metadata:
+            labels:
+                app: mock-api-server
+        spec:
+            containers:
+                - name: mock-api-server
+                  # Using a lightweight Python-based mock server
+                  image: python:3.14-alpine
+                  command:
+                      - python
+                      - -c
+                      - |
+                        import json
+                        import os
+                        from http.server import HTTPServer, BaseHTTPRequestHandler
+                        from datetime import datetime
+
+                        # Store received requests in memory for verification
+                        received_requests = []
+
+                        class MockHandler(BaseHTTPRequestHandler):
+                            def log_message(self, format, *args):
+                                print(f"[{datetime.now().isoformat()}] {format % args}")
+
+                            def _send_response(self, status_code, body):
+                                self.send_response(status_code)
+                                self.send_header('Content-Type', 'application/json')
+                                self.end_headers()
+                                self.wfile.write(json.dumps(body).encode())
+
+                            def do_GET(self):
+                                if self.path == '/health':
+                                    self._send_response(200, {'status': 'healthy'})
+                                elif self.path == '/requests':
+                                    # Return all received requests for verification
+                                    self._send_response(200, {'requests': received_requests})
+                                elif self.path == '/requests/count':
+                                    self._send_response(200, {'count': len(received_requests)})
+                                elif self.path == '/requests/clear':
+                                    received_requests.clear()
+                                    self._send_response(200, {'message': 'Requests cleared'})
+                                else:
+                                    self._send_response(200, {'message': 'Mock API Server is running', 'path': self.path})
+
+                            def do_POST(self):
+                                content_length = int(self.headers.get('Content-Length', 0))
+                                body = self.rfile.read(content_length).decode('utf-8') if content_length > 0 else ''
+
+                                # Try to parse as JSON, otherwise store as raw string
+                                try:
+                                    parsed_body = json.loads(body) if body else None
+                                except json.JSONDecodeError:
+                                    parsed_body = body
+
+                                request_data = {
+                                    'timestamp': datetime.now().isoformat(),
+                                    'path': self.path,
+                                    'headers': dict(self.headers),
+                                    'body': parsed_body
+                                }
+                                received_requests.append(request_data)
+                                print(f"[POST] {self.path} - Body: {body[:200]}..." if len(body) > 200 else f"[POST] {self.path} - Body: {body}")
+
+                                self._send_response(200, {
+                                    'message': 'Request received',
+                                    'path': self.path,
+                                    'received_at': request_data['timestamp']
+                                })
+
+                            def do_PUT(self):
+                                self.do_POST()
+
+                            def do_PATCH(self):
+                                self.do_POST()
+
+                            def do_DELETE(self):
+                                self._send_response(200, {'message': 'DELETE request received', 'path': self.path})
+
+                        port = int(os.environ.get('PORT', 8080))
+                        server = HTTPServer(('0.0.0.0', port), MockHandler)
+                        print(f"Mock API Server starting on port {port}")
+                        server.serve_forever()
+                  ports:
+                      - name: http
+                        containerPort: 8080
+                        protocol: TCP
+                  env:
+                      - name: PORT
+                        value: '8080'
+                  resources:
+                      requests:
+                          memory: 64Mi
+                          cpu: 50m
+                      limits:
+                          memory: 128Mi
+                          cpu: 100m
+                  readinessProbe:
+                      httpGet:
+                          path: /health
+                          port: 8080
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+                  livenessProbe:
+                      httpGet:
+                          path: /health
+                          port: 8080
+                      initialDelaySeconds: 5
+                      periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: mock-api-server
+    labels:
+        app: mock-api-server
+spec:
+    type: ClusterIP
+    ports:
+        - port: 8080
+          targetPort: 8080
+          protocol: TCP
+          name: http
+    selector:
+        app: mock-api-server
+---
+# Headless service for cross-region DNS resolution (similar to sample-nginx-peer pattern)
+apiVersion: v1
+kind: Service
+metadata:
+    name: mock-api-server-peer
+    labels:
+        app: mock-api-server
+spec:
+    ports:
+        - port: 8080
+          targetPort: 8080
+          protocol: TCP
+          name: http
+    selector:
+        app: mock-api-server
+    clusterIP: None

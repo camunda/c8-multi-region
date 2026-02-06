@@ -563,32 +563,7 @@ func GetZeebeBrokerId(t *testing.T, kubectlOptions *k8s.KubectlOptions, podName 
 }
 
 func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, namespace1 string) {
-	endpoint, closeFn := NewServiceTunnelWithRetry(t, &primary.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
-	defer closeFn()
-
-	// Get the topology of the Zeebe cluster
-	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method: "GET",
-		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
-		Headers: map[string]string{
-			"Authorization": basicAuthDemoHeader,
-			"Accept":        "application/json",
-		},
-		TlsConfig: nil,
-		Timeout:   30,
-	})
-	if code != 200 {
-		t.Fatalf("[C8 CHECK] Failed to get topology: %s", body)
-		return
-	}
-
-	var topology ClusterInfo
-
-	err := json.Unmarshal([]byte(body), &topology)
-	if err != nil {
-		t.Fatalf("[C8 CHECK] Error unmarshalling JSON: %v", err)
-		return
-	}
+	topology := GetClusterTopology(t, &primary.KubectlNamespace)
 
 	require.Equal(t, 8, len(topology.Brokers))
 
@@ -610,84 +585,39 @@ func CheckC8RunningProperly(t *testing.T, primary helpers.Cluster, namespace0, n
 }
 
 func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resourceDir, tenantId string) {
-	endpoint, closeFn := NewServiceTunnelWithRetry(t, &kubectlOptions.KubectlNamespace, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
-	defer closeFn()
-
-	file, err := os.Open(fmt.Sprintf("%s/single-task.bpmn", resourceDir))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] can't open file - %s", err)
-		return
-	}
-	defer file.Close()
-
-	reqBody := &bytes.Buffer{}
-	writer := multipart.NewWriter(reqBody)
-
-	part, err := writer.CreateFormFile("resources", filepath.Base(file.Name()))
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] can't create form file - %s", err)
-		return
-	}
-
-	_, err = io.Copy(part, file)
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] can't copy file - %s", err)
-		return
-	}
-
-	// Add tenantId field if provided
-	if tenantId != "" {
-		err = writer.WriteField("tenantId", tenantId)
-		if err != nil {
-			t.Fatalf("[C8 PROCESS] can't write tenantId field - %s", err)
-			return
-		}
-	}
-
-	err = writer.Close()
-	if err != nil {
-		t.Fatalf("[C8 PROCESS] can't close writer - %s", err)
-		return
-	}
-
-	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
-		Method: "POST",
-		Url:    fmt.Sprintf("http://%s/v2/deployments", endpoint),
-		Body:   reqBody,
-		Headers: map[string]string{
-			"Content-Type":  writer.FormDataContentType(),
-			"Accept":        "application/json",
-			"Authorization": basicAuthDemoHeader,
-		},
-		TlsConfig: nil,
-		Timeout:   30,
-	})
-	if code != 200 {
-		t.Fatalf("[C8 PROCESS] Failed to deploy process: %s", resBody)
-		return
-	}
-
-	t.Logf("[C8 PROCESS] Created process: %s", resBody)
-	require.NotEmpty(t, resBody)
-	require.Contains(t, resBody, "bigVarProcess")
+	// Deploy the BPMN process using the shared deployment function
+	bpmnFilePath := fmt.Sprintf("%s/single-task.bpmn", resourceDir)
+	DeployBpmnProcess(t, &kubectlOptions.KubectlNamespace, bpmnFilePath, tenantId, "bigVarProcess")
 
 	t.Log("[C8 PROCESS] Sleeping shortly to let process be propagated")
-	time.Sleep(30 * time.Second)
+	time.Sleep(15 * time.Second)
 
-	const instancesToStart = 6
+	// Start process instances
+	StartProcessInstances(t, &kubectlOptions.KubectlNamespace, "bigVarProcess", tenantId, 6)
 
-	for i := 1; i <= instancesToStart; i++ {
-		t.Logf("[C8 PROCESS] Starting Process instance %d/%d 🚀", i, instancesToStart)
+	t.Log("[C8 PROCESS] Sleeping shortly to let instances be propagated")
+	time.Sleep(15 * time.Second)
+}
+
+// StartProcessInstances starts process instances for the given process definition.
+func StartProcessInstances(t *testing.T, kubectlOptions *k8s.KubectlOptions, processDefinitionId, tenantId string, count int) {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	for i := 1; i <= count; i++ {
+		t.Logf("[C8 PROCESS] Starting Process instance %d/%d 🚀", i, count)
 
 		// Prepare request body with tenantId if provided
 		var instanceRequestBody string
 		if tenantId != "" {
-			instanceRequestBody = fmt.Sprintf(`{"processDefinitionId":"bigVarProcess","tenantId":"%s"}`, tenantId)
+			instanceRequestBody = fmt.Sprintf(`{"processDefinitionId":"%s","tenantId":"%s"}`, processDefinitionId, tenantId)
 		} else {
-			instanceRequestBody = `{"processDefinitionId":"bigVarProcess"}`
+			instanceRequestBody = fmt.Sprintf(`{"processDefinitionId":"%s"}`, processDefinitionId)
 		}
 
-		code, resBody = http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
 			Method: "POST",
 			Url:    fmt.Sprintf("http://%s/v2/process-instances", endpoint),
 			Body:   strings.NewReader(instanceRequestBody),
@@ -705,11 +635,77 @@ func DeployC8processAndCheck(t *testing.T, kubectlOptions helpers.Cluster, resou
 		}
 		t.Logf("[C8 PROCESS] Created process instance %d: %s", i, resBody)
 		require.NotEmpty(t, resBody)
-		require.Contains(t, resBody, "bigVarProcess")
+		require.Contains(t, resBody, processDefinitionId)
+	}
+}
+
+// DeployBpmnProcess deploys a BPMN file to Zeebe via the gateway REST API.
+func DeployBpmnProcess(t *testing.T, kubectlOptions *k8s.KubectlOptions, bpmnFilePath, tenantId, expectedProcessId string) string {
+	t.Helper()
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 10*time.Second)
+	defer closeFn()
+
+	file, err := os.Open(bpmnFilePath)
+	if err != nil {
+		t.Fatalf("[BPMN DEPLOY] can't open file %s - %s", bpmnFilePath, err)
+		return ""
+	}
+	defer file.Close()
+
+	reqBody := &bytes.Buffer{}
+	writer := multipart.NewWriter(reqBody)
+
+	part, err := writer.CreateFormFile("resources", filepath.Base(file.Name()))
+	if err != nil {
+		t.Fatalf("[BPMN DEPLOY] can't create form file - %s", err)
+		return ""
 	}
 
-	t.Log("[C8 PROCESS] Sleeping shortly to let instances be propagated")
-	time.Sleep(30 * time.Second)
+	_, err = io.Copy(part, file)
+	if err != nil {
+		t.Fatalf("[BPMN DEPLOY] can't copy file - %s", err)
+		return ""
+	}
+
+	// Add tenantId field if provided
+	if tenantId != "" {
+		err = writer.WriteField("tenantId", tenantId)
+		if err != nil {
+			t.Fatalf("[BPMN DEPLOY] can't write tenantId field - %s", err)
+			return ""
+		}
+	}
+
+	err = writer.Close()
+	if err != nil {
+		t.Fatalf("[BPMN DEPLOY] can't close writer - %s", err)
+		return ""
+	}
+
+	code, resBody := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method: "POST",
+		Url:    fmt.Sprintf("http://%s/v2/deployments", endpoint),
+		Body:   reqBody,
+		Headers: map[string]string{
+			"Content-Type":  writer.FormDataContentType(),
+			"Accept":        "application/json",
+			"Authorization": basicAuthDemoHeader,
+		},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
+	if code != 200 {
+		t.Fatalf("[BPMN DEPLOY] Failed to deploy process: %s", resBody)
+		return ""
+	}
+
+	t.Logf("[BPMN DEPLOY] Created process: %s", resBody)
+	if expectedProcessId != "" {
+		require.Contains(t, resBody, expectedProcessId)
+	}
+
+	return resBody
 }
 
 func DumpAllPodLogs(t *testing.T, kubectlOptions *k8s.KubectlOptions) {
@@ -962,4 +958,39 @@ func CheckElasticsearchClusterHealth(t *testing.T, cluster helpers.Cluster) {
 	}
 
 	t.Fatalf("[ELASTICSEARCH HEALTH] Cluster did not reach green status after 10 attempts. Last output: %s", output)
+}
+
+// GetClusterTopology retrieves the current cluster topology information from the Zeebe gateway
+func GetClusterTopology(t *testing.T, kubectlOptions *k8s.KubectlOptions) ClusterInfo {
+	t.Helper()
+
+	service := k8s.GetService(t, kubectlOptions, "camunda-zeebe-gateway")
+	require.Equal(t, "camunda-zeebe-gateway", service.Name)
+
+	endpoint, closeFn := NewServiceTunnelWithRetry(t, kubectlOptions, "camunda-zeebe-gateway", 0, 8080, 5, 15*time.Second)
+	defer closeFn()
+
+	// Get topology from v2/topology endpoint
+	code, body := http_helper.HTTPDoWithOptions(t, http_helper.HttpDoOptions{
+		Method: "GET",
+		Url:    fmt.Sprintf("http://%s/v2/topology", endpoint),
+		Headers: map[string]string{
+			"Authorization": basicAuthDemoHeader,
+			"Accept":        "application/json",
+		},
+		TlsConfig: nil,
+		Timeout:   30,
+	})
+	if code != 200 {
+		t.Fatalf("[CLUSTER TOPOLOGY] Failed to get topology (status %d): %s", code, body)
+		return ClusterInfo{}
+	}
+	require.NotEmpty(t, body)
+
+	// Parse the topology response
+	var clusterInfo ClusterInfo
+	err := json.Unmarshal([]byte(body), &clusterInfo)
+	require.NoError(t, err, "Failed to parse topology response")
+
+	return clusterInfo
 }
