@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+    name: sample-nginx
+    labels:
+        app: sample-nginx
+spec:
+    hostname: sample-nginx
+    subdomain: sample-nginx-peer
+    containers:
+        - image: nginx:latest
+          imagePullPolicy: IfNotPresent
+          name: nginx
+          ports:
+              - name: http
+                containerPort: 80
+    restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+    name: sample-nginx-peer
+spec:
+    ports:
+        - port: 80
+    selector:
+        app: sample-nginx
+    clusterIP: None
