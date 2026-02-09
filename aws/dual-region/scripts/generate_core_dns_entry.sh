@@ -36,7 +36,7 @@ if [ -z "$namespace_1" ]; then
     read -r -p "Enter the Kubernetes cluster namespace where Camunda 8 is installed, in region 1: " namespace_1
 fi
 
-if [ "$namespace_0" == "$namespace_1" ]; then
+if [ "$namespace_0" = "$namespace_1" ]; then
     echo "Kubernetes namespaces for Camunda installations must be called differently"
     exit 1
 fi
@@ -44,8 +44,8 @@ fi
 HOST_0=$(kubectl --context "$CLUSTER_0" -n kube-system get svc internal-dns-lb -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" | cut -d - -f 1)
 HOST_1=$(kubectl --context "$CLUSTER_1" -n kube-system get svc internal-dns-lb -o jsonpath="{.status.loadBalancer.ingress[0].hostname}" | cut -d - -f 1)
 
-IPS_0=$(aws ec2 describe-network-interfaces --region "$REGION_0" --filters Name=description,Values="ELB net/${HOST_0}" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
-IPS_1=$(aws ec2 describe-network-interfaces --region "$REGION_1" --filters Name=description,Values="ELB net/${HOST_1}" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
+IPS_0=$(aws ec2 describe-network-interfaces --region "$REGION_0" --filters Name=description,Values="ELB net/${HOST_0}*" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
+IPS_1=$(aws ec2 describe-network-interfaces --region "$REGION_1" --filters Name=description,Values="ELB net/${HOST_1}*" --query  'NetworkInterfaces[*].PrivateIpAddress' --output text --no-cli-pager)
 
 if [ -z "$IPS_0" ] || [ -z "$IPS_1" ]; then
     echo "Could not retrieve the internal load balancer IPs. Please try again, it may take a while for the IPs to be available. Alternatively check that the correct AWS CLI credentials are set."

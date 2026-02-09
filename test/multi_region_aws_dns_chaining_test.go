@@ -146,7 +146,9 @@ func applyDnsChaining(t *testing.T) {
 	awsHelpers.CreateLoadBalancers(t, secondary, k8sManifests)
 	allPrimaryNamespaces := primaryNamespaceArr + "," + primaryNamespaceFailoverArr
 	allSecondaryNamespaces := secondaryNamespaceArr + "," + secondaryNamespaceFailoverArr
+	os.Setenv("KUBECONFIG", kubeConfigPrimary+":"+kubeConfigSecondary)
 	awsHelpers.DNSChaining(t, primary, secondary, k8sManifests, allPrimaryNamespaces, allSecondaryNamespaces)
+	os.Unsetenv("KUBECONFIG")
 }
 
 func testCoreDNSReload(t *testing.T) {
