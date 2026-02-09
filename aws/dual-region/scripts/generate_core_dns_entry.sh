@@ -36,7 +36,7 @@ if [ -z "$namespace_1" ]; then
     read -r -p "Enter the Kubernetes cluster namespace where Camunda 8 is installed, in region 1: " namespace_1
 fi
 
-if [ "$namespace_0" == "$namespace_1" ]; then
+if [ "$namespace_0" = "$namespace_1" ]; then
     echo "Kubernetes namespaces for Camunda installations must be called differently"
     exit 1
 fi
