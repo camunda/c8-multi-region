@@ -1,6 +1,8 @@
 ---
 name: Stable Nightly AWS EKS Operational Procedure Test
 
+# TODO: This workflow can be removed after the 14th of April 2026 due to support end of 8.6
+
 on:
     schedule:
         - cron: 0 2 * * 2 # Every Tuesday at 02:00 UTC
@@ -155,9 +157,6 @@ jobs:
             - name: Generate matrix
               id: generate-matrix
               run: |
-                  # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^10(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
-                  c85=10.11.3
-
                   # renovate: datasource=helm depName=camunda-platform registryUrl=https://helm.camunda.io versioning=regex:^11(\.(?<minor>\d+))?(\.(?<patch>\d+))?$
                   c86_old=11.11.5
                   # for not messing up with renovate, we add the prefix "OLD" in the next step
@@ -167,7 +166,7 @@ jobs:
                   c88=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then
-                    versions='{"helm-version":["'${c85}'","'OLD.${c86_old}'"]}'
+                    versions='{"helm-version":["'OLD.${c86_old}'"]}'
                   else
                   output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
                       for(i=1;i<=NF;i++) {
