@@ -36,5 +36,3 @@ shellcheck 0.10.0
 terraform 1.11.4
 
 tflint 0.56.0
-
-trivy 0.60.0
