@@ -50,7 +50,7 @@ repos:
     - repo: local
       hooks:
           - id: trivy-scan
-            name: Trivy Scan
+            name: Trivy Scan (Docker)
             entry: .lint/trivy/trivy-scan.sh
             language: script
             types: [terraform]
