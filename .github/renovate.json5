@@ -12,6 +12,24 @@
       ],
       "matchUpdateTypes": ["patch", "minor"],
       "enabled": true
+    },
+    {
+      // The blanket disable above is about what this repository documents -- the
+      // versions of the reference architecture it pins. It is not about the CI
+      // toolchain: infraex-common-config and infra-global-github-actions ship
+      // reusable workflows, composite actions and pre-commit hooks only, so
+      // freezing them stabilises nothing and just leaves this repository running
+      // stale automation. It did: the lint-global pin sat on 2.0.1 for three
+      // releases until it was bumped by hand, which is also why this repository
+      // still ran an older pre-commit cache scheme than every other one.
+      //
+      // Same reasoning as the maintenance-branch rule in the shared preset.
+      "description": "Keep tracking our own CI tooling.",
+      "matchPackageNames": [
+        "camunda/infraex-common-config",
+        "camunda/infra-global-github-actions"
+      ],
+      "enabled": true
     }
   ]
 }
