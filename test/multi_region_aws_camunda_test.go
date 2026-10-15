@@ -623,8 +623,9 @@ func removeSecondaryBrokers(t *testing.T) {
 	t.Log("[FAILOVER] Give the system some time to redistribute the partitions")
 	time.Sleep(5 * time.Second)
 
-	// Check that the removal of obsolete brokers was completed
-	for i := 0; i < 5; i++ {
+	// Check that the removal of obsolete brokers was completed.
+	// Force-reconfiguring all partitions and removing brokers can take several minutes on a loaded cluster.
+	for i := 0; i < 40; i++ {
 		res, body = helpers.HttpRequest(t, "GET", fmt.Sprintf("http://%s/actuator/cluster", endpoint), nil)
 		if res == nil {
 			t.Fatal("[FAILOVER] Failed to create request")
