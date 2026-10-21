@@ -232,7 +232,7 @@ jobs:
             - name: Install extra Go and use inbuilt caching
               uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
               with:
-                  go-version-file: ./test/go.mod
+                  go-version-file: .tool-versions
                   cache-dependency-path: ./test/go.sum
 
             - name: Set up Teleport
