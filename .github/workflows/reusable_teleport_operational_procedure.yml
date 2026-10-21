@@ -232,14 +232,14 @@ jobs:
             - name: Install extra Go and use inbuilt caching
               uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
               with:
-                  go-version-file: ./test/go.mod
+                  go-version-file: .tool-versions
                   cache-dependency-path: ./test/go.sum
 
             - name: Set up Teleport
               uses: teleport-actions/setup@a820ebbf1bc1a496efca348ad21042d6e8df73a6 # v1
               with:
                   # renovate: datasource=custom.teleport-camunda depName=teleport
-                  version: 18.6.4
+                  version: 18.11.6
 
             - name: Authenticate with Teleport
               uses: teleport-actions/auth-k8s@d45dc8f8d215c23519c9d87095ac5de98796bfdc # v2

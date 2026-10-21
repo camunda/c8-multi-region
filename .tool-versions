@@ -18,7 +18,7 @@ actionlint 1.7.10
 
 awscli 2.33.17
 
-golang 1.25.7
+golang 1.26.10
 
 # datasource=custom.helm-camunda depName=helm
 helm 3.19.4
