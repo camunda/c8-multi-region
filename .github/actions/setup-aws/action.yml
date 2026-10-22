@@ -23,7 +23,7 @@ runs:
 
         ############# Tool Installations #############
         - name: Install asdf tools with cache
-          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@bc213900ffa03aff635a3df98eaecb7d92cea665 # 2.3.9
+          uses: camunda/infraex-common-config/./.github/actions/asdf-install-tooling@5d9209194e61dd05b4f16d2563f701dfe3d57ff8 # 2.3.10
 
         - name: Print used versions
           shell: bash
