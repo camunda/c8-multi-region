@@ -250,6 +250,10 @@ jobs:
                   rm -rf ~/.aws/credentials
 
     notify-on-failure:
+        permissions:
+            contents: read
+            issues: read
+            id-token: write
         runs-on: ubuntu-latest
         if: github.event_name == 'schedule' && failure()
         needs:

@@ -120,6 +120,10 @@ jobs:
         secrets: inherit
 
     report-failure:
+        permissions:
+            contents: read
+            issues: read
+            id-token: write
         name: Report failures
         if: failure()
         runs-on: ubuntu-latest
