@@ -111,6 +111,10 @@ jobs:
 
 
     notify-on-failure:
+        permissions:
+            contents: read
+            issues: read
+            id-token: write
         runs-on: ubuntu-latest
         if: failure() && (fromJSON(github.run_attempt) >= 3 || inputs.notify_back_error_message != '') && github.event_name == 'schedule'
         needs:
