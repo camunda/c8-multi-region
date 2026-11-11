@@ -146,7 +146,8 @@ jobs:
         steps:
             - name: Generate matrix
               id: generate-matrix
-              run: |
+              # inputs come from workflow_dispatch, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   c88=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then

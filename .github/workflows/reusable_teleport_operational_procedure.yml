@@ -163,7 +163,8 @@ jobs:
 
         steps:
             - name: Set optional environment variables conditionally
-              run: |
+              # inputs come from workflow_call callers, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   if [ -n "${{ inputs.helmChartName }}" ]; then
                     echo "HELM_CHART_NAME=${{ inputs.helmChartName }}" >> "$GITHUB_ENV"
                   fi
@@ -173,7 +174,8 @@ jobs:
 
             - name: Map Helm version to branch
               id: helm-version
-              run: |
+              # inputs come from workflow_call callers, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   version=${{ inputs.helmChartVersion }}
 
                   major_version=$(echo "$version" | cut -d '.' -f 1)
@@ -256,7 +258,8 @@ jobs:
 
             - name: Update namespaces with prefix and random suffix
               id: update-namespaces
-              run: |
+              # inputs come from workflow_call callers, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   set -euxo pipefail
 
                   RANDOM_ID="$(openssl rand -hex 3)"
@@ -499,7 +502,8 @@ jobs:
 
             - name: Calculate Failback duration
               if: inputs.deployOnly == false && inputs.skipFailback == false
-              run: |
+              # inputs come from workflow_call callers, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   set -euxo pipefail
                   printf -v now '%(%s)T'
                   duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))

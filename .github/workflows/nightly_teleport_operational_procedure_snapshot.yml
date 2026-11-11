@@ -26,7 +26,8 @@ jobs:
         steps:
             - name: Display notify_back_error_message if present
               if: ${{ inputs.notify_back_error_message != '' }}
-              run: |
+              # inputs come from workflow_dispatch, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   echo "A previous workflow failed but has attempted to retry: ${{ inputs.notify_back_error_message }}"
                   exit 1
 
@@ -40,7 +41,8 @@ jobs:
         steps:
             - name: Generate matrix
               id: generate-matrix
-              run: |
+              # inputs come from workflow_dispatch, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   c88=SNAPSHOT
 
                   if [ "${{ inputs.helm-versions }}" == "" ]; then

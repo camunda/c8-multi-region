@@ -56,7 +56,8 @@ jobs:
         steps:
             - name: Set outputs
               id: set-outputs
-              run: |
+              # inputs come from workflow_dispatch, not from pull request data
+              run: | # zizmor: ignore[template-injection]
                   {
                     echo "PREVIOUS_HELM_CHART=${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}"
                     echo "MIGRATION_HELM_CHART=${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}"
