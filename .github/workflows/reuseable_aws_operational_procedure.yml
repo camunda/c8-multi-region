@@ -40,7 +40,7 @@ jobs:
         steps:
             - name: Map Helm version to branch
               id: helm-version
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # values are SNAPSHOT, the default infraex, or workflow_dispatch inputs
               run: | # zizmor: ignore[template-injection]
                   version=${{ inputs.helm-version }}
 
@@ -74,7 +74,7 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
             ########### KubeConfig Generation ############
             - name: Export Cluster Name
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # cluster-name is a workflow_dispatch input or generated from /dev/urandom
               run: | # zizmor: ignore[template-injection]
                   echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
             - name: KubeConfig generation
@@ -84,7 +84,7 @@ jobs:
                   go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
             #### Export required environment variables ####
             - name: Export C8 namespaces and versions
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # helm-version is SNAPSHOT or a workflow_dispatch input
               run: | # zizmor: ignore[template-injection]
                   version=${{ inputs.helm-version }}
                   version=$(echo "$version" | tr '[:upper:]' '[:lower:]') # lowercasing the version
@@ -115,7 +115,7 @@ jobs:
                   echo "BACKUP_NAME=nightly-${version_with_hyphens}"
                   } >> "$GITHUB_ENV"
             - name: Determine old or new operational procedure
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # helm-version is SNAPSHOT or a workflow_dispatch input
               run: | # zizmor: ignore[template-injection]
                   version=${{ inputs.helm-version }}
 
@@ -166,7 +166,7 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
             - name: Calculate Failover duration
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # timestamp comes from printf; helm-version is SNAPSHOT or a workflow_dispatch input
               run: | # zizmor: ignore[template-injection]
                   printf -v now '%(%s)T'
                   duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
@@ -191,7 +191,7 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
             - name: Calculate Failback duration
-              # inputs come from workflow_dispatch or workflow_call, not pull request data
+              # timestamp comes from printf; helm-version is SNAPSHOT or a workflow_dispatch input
               run: | # zizmor: ignore[template-injection]
                   printf -v now '%(%s)T'
                   duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))

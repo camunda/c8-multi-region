@@ -56,7 +56,7 @@ jobs:
         steps:
             - name: Set outputs
               id: set-outputs
-              # inputs come from workflow_dispatch, not from pull request data
+              # values are workflow_dispatch inputs or chart versions in the workflow env
               run: | # zizmor: ignore[template-injection]
                   {
                     echo "PREVIOUS_HELM_CHART=${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}"
