@@ -40,12 +40,14 @@ jobs:
         steps:
             - name: Map Helm version to branch
               id: helm-version
-              # values are SNAPSHOT, the default infraex, or workflow_dispatch inputs
-              run: | # zizmor: ignore[template-injection]
-                  version=${{ inputs.helm-version }}
+              env:
+                  HELM_VERSION: ${{ inputs.helm-version }}
+                  AWS_PROFILE: ${{ inputs.aws-profile }}
+              run: |
+                  version="$HELM_VERSION"
 
                   if [[ $version =~ "OLD" ]]; then
-                    version="$(echo $version | cut -d'.' -f2-)"
+                    version="$(echo "$version" | cut -d'.' -f2-)"
                   fi
 
                   if [[ $version == "SNAPSHOT" ]]; then
@@ -62,7 +64,7 @@ jobs:
                     echo "branch=stable/8.$(( minor_version ))" >> "$GITHUB_ENV"
                   fi
 
-                  echo "AWS_PROFILE=${{ inputs.aws-profile }}" >> "$GITHUB_ENV"
+                  echo "AWS_PROFILE=$AWS_PROFILE" >> "$GITHUB_ENV"
             - name: Checkout repository
               uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
               with:
@@ -74,9 +76,10 @@ jobs:
                   secrets: ${{ toJSON(secrets) }}
             ########### KubeConfig Generation ############
             - name: Export Cluster Name
-              # cluster-name is a workflow_dispatch input or generated from /dev/urandom
-              run: | # zizmor: ignore[template-injection]
-                  echo "CLUSTER_NAME=${{ inputs.cluster-name }}" >> "$GITHUB_ENV"
+              env:
+                  CLUSTER_NAME: ${{ inputs.cluster-name }}
+              run: |
+                  echo "CLUSTER_NAME=$CLUSTER_NAME" >> "$GITHUB_ENV"
             - name: KubeConfig generation
               working-directory: ./test
               timeout-minutes: 5
@@ -84,9 +87,10 @@ jobs:
                   go test --count=1 -v -timeout 4m -run TestAWSKubeConfigCreation
             #### Export required environment variables ####
             - name: Export C8 namespaces and versions
-              # helm-version is SNAPSHOT or a workflow_dispatch input
-              run: | # zizmor: ignore[template-injection]
-                  version=${{ inputs.helm-version }}
+              env:
+                  HELM_VERSION: ${{ inputs.helm-version }}
+              run: |
+                  version="$HELM_VERSION"
                   version=$(echo "$version" | tr '[:upper:]' '[:lower:]') # lowercasing the version
                   version_with_hyphens="${version//./-}" # replacing dots with hyphens
 
@@ -115,9 +119,10 @@ jobs:
                   echo "BACKUP_NAME=nightly-${version_with_hyphens}"
                   } >> "$GITHUB_ENV"
             - name: Determine old or new operational procedure
-              # helm-version is SNAPSHOT or a workflow_dispatch input
-              run: | # zizmor: ignore[template-injection]
-                  version=${{ inputs.helm-version }}
+              env:
+                  HELM_VERSION: ${{ inputs.helm-version }}
+              run: |
+                  version="$HELM_VERSION"
 
                   major_version=$(echo "$version" | cut -d '.' -f 1)
 
@@ -166,13 +171,15 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 20m -run TestAWSDualRegFailover_8_6_plus
             - name: Calculate Failover duration
-              # timestamp comes from printf; helm-version is SNAPSHOT or a workflow_dispatch input
-              run: | # zizmor: ignore[template-injection]
+              env:
+                  FAILOVER_START: ${{ steps.failover-start.outputs.timestamp }}
+                  HELM_VERSION: ${{ inputs.helm-version }}
+              run: |
                   printf -v now '%(%s)T'
-                  duration=$((now - ${{ steps.failover-start.outputs.timestamp }}))
+                  duration=$((now - FAILOVER_START))
                   echo $duration
                   if [ "$duration" -gt "900" ]; then
-                  echo "::error ::Failover of ${{ inputs.helm-version }} is taking longer than 15 minutes"
+                  echo "::error ::Failover of $HELM_VERSION is taking longer than 15 minutes"
                   fi
             - name: Set start timestamp for Failback
               id: failback-start
@@ -191,13 +198,15 @@ jobs:
               run: |
                   go test --count=1 -v -timeout 45m -run TestAWSDualRegFailback_8_6_plus
             - name: Calculate Failback duration
-              # timestamp comes from printf; helm-version is SNAPSHOT or a workflow_dispatch input
-              run: | # zizmor: ignore[template-injection]
+              env:
+                  FAILBACK_START: ${{ steps.failback-start.outputs.timestamp }}
+                  HELM_VERSION: ${{ inputs.helm-version }}
+              run: |
                   printf -v now '%(%s)T'
-                  duration=$((now - ${{ steps.failback-start.outputs.timestamp }}))
+                  duration=$((now - FAILBACK_START))
                   echo $duration
                   if [ "$duration" -gt "1500" ]; then
-                  echo "::error ::Failback of ${{ inputs.helm-version }} is taking longer than 25 minutes"
+                  echo "::error ::Failback of $HELM_VERSION is taking longer than 25 minutes"
                   fi
             - name: Test multi-tenancy - ${{ inputs.helm-version }}
               if: ${{ env.OPERATIONAL_PROCEDURE == 'new' && fromJSON(env.MAJOR_VERSION) >= 13 }}

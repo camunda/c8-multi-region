@@ -56,11 +56,13 @@ jobs:
         steps:
             - name: Set outputs
               id: set-outputs
-              # values are workflow_dispatch inputs or chart versions in the workflow env
-              run: | # zizmor: ignore[template-injection]
+              env:
+                  PREVIOUS_CHART: ${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}
+                  MIGRATION_CHART: ${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}
+              run: |
                   {
-                    echo "PREVIOUS_HELM_CHART=${{ inputs.previous-helm-chart || env.PREVIOUS_HELM_CHART }}"
-                    echo "MIGRATION_HELM_CHART=${{ inputs.migration-helm-chart || env.MIGRATION_HELM_CHART }}"
+                    echo "PREVIOUS_HELM_CHART=$PREVIOUS_CHART"
+                    echo "MIGRATION_HELM_CHART=$MIGRATION_CHART"
                   } >> "$GITHUB_OUTPUT"
 
     set_target_branch:

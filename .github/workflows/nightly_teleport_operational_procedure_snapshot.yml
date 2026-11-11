@@ -26,9 +26,10 @@ jobs:
         steps:
             - name: Display notify_back_error_message if present
               if: ${{ inputs.notify_back_error_message != '' }}
-              # inputs come from workflow_dispatch, not from pull request data
-              run: | # zizmor: ignore[template-injection]
-                  echo "A previous workflow failed but has attempted to retry: ${{ inputs.notify_back_error_message }}"
+              env:
+                  NOTIFY_BACK_ERROR_MESSAGE: ${{ inputs.notify_back_error_message }}
+              run: |
+                  echo "A previous workflow failed but has attempted to retry: $NOTIFY_BACK_ERROR_MESSAGE"
                   exit 1
 
     dynamic-matrix:
@@ -41,14 +42,15 @@ jobs:
         steps:
             - name: Generate matrix
               id: generate-matrix
-              # inputs come from workflow_dispatch, not from pull request data
-              run: | # zizmor: ignore[template-injection]
+              env:
+                  HELM_VERSIONS: ${{ inputs.helm-versions }}
+              run: |
                   c88=SNAPSHOT
 
-                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                  if [ "$HELM_VERSIONS" == "" ]; then
                     versions='{"helmChartVersion":["'${c88}'"]}'
                   else
-                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                  output=$(echo "$HELM_VERSIONS" | awk -F, '{
                       for(i=1;i<=NF;i++) {
                         if ($i ~ /^".*"$/) {
                           printf("%s%s", $i, (i==NF)?"":",")

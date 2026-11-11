@@ -51,8 +51,11 @@ runs:
         # Official action does not support profiles
         - name: Add profile credentials to ~/.aws/credentials
           shell: bash
-          # callers in this repository do not set region, default eu-west-2
-          run: | # zizmor: ignore[template-injection]
-              aws configure set aws_access_key_id ${{ steps.secrets.outputs.AWS_ACCESS_KEY }} --profile ${{ env.AWS_PROFILE }}
-              aws configure set aws_secret_access_key ${{ steps.secrets.outputs.AWS_SECRET_KEY }} --profile ${{ env.AWS_PROFILE }}
-              aws configure set region ${{ inputs.region }} --profile ${{ env.AWS_PROFILE }}
+          env:
+              ACCESS_KEY_ID: ${{ steps.secrets.outputs.AWS_ACCESS_KEY }}
+              SECRET_ACCESS_KEY: ${{ steps.secrets.outputs.AWS_SECRET_KEY }}
+              REGION: ${{ inputs.region }}
+          run: |
+              aws configure set aws_access_key_id "$ACCESS_KEY_ID" --profile "$AWS_PROFILE"
+              aws configure set aws_secret_access_key "$SECRET_ACCESS_KEY" --profile "$AWS_PROFILE"
+              aws configure set region "$REGION" --profile "$AWS_PROFILE"
