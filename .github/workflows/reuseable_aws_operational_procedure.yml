@@ -176,7 +176,7 @@ jobs:
                   HELM_VERSION: ${{ inputs.helm-version }}
               run: |
                   printf -v now '%(%s)T'
-                  duration=$((now - FAILOVER_START))
+                  duration=$((now - ${FAILOVER_START:?}))
                   echo $duration
                   if [ "$duration" -gt "900" ]; then
                   echo "::error ::Failover of $HELM_VERSION is taking longer than 15 minutes"
@@ -203,7 +203,7 @@ jobs:
                   HELM_VERSION: ${{ inputs.helm-version }}
               run: |
                   printf -v now '%(%s)T'
-                  duration=$((now - FAILBACK_START))
+                  duration=$((now - ${FAILBACK_START:?}))
                   echo $duration
                   if [ "$duration" -gt "1500" ]; then
                   echo "::error ::Failback of $HELM_VERSION is taking longer than 25 minutes"

@@ -515,7 +515,7 @@ jobs:
               run: |
                   set -euxo pipefail
                   printf -v now '%(%s)T'
-                  duration=$((now - FAILBACK_START))
+                  duration=$((now - ${FAILBACK_START:?}))
                   echo $duration
                   if [ "$duration" -gt "1500" ]; then
                   echo "::error ::Failback of $HELM_CHART_VERSION_INPUT is taking longer than 25 minutes"
