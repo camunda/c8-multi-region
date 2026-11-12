@@ -146,13 +146,15 @@ jobs:
         steps:
             - name: Generate matrix
               id: generate-matrix
+              env:
+                  HELM_VERSIONS: ${{ inputs.helm-versions }}
               run: |
                   c88=SNAPSHOT
 
-                  if [ "${{ inputs.helm-versions }}" == "" ]; then
+                  if [ "$HELM_VERSIONS" == "" ]; then
                     versions='{"helm-version":["'${c88}'"]}'
                   else
-                  output=$(echo "${{ inputs.helm-versions }}" | awk -F, '{
+                  output=$(echo "$HELM_VERSIONS" | awk -F, '{
                       for(i=1;i<=NF;i++) {
                         if ($i ~ /^".*"$/) {
                           printf("%s%s", $i, (i==NF)?"":",")
