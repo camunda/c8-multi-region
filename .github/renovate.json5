@@ -30,6 +30,14 @@
         "camunda/infra-global-github-actions"
       ],
       "enabled": true
+    },
+    {
+      "description": "camunda/infraex-terraform writes these caller workflows and updates their pins.",
+      "matchFileNames": [
+        ".github/workflows/crev-review.yml",
+        ".github/workflows/lint.yml"
+      ],
+      "enabled": false
     }
   ]
 }
