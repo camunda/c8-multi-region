@@ -3,7 +3,7 @@
 ################################
 
 module "eks_cluster_region_0" {
-  # tflint-ignore: terraform_module_pinned_source
+  # tflint-ignore: terraform_module_pinned_source # intended: main follows the main branch of camunda-deployment-references
   source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster"
 
   region                = local.owner.region
@@ -20,7 +20,7 @@ module "eks_cluster_region_0" {
 }
 
 module "eks_cluster_region_1" {
-  # tflint-ignore: terraform_module_pinned_source
+  # tflint-ignore: terraform_module_pinned_source # intended: main follows the main branch of camunda-deployment-references
   source = "github.com/camunda/camunda-deployment-references//aws/modules/eks-cluster"
 
   region                = local.accepter.region
